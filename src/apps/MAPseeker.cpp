@@ -47,12 +47,12 @@ int main(int argc, const char *argv[]) {
     addTitleLine(parser, "*************************************************");
     addTitleLine(parser, "                                                 ");
 
-    addUsageLine(parser, "-c <constant sequence> -s <miseq output1> -e <miseq output2> -l <library> -b <experimetal barcodes> -n <sequence id length> -d <0/1 output type>");
+    addUsageLine(parser, "-c <constant sequence> -1 <miseq output1> -2 <miseq output2> -l <library> -b <experimental barcodes> -n <sequence id length> -d <0/1 output type>");
 
     addSection(parser, "Main Options:");
     addOption(parser, addArgumentText(CommandLineOption("c", "cseq", "Constant sequence", OptionType::String), "<DNA sequence>"));
-    addOption(parser, addArgumentText(CommandLineOption("s", "miseq1", "miseq output containing ids",OptionType::String), "<FASTAQ FILE>"));
-    addOption(parser, addArgumentText(CommandLineOption("e", "miseq2", "miseq output containing 3' ends",OptionType::String), "<FASTAQ FILE>"));
+    addOption(parser, addArgumentText(CommandLineOption("1", "miseq1", "miseq output [read 1] containing primer ids",OptionType::String), "<FASTAQ FILE>"));
+    addOption(parser, addArgumentText(CommandLineOption("2", "miseq2", "miseq output [read 2] containing 3' ends",OptionType::String), "<FASTAQ FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("l", "library", "library of sequences to align against", OptionType::String),"<FASTA FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("b", "barcodes", "fasta file containing experimental barcodes", OptionType::String), "<FASTA FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("o", "outfile", "output filename", (int)OptionType::String, "out.fasta"), "<Filename>"));
@@ -121,6 +121,8 @@ int main(int argc, const char *argv[]) {
     AutoSeqFormat format4;
     guessFormat(multiSeqFile4.concat, format4);
     split(multiSeqFile4, format4);
+
+    std::cout << "Reading un sequence files took: " << SEQAN_PROTIMEDIFF(loadTime) << " seconds." << std::endl;
 
     if(length(multiSeqFile1)!=length(multiSeqFile2)) {
         std::cout << "MiSeq input files contain different number of sequences" << std::endl;
@@ -201,8 +203,8 @@ int main(int argc, const char *argv[]) {
 
     // initialize a histogram recording the counts [convenient for plotting in matlab, R, etc.]
     std::vector< unsigned > sequence_counts( max_rna_len,0);
-    std::vector< std::vector< unsigned > > bunch_of_sequence_counts( seqCount4, sequence_counts);
-    std::vector< std::vector< std::vector < unsigned > > > all_count( seqCount3, bunch_of_sequence_counts);
+    std::vector< std::vector< unsigned > > bunch_of_sequence_counts( seqCount3+1, sequence_counts);
+    std::vector< std::vector< std::vector < unsigned > > > all_count( seqCount4, bunch_of_sequence_counts);
 
     std::cout << "Running alignment, output should be appearing in " << outfile.c_str() << std::endl;
     for (unsigned i = 0; i < seqCount1; ++i)
@@ -330,12 +332,12 @@ int main(int argc, const char *argv[]) {
 		  if ( seq4 == eid_string ) break;
 		}
 
-	       	std::cout << "about to save: " << eid_idx << " " << sid+1 << " " << mpos+1 << std::endl;
-		std::cout << seq3 << std::endl;
-		std::cout << seq2 << std::endl;
-		std::cout << std::endl;
+	       	// std::cout << "about to save: " << eid_idx << " " << sid+1 << " " << mpos+1 << std::endl;
+		// std::cout << seq3 << std::endl;
+		// std::cout << seq2 << std::endl;
+		// std::cout << std::endl;
 		if ( mpos < -1 ) mpos = -1;
-		//	       	all_count[ eid_idx ][ sid+1 ][ mpos+1 ]++;
+		all_count[ eid_idx ][ sid+1 ][ mpos+1 ]++;
 	      }
 	    }
 	  }
@@ -350,12 +352,30 @@ int main(int argc, const char *argv[]) {
 	unmatchedtail++;
       }
     }
-    std::cout << "Loading " << seqCount1 << " sequences took " << SEQAN_PROTIMEDIFF(loadTime);
+    std::cout << "Aligning " << seqCount1 << " sequences took " << SEQAN_PROTIMEDIFF(loadTime);
     std::cout << " seconds." << std::endl << std::endl;
     std::cout << "Total Sequence Pairs: " << length(multiSeqFile1) << std::endl;
     std::cout << "Perfect ID matches: " << perfect << std::endl;
     std::cout << "Unmatched Tail: " << unmatchedtail << std::endl;
     std::cout << "Unmatched Lib: " << unmatchedlib << std::endl;
+
+    //////////////////////////////////////////////////////
+    //  output matrices with stored counts.
+    //////////////////////////////////////////////////////
+    for ( unsigned i = 0; i < seqCount4; i++ ){
+      char stats_outFileName[ 50 ];
+      sprintf( stats_outFileName, "stats_%02d.txt", i+1 ); // index by 1.
+      std::cout << "Outputting counts to: " << stats_outFileName << std::endl;
+      FILE * stats_oFile;
+      stats_oFile = fopen( stats_outFileName,"w");
+      for ( unsigned j = 0; j < seqCount3; j++ ){
+    	for ( unsigned k = 0; k < max_rna_len; k++ ){
+    	  fprintf( stats_oFile, " %d", all_count[i][j][k] );
+    	}
+    	fprintf( stats_oFile, "\n");
+      }
+      fclose( stats_oFile );
+    }
 
     return 0;
 }
