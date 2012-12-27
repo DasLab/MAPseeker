@@ -42,7 +42,8 @@ int main(int argc, const char *argv[]) {
     addTitleLine(parser, "                                                 ");
     addTitleLine(parser, "*************************************************");
     addTitleLine(parser, "* MAP-Seeker                                    *");
-    addTitleLine(parser, "* (c) Copyright 2012 by JP Bida, R. Das         *");
+    addTitleLine(parser, "* (c) Copyright 2012, JP Bida, R. Das           *");
+    addTitleLine(parser, "* (c) Copyright 2013, R. Das                    *");
     addTitleLine(parser, "*************************************************");
     addTitleLine(parser, "                                                 ");
 
@@ -92,10 +93,11 @@ int main(int argc, const char *argv[]) {
     MultiSeqFile multiSeqFile2;
     MultiSeqFile multiSeqFile3;
     MultiSeqFile multiSeqFile4; //barcode patterns
-    if (!open(multiSeqFile1.concat, file1.c_str(), OPEN_RDONLY) ||
-            !open(multiSeqFile2.concat,file2.c_str(),OPEN_RDONLY) || !open(multiSeqFile3.concat,file3.c_str(),OPEN_RDONLY) ||
-            !open(multiSeqFile4.concat, file4.c_str(), OPEN_RDONLY) || cseq=="" || seqid_length==-1 )
-        return 1;
+    if (!open(multiSeqFile1.concat, file1.c_str(), OPEN_RDONLY) ) return 1;
+    if (!open(multiSeqFile2.concat, file2.c_str(), OPEN_RDONLY) ) return 1;
+    if (!open(multiSeqFile3.concat, file3.c_str(), OPEN_RDONLY) ) return 1;
+    if (!open(multiSeqFile4.concat, file4.c_str(), OPEN_RDONLY) ) return 1;
+    if (cseq=="" || seqid_length==-1 )  return 1;
 
 //The SeqAn library has a built in file parser that can guess the file format
 //we use the AutoSeqFormat option for the MiSeq, Library, and barcode files
@@ -185,14 +187,22 @@ int main(int argc, const char *argv[]) {
     }
 
 // Index library sequences for alignment
+    unsigned max_rna_len( 0 );
     std::cout << "Indexing Sequences(N=" << seqCount3 << ")..";
     for(unsigned j=0; j< seqCount3; j++) {
         assignSeq(seq3, multiSeqFile3[j], format3);    // read sequence
         appendValue(haystacks, seq3);
+	if ( max_rna_len < length( seq3 ) ) max_rna_len = length( seq3 );
     }
     Index<THaystacks> index(haystacks);
     Finder<Index<THaystacks> > finder_sequence_id(haystacks);
     std::cout << "completed" << std::endl;
+    std::cout << "RNA sequence Lengths(max=" << max_rna_len <<"):" << std::endl;
+
+    // initialize a histogram recording the counts [convenient for plotting in matlab, R, etc.]
+    std::vector< unsigned > sequence_counts( max_rna_len,0);
+    std::vector< std::vector< unsigned > > bunch_of_sequence_counts( seqCount4, sequence_counts);
+    std::vector< std::vector< std::vector < unsigned > > > all_count( seqCount3, bunch_of_sequence_counts);
 
     std::cout << "Running alignment, output should be appearing in " << outfile.c_str() << std::endl;
     for (unsigned i = 0; i < seqCount1; ++i)
@@ -249,8 +259,9 @@ int main(int argc, const char *argv[]) {
 
 	  // std::cout << beginPosition(finder_sequence_id).i1 << std::endl;
 	  // seq3 contains the RNA library sequences
-	  assignSeq(seq3, multiSeqFile3[beginPosition(finder_sequence_id).i1], format3); // read sequence of the RNA
-	  assignSeqId(seq3id,multiSeqFile3[beginPosition(finder_sequence_id).i1], format3); // read the ID of the RNA
+	  int sid = beginPosition(finder_sequence_id).i1;
+	  assignSeq(seq3, multiSeqFile3[sid], format3); // read sequence of the RNA
+	  assignSeqId(seq3id,multiSeqFile3[sid], format3); // read the ID of the RNA
 
 	  ////////////////////////////////////////////////////////////////////////////////////////
 	  // Look for the second read to determine where the reverse transcription stop is.
@@ -291,12 +302,16 @@ int main(int argc, const char *argv[]) {
 	    String<char> mid=infixWithLength(seq1,(pos1+1),eid_extent);
 
 	    std::string edescr=toCString(mid);
+	    bool found_eid( false );
+	    String<char> eid_string;
 	    for(int j=0; j<eidlen.size(); j++) {
 	      String<char> sub=infixWithLength(mid,0,eidlen[j]);
 	      std::string str=toCString(sub);
 	      hashmap::iterator it = idmap.find(str);
 	      if(it != idmap.end()) {
 		edescr=it->second;
+		eid_string = sub;
+		found_eid = true;
 	      }
 	    }
 
@@ -306,6 +321,22 @@ int main(int argc, const char *argv[]) {
 	    else {
 	      // need to replace this with a histogram... or save a vector of information (perhaps with weights?) that we histogram below.
 	      fprintf(oFile,"%s,%s,%d,%d\n",edescr.c_str(),toCString(seq3id),(mpos+1),mscr);
+	      if ( found_eid ) {
+
+		// this is kind of silly. I should have the index of the expt id above, but its computed in a funny way.
+		int eid_idx;
+		for (eid_idx=0; eid_idx <seqCount4; eid_idx++ ){
+		  assignSeq(seq4, multiSeqFile4[eid_idx], format4);    // read sequence
+		  if ( seq4 == eid_string ) break;
+		}
+
+	       	std::cout << "about to save: " << eid_idx << " " << sid+1 << " " << mpos+1 << std::endl;
+		std::cout << seq3 << std::endl;
+		std::cout << seq2 << std::endl;
+		std::cout << std::endl;
+		if ( mpos < -1 ) mpos = -1;
+		//	       	all_count[ eid_idx ][ sid+1 ][ mpos+1 ]++;
+	      }
 	    }
 	  }
 
