@@ -106,13 +106,15 @@ if (CMAKE_COMPILER_IS_GNUCXX)
           ${SEQAN_BASE_ABS}/${MODULE}/${MODULE}_generated_forwards.h)
   endforeach (MODULE ${SEQAN_MODULES})
 
+  # following doesn't exist, so I commented i out,  -- Rhiju
+
   # Now tell CMake that the forward headers can be generated with
   # build_forwards.py
-  add_custom_command (
-    OUTPUT ${SEQAN_FORWARDS}
-    COMMAND ${PYTHON_EXECUTABLE} ${SEQAN_LIBRARY}/misc/build_forwards.py
-            ${SEQAN_BASE_ABS} all
-    DEPENDS ${SEQAN_HEADERS})
+  #add_custom_command (
+  #  OUTPUT ${SEQAN_FORWARDS}
+  #  COMMAND ${PYTHON_EXECUTABLE} ${SEQAN_LIBRARY}/misc/build_forwards.py
+  #          ${SEQAN_BASE_ABS} all
+  #  DEPENDS ${SEQAN_HEADERS})
 endif (CMAKE_COMPILER_IS_GNUCXX)
 
 ################################################################################
@@ -233,7 +235,9 @@ endmacro(SEQAN_ADD_EXECUTABLE seqan_target)
 # Include Sub-Projects
 ################################################################################
 
-add_subdirectory (libs)
+# actually sam_tools is not in use for now...
+#add_subdirectory (libs)
+
 add_subdirectory (apps)
 
 # Install documentation.
