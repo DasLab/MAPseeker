@@ -261,9 +261,9 @@ int main(int argc, const char *argv[]) {
 
 	  // std::cout << beginPosition(finder_sequence_id).i1 << std::endl;
 	  // seq3 contains the RNA library sequences
-	  int sid = beginPosition(finder_sequence_id).i1;
-	  assignSeq(seq3, multiSeqFile3[sid], format3); // read sequence of the RNA
-	  assignSeqId(seq3id,multiSeqFile3[sid], format3); // read the ID of the RNA
+	  int sid_idx = beginPosition(finder_sequence_id).i1;
+	  assignSeq(seq3, multiSeqFile3[sid_idx], format3); // read sequence of the RNA
+	  assignSeqId(seq3id,multiSeqFile3[sid_idx], format3); // read the ID of the RNA
 
 	  ////////////////////////////////////////////////////////////////////////////////////////
 	  // Look for the second read to determine where the reverse transcription stop is.
@@ -332,12 +332,12 @@ int main(int argc, const char *argv[]) {
 		  if ( seq4 == eid_string ) break;
 		}
 
-	       	// std::cout << "about to save: " << eid_idx << " " << sid+1 << " " << mpos+1 << std::endl;
+	       	// std::cout << "about to save: " << eid_idx << " " << sid_idx << " " << mpos+1 << std::endl;
 		// std::cout << seq3 << std::endl;
 		// std::cout << seq2 << std::endl;
 		// std::cout << std::endl;
 		if ( mpos < -1 ) mpos = -1;
-		all_count[ eid_idx ][ sid+1 ][ mpos+1 ]++;
+		all_count[ eid_idx ][ sid_idx ][ mpos+1 ]++;
 	      }
 	    }
 	  }
