@@ -1,5 +1,0 @@
-/Users/rhiju/src/map_seeker/src/cmake/apps/CMakeFiles/MAPseeker.dir
-/Users/rhiju/src/map_seeker/src/cmake/CMakeFiles/Seqan.dir
-/Users/rhiju/src/map_seeker/src/cmake/libs/samtools/CMakeFiles/bam.dir
-/Users/rhiju/src/map_seeker/src/cmake/apps/CMakeFiles/demos.dir
-/Users/rhiju/src/map_seeker/src/cmake/apps/CMakeFiles/tutorials.dir
