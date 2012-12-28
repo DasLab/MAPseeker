@@ -19,6 +19,15 @@ std::string IntToStr( int n )
     return result.str();
 }
 
+// could put following in util file?
+void RNA2DNA( String<char> & seq );
+
+// could package into a little class:
+void record_counter( std::string const tag,
+		     unsigned & counter_idx,
+		     std::vector< unsigned > & counter_counts,
+		     std::vector< std::string > & counter_tags );
+
 //The known library of sequences is stored as a StringSet called THaystacks
 //We will generate an index against this file to make the search faster
 typedef StringSet<CharString> THaystacks;
@@ -29,8 +38,8 @@ typedef std::tr1::unordered_map<std::string, std::string> hashmap;
 //Versioning information
 inline void
 _addVersion(CommandLineParser& parser) {
-    ::std::string rev = "$Revision: 0000 $";
-    addVersionLine(parser, "Version 1.0 (9 August 2012) Revision: " + rev.substr(11, 4) + "");
+    ::std::string rev = "$Revision: 0001 $";
+    addVersionLine(parser, "Version 1.1 (27 December 2012) Revision: " + rev.substr(11, 4) + "");
 }
 
 int main(int argc, const char *argv[]) {
@@ -193,6 +202,7 @@ int main(int argc, const char *argv[]) {
     std::cout << "Indexing Sequences(N=" << seqCount3 << ")..";
     for(unsigned j=0; j< seqCount3; j++) {
         assignSeq(seq3, multiSeqFile3[j], format3);    // read sequence
+	RNA2DNA( seq3 );
         appendValue(haystacks, seq3);
 	if ( max_rna_len < length( seq3 ) ) max_rna_len = length( seq3 );
     }
@@ -207,6 +217,8 @@ int main(int argc, const char *argv[]) {
     std::vector< std::vector< std::vector < unsigned > > > all_count( seqCount4, bunch_of_sequence_counts);
 
     std::cout << "Running alignment, output should be appearing in " << outfile.c_str() << std::endl;
+    std::vector< unsigned > counter_counts;
+    std::vector< std::string > counter_tags;
     for (unsigned i = 0; i < seqCount1; ++i)
     {
 
@@ -221,8 +233,10 @@ int main(int argc, const char *argv[]) {
       assignQual(qual2, multiSeqFile2[i], format2);  // read ascii quality values
       assignSeqId(id2, multiSeqFile2[i], format2);   // read sequence id
 
-      // I might reverse this, and permit input of primers directly (as in my python "sketch") -- rhiju
       reverseComplement(seq1);
+
+      unsigned counter_idx( 0 ); // will keep track of which filter we pass.
+      record_counter( "total", counter_idx, counter_counts, counter_tags );
 
       ////////////////////////////////////////////////////////////////
       // Look for the constant region (primer binding site)
@@ -245,6 +259,8 @@ int main(int argc, const char *argv[]) {
 	  }
 	}
 
+	record_counter( "found primer binding site", counter_idx, counter_counts, counter_tags );
+
 	////////////////////////////////////////////////////////////////////////////////////////
 	// Look for the sequence ID (i.e., the identifier sequence at the 3' end of the RNA)
 	// in a region of seqid nucleotides before the constant (primer-binding) site.
@@ -258,16 +274,18 @@ int main(int argc, const char *argv[]) {
 	Pattern<CharString> pattern_sequence_id_in_read1(sequence_id_region_in_sequence1); // this is now the 'needle' -- look for this sequence in the haystack of potential sequence IDs
 
 	if(find(finder_sequence_id, pattern_sequence_id_in_read1)) { // wait, shouldn't we try *all* possibilities?
-
 	  // std::cout << beginPosition(finder_sequence_id).i1 << std::endl;
 	  // seq3 contains the RNA library sequences
 	  int sid_idx = beginPosition(finder_sequence_id).i1;
 	  assignSeq(seq3, multiSeqFile3[sid_idx], format3); // read sequence of the RNA
 	  assignSeqId(seq3id,multiSeqFile3[sid_idx], format3); // read the ID of the RNA
 
+	  record_counter( "found RNA sequence", counter_idx, counter_counts, counter_tags );
+
 	  ////////////////////////////////////////////////////////////////////////////////////////
 	  // Look for the second read to determine where the reverse transcription stop is.
 	  ////////////////////////////////////////////////////////////////////////////////////////
+	  RNA2DNA( seq3 );
 	  Finder<String<char> > finder_experimental_id(seq3); // this could be created above, right? But note -- we should pad on the experimental ID and  AdapterSequence!!! RHIJU ADD THIS!
 	  Pattern<String<char>, MyersUkkonen> pattern_sequence2(seq2);
 
@@ -279,6 +297,7 @@ int main(int argc, const char *argv[]) {
 
 	  // Here, looking for best score -- but assuming that we've nailed the right RNA sequence (which may not be the case).
 	  while (find(finder_experimental_id, pattern_sequence2)) {
+
 	    int cscr=getScore(pattern_sequence2);
 	    if(cscr > mscr) {
 	      mscr=cscr;
@@ -287,6 +306,8 @@ int main(int argc, const char *argv[]) {
 	  }
 
 	  if(mpos >=0) {
+
+	    record_counter( "found match in sequence", counter_idx, counter_counts, counter_tags );
 
 	    mpos=mpos-length(seq2); // what?
 	    perfect++;
@@ -359,12 +380,19 @@ int main(int argc, const char *argv[]) {
     std::cout << "Unmatched Tail: " << unmatchedtail << std::endl;
     std::cout << "Unmatched Lib: " << unmatchedlib << std::endl;
 
+    std::cout << std::endl;
+    std::cout << "Purification table" << std::endl;
+    for ( unsigned i = 0; i < counter_counts.size(); i++ ){
+      std::cout << counter_counts[i] << " " << counter_tags[i] << std::endl;
+    }
+    std::cout << std::endl;
+
     //////////////////////////////////////////////////////
     //  output matrices with stored counts.
     //////////////////////////////////////////////////////
     for ( unsigned i = 0; i < seqCount4; i++ ){
       char stats_outFileName[ 50 ];
-      sprintf( stats_outFileName, "stats_%02d.txt", i+1 ); // index by 1.
+      sprintf( stats_outFileName, "stats_ID%d.txt", i+1 ); // index by 1.
       std::cout << "Outputting counts to: " << stats_outFileName << std::endl;
       FILE * stats_oFile;
       stats_oFile = fopen( stats_outFileName,"w");
@@ -380,3 +408,28 @@ int main(int argc, const char *argv[]) {
     return 0;
 }
 
+/////////////////////////////////////
+void RNA2DNA( String<char> & seq ){
+ seqan::Iterator<seqan::String<char> >::Type it = begin(seq);
+ seqan::Iterator<seqan::String<char> >::Type itEnd = end(seq);
+
+ while (it != itEnd) {
+   if (*it == 'U') *it = 'T';
+   ++it;
+ }
+}
+
+/////////////////////////////////////
+void record_counter( std::string const tag,
+		     unsigned & counter_idx,
+		     std::vector< unsigned > & counter_counts,
+		     std::vector< std::string > & counter_tags ){
+
+  if (counter_idx >= counter_tags.size() ) {
+    counter_tags.push_back( tag );
+    counter_counts.push_back( 0 );
+  }
+  counter_counts[ counter_idx ]++;
+  counter_idx++;
+  std::cout << "counter_idx: " << counter_idx << std::endl;
+}
