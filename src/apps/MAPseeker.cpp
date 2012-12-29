@@ -161,37 +161,32 @@ int main(int argc, const char *argv[]) {
     CharString qual2;
     CharString id1;
     CharString id2;
-    THaystacks haystacks;
+    THaystacks haystacks_rna_library, haystacks_expt_ids;
 
     std::cout << "Getting " << seqCount4 << " Barcodes.. " << std::endl;
 
     hashmap idmap;
     std::vector<int> eidlen;
     int max_eidlen=0;
+
+    std::vector< String<char> > full_expt_ids;
+    ///////////////////////////////////////////////////
+    // create a haystack to search with barcodes.
+    ///////////////////////////////////////////////////
     for(unsigned j=0; j< seqCount4; j++) {
-        assignSeqId(seq4id, multiSeqFile4[j], format4);    // read sequence
-        assignSeq(seq4, multiSeqFile4[j], format4);    // read sequence
-        std::string desc_v=toCString(seq4id);
-        std::string eid_v=toCString(seq4);
-        std::cout << desc_v.c_str() << " " << eid_v.c_str() << std::endl;
-        idmap[eid_v]=desc_v;
-        int in=0;
-        if(max_eidlen < length(seq4)) {
-            max_eidlen=length(seq4);
-        }
-        for(int w=0; w<eidlen.size(); w++) {
-            if(eidlen[w]==length(seq4)) {
-                in=1;
-                break;
-            }
-        }
-        if(in==0) {
-            eidlen.push_back(length(seq4));
-        }
+      assignSeqId(seq4id, multiSeqFile4[j], format4);    // read sequence
+      assignSeq(seq4, multiSeqFile4[j], format4);    // read sequence
+
+      String< char > full_expt_id = cseq;
+      append( full_expt_id, seq4 ); // later directly read in primers...
+      std::cout << "PRIMER SEQUENCE WITH ID: " << full_expt_id << std::endl;
+      full_expt_ids.push_back( full_expt_id );
     }
 
-//If barcodes are of different lengths print the lengths here
+    //    Index<THaystacks> index_expt_ids(haystacks_expt_ids);
+    Finder<Index<THaystacks> > finder_expt_id(haystacks_expt_ids);
 
+    //If barcodes are of different lengths print the lengths here
     std::cout << "Barcode Lengths(max=" << max_eidlen <<"):" << std::endl;
     for(int i=0; i<eidlen.size(); i++) {
         std::cout << "length: " << eidlen[i] << std::endl;
@@ -203,11 +198,11 @@ int main(int argc, const char *argv[]) {
     for(unsigned j=0; j< seqCount3; j++) {
         assignSeq(seq3, multiSeqFile3[j], format3);    // read sequence
 	RNA2DNA( seq3 );
-        appendValue(haystacks, seq3);
+        appendValue(haystacks_rna_library, seq3);
 	if ( max_rna_len < length( seq3 ) ) max_rna_len = length( seq3 );
     }
-    Index<THaystacks> index(haystacks);
-    Finder<Index<THaystacks> > finder_sequence_id(haystacks);
+    //    Index<THaystacks> index(haystacks_rna_library);
+    Finder<Index<THaystacks> > finder_sequence_id( haystacks_rna_library );
     std::cout << "completed" << std::endl;
     std::cout << "RNA sequence Lengths(max=" << max_rna_len <<"):" << std::endl;
 
@@ -216,9 +211,12 @@ int main(int argc, const char *argv[]) {
     std::vector< std::vector< unsigned > > bunch_of_sequence_counts( seqCount3+1, sequence_counts);
     std::vector< std::vector< std::vector < unsigned > > > all_count( seqCount4, bunch_of_sequence_counts);
 
-    std::cout << "Running alignment, output should be appearing in " << outfile.c_str() << std::endl;
+    // keep track of how many sequences pass through each filter
     std::vector< unsigned > counter_counts;
     std::vector< std::string > counter_tags;
+
+    std::cout << "Running alignment" << std::endl;
+    if ( debug) std::cout << "Output should be appearing in " << outfile.c_str() << std::endl;
     for (unsigned i = 0; i < seqCount1; ++i)
     {
 
@@ -239,145 +237,120 @@ int main(int argc, const char *argv[]) {
       record_counter( "total", counter_idx, counter_counts, counter_tags );
 
       ////////////////////////////////////////////////////////////////
-      // Look for the constant region (primer binding site)
+      // Look for experimental ID (constant primer binding site + expt ID)
       ////////////////////////////////////////////////////////////////
-      Finder<String<char> > finder_constant_sequence(seq1); // this is what to search.
+      int score_cutoff( -2 ), best_score( score_cutoff-1 ), pos1( -1 ), expt_idx( -1 );
 
-      //Set options for gap, mismatch,deletion
-      String<char> ndl=cseq; // this is the needle
-      Pattern<String<char>, DPSearch<SimpleScore> > pattern_constant_sequence(ndl,SimpleScore(0, -2, -1));
 
-      // Find best match in case there are several.
-      if(find(finder_constant_sequence, pattern_constant_sequence, -2)) {
+      for ( unsigned n = 0; n < full_expt_ids.size(); n++ ){
 
-	int pos1=position(finder_constant_sequence);
-	int score=getScore(pattern_constant_sequence);
-	while(find(finder_constant_sequence, pattern_constant_sequence, -2)) {
-	  if(getScore(pattern_constant_sequence) > score) {
-	    score=getScore(pattern_constant_sequence);
-	    pos1=position(finder_constant_sequence);
+	// could save some time by preconstructing finder, right? Otherwise index is recomputed? Unfortunately clear() not working.
+	Finder<String<char> > finder_expt_id(seq1);
+
+	// could save some time by preconstructing patterns, right?
+	String<char> & ndl=full_expt_ids[n]; // this is the needle. const doesn't seem to work.
+	//Set options for gap, mismatch, deletion. Again, should make these variables.
+	Pattern<String<char>, DPSearch<SimpleScore> > pattern_expt_id(ndl,SimpleScore(0, -2, -1));
+
+	while ( find( finder_expt_id, pattern_expt_id, score_cutoff )) { // shoud set score cutoff (-2) to be a variable.
+	  // for now assume no ties are possible -- perhaps in future output warning, or discard ambiguous.
+	  int score = getScore( pattern_expt_id );
+	  if ( score >= best_score) {
+	    best_score = score;
+	    while( findBegin( finder_expt_id, pattern_expt_id, score ) ){
+	      pos1 = beginPosition(finder_expt_id) - 1;
+	    }
+	    expt_idx = n;
+	  }
+	  if ( score == 0 ) break; // best possible score.
+	}
+
+      }
+
+      if( expt_idx < 0 ) continue;
+
+      record_counter( "found primer binding site", counter_idx, counter_counts, counter_tags );
+
+      ////////////////////////////////////////////////////////////////////////////////////////
+      // Look for the sequence ID (i.e., the identifier sequence at the 3' end of the RNA)
+      // in a region of seqid nucleotides before the constant (primer-binding) site.
+      // seqid is the (minimum) length of the barcode...
+      ////////////////////////////////////////////////////////////////////////////////////////
+      int min_pos=pos1-seqid_length+1;
+      if (min_pos < 0)	 min_pos=0;
+      String<char> sequence_id_region_in_sequence1=infixWithLength(seq1,min_pos,seqid_length);
+      // We append the primer binding site to make sure that the search will be over actual barcode regions (adjoining the constant sequence) from the RNA library.
+      append(sequence_id_region_in_sequence1,cseq);
+
+
+      Pattern<CharString> pattern_sequence_id_in_read1(sequence_id_region_in_sequence1); // this is now the 'needle' -- look for this sequence in the haystack of potential sequence IDs
+
+      // crap, cannot handle inexact matches off indexed library...
+      //Pattern<String<char>, MyersUkkonen > pattern_sequence_id_in_read1( sequence_id_region_in_sequence1 );
+      //setScoreLimit( pattern_sequence_id_in_read1, 0);
+
+      if( find(finder_sequence_id, pattern_sequence_id_in_read1)) { // wait, shouldn't we try *all* possibilities?
+
+	// seq3 contains the RNA library sequences
+	int sid_idx = beginPosition(finder_sequence_id).i1;
+	assignSeq(seq3, multiSeqFile3[sid_idx], format3); // read sequence of the RNA
+	assignSeqId(seq3id,multiSeqFile3[sid_idx], format3); // read the ID of the RNA
+
+	record_counter( "found RNA sequence", counter_idx, counter_counts, counter_tags );
+
+	////////////////////////////////////////////////////////////////////////////////////////
+	// Look for the second read to determine where the reverse transcription stop is.
+	////////////////////////////////////////////////////////////////////////////////////////
+	RNA2DNA( seq3 );
+	Finder<String<char> > finder_in_specific_sequence(seq3);
+
+	// We should pad on the experimental ID and  AdapterSequence!!! RHIJU ADD THIS!
+	Pattern<String<char>, MyersUkkonen> pattern_sequence2(seq2);
+
+	// following is imperfect -- should add on Adapter Sequence, and then do a more stringent search.
+	// also, would be good to use Quality information.
+	setScoreLimit(pattern_sequence2, -10);//Edit Distance = -1. -2 would be worse
+	int mpos=-1;
+	int mscr=-100;
+
+	// Here, looking for best score -- but assuming that we've nailed the right RNA sequence (which may not be the case).
+	while (find(finder_in_specific_sequence, pattern_sequence2)) {
+
+	  int cscr=getScore(pattern_sequence2);
+	  if(cscr > mscr) {
+	    mscr=cscr;
+	    mpos=position( finder_in_specific_sequence ); //end position. Or do I want begin position?
 	  }
 	}
 
-	record_counter( "found primer binding site", counter_idx, counter_counts, counter_tags );
+	if (mpos < 0) continue;
 
-	////////////////////////////////////////////////////////////////////////////////////////
-	// Look for the sequence ID (i.e., the identifier sequence at the 3' end of the RNA)
-	// in a region of seqid nucleotides before the constant (primer-binding) site.
-	// seqid is the (minimum) length of the barcode...
-	////////////////////////////////////////////////////////////////////////////////////////
-	int min_pos=pos1-length(cseq)-seqid_length+1;
-	if(min_pos < 0)	 min_pos=0;
-	String<char> sequence_id_region_in_sequence1=infixWithLength(seq1,min_pos,seqid_length);
-	// We append the primer binding site to make sure that the search will be over actual barcode regions (adjoining the constant sequence) from the RNA library.
-	append(sequence_id_region_in_sequence1,cseq);
-	Pattern<CharString> pattern_sequence_id_in_read1(sequence_id_region_in_sequence1); // this is now the 'needle' -- look for this sequence in the haystack of potential sequence IDs
+	record_counter( "found match in sequence", counter_idx, counter_counts, counter_tags );
 
-	if(find(finder_sequence_id, pattern_sequence_id_in_read1)) { // wait, shouldn't we try *all* possibilities?
-	  // std::cout << beginPosition(finder_sequence_id).i1 << std::endl;
-	  // seq3 contains the RNA library sequences
-	  int sid_idx = beginPosition(finder_sequence_id).i1;
-	  assignSeq(seq3, multiSeqFile3[sid_idx], format3); // read sequence of the RNA
-	  assignSeqId(seq3id,multiSeqFile3[sid_idx], format3); // read the ID of the RNA
+	mpos=mpos-length(seq2); // what?
+	perfect++;
 
-	  record_counter( "found RNA sequence", counter_idx, counter_counts, counter_tags );
-
-	  ////////////////////////////////////////////////////////////////////////////////////////
-	  // Look for the second read to determine where the reverse transcription stop is.
-	  ////////////////////////////////////////////////////////////////////////////////////////
-	  RNA2DNA( seq3 );
-	  Finder<String<char> > finder_experimental_id(seq3); // this could be created above, right? But note -- we should pad on the experimental ID and  AdapterSequence!!! RHIJU ADD THIS!
-	  Pattern<String<char>, MyersUkkonen> pattern_sequence2(seq2);
-
-	  // following is imperfect -- should add on Adapter Sequence, and then do a more stringent search.
-	  // also, would be good to use Quality information.
-	  setScoreLimit(pattern_sequence2, -10);//Edit Distance = -1. -2 would be worse
-	  int mpos=-1;
-	  int mscr=-100;
-
-	  // Here, looking for best score -- but assuming that we've nailed the right RNA sequence (which may not be the case).
-	  while (find(finder_experimental_id, pattern_sequence2)) {
-
-	    int cscr=getScore(pattern_sequence2);
-	    if(cscr > mscr) {
-	      mscr=cscr;
-	      mpos=position(finder_experimental_id);
-	    }
-	  }
-
-	  if(mpos >=0) {
-
-	    record_counter( "found match in sequence", counter_idx, counter_counts, counter_tags );
-
-	    mpos=mpos-length(seq2); // what?
-	    perfect++;
-
-	    ///////////////////////////////////////////////////////////////////////////////////////////////////
-	    // This should go above!!! Needed for determining adapter sequence.
-	    // Match experimental ID
-	    //  note -- this could be replaced with 'find best match', allowing mismatch. Would not cost much.
-	    ///////////////////////////////////////////////////////////////////////////////////////////////////
-	    int eid_extent=max_eidlen;
-	    if(length(seq1) < pos1+1+max_eidlen) {
-	      // maximum extent towards end of read1 to get experimental ID. Wait, is this right?
-	      eid_extent=length(seq1)-(pos1+1);
-	    }
-	    String<char> mid=infixWithLength(seq1,(pos1+1),eid_extent);
-
-	    std::string edescr=toCString(mid);
-	    bool found_eid( false );
-	    String<char> eid_string;
-	    for(int j=0; j<eidlen.size(); j++) {
-	      String<char> sub=infixWithLength(mid,0,eidlen[j]);
-	      std::string str=toCString(sub);
-	      hashmap::iterator it = idmap.find(str);
-	      if(it != idmap.end()) {
-		edescr=it->second;
-		eid_string = sub;
-		found_eid = true;
-	      }
-	    }
-
-	    if(debug==1) {
-	      fprintf(oFile,"%s,%s,%s,%s,%d,%d,%s,%s\n",toCString(id1),toCString(id2),edescr.c_str(),toCString(seq3id),(mpos+1),mscr,toCString(seq2),toCString(seq3));
-	    }
-	    else {
-	      // need to replace this with a histogram... or save a vector of information (perhaps with weights?) that we histogram below.
-	      fprintf(oFile,"%s,%s,%d,%d\n",edescr.c_str(),toCString(seq3id),(mpos+1),mscr);
-	      if ( found_eid ) {
-
-		// this is kind of silly. I should have the index of the expt id above, but its computed in a funny way.
-		int eid_idx;
-		for (eid_idx=0; eid_idx <seqCount4; eid_idx++ ){
-		  assignSeq(seq4, multiSeqFile4[eid_idx], format4);    // read sequence
-		  if ( seq4 == eid_string ) break;
-		}
-
-	       	// std::cout << "about to save: " << eid_idx << " " << sid_idx << " " << mpos+1 << std::endl;
-		// std::cout << seq3 << std::endl;
-		// std::cout << seq2 << std::endl;
-		// std::cout << std::endl;
-		if ( mpos < -1 ) mpos = -1;
-		all_count[ eid_idx ][ sid_idx ][ mpos+1 ]++;
-	      }
-	    }
-	  }
-
-	} else {
-	  unmatchedlib++;
-	  //fprintf(uFile,"%s,%s,%d,%d,%s,%s\n",mid,uid,seq1id);
+	if(debug==1) {
+	  //	    fprintf(oFile,"%s,%s,%s,%s,%d,%d,%s,%s\n",toCString(id1),toCString(id2),edescr.c_str(),toCString(seq3id),(mpos+1),mscr,toCString(seq2),toCString(seq3));
 	}
-	clear(finder_sequence_id);
+	else {
+	  // need to replace this with a histogram... or save a vector of information (perhaps with weights?) that we histogram below.
+	  //fprintf(oFile,"%s,%s,%d,%d\n",edescr.c_str(),toCString(seq3id),(mpos+1),mscr);
+	  if ( mpos < -1 ) mpos = -1;
+	  all_count[ expt_idx ][ sid_idx ][ mpos+1 ]++;
+	}
 
       } else {
-	unmatchedtail++;
+	unmatchedlib++;
+	//fprintf(uFile,"%s,%s,%d,%d,%s,%s\n",mid,uid,seq1id);
       }
+      clear(finder_sequence_id);
+
     }
     std::cout << "Aligning " << seqCount1 << " sequences took " << SEQAN_PROTIMEDIFF(loadTime);
     std::cout << " seconds." << std::endl << std::endl;
     std::cout << "Total Sequence Pairs: " << length(multiSeqFile1) << std::endl;
     std::cout << "Perfect ID matches: " << perfect << std::endl;
-    std::cout << "Unmatched Tail: " << unmatchedtail << std::endl;
     std::cout << "Unmatched Lib: " << unmatchedlib << std::endl;
 
     std::cout << std::endl;
@@ -431,5 +404,5 @@ void record_counter( std::string const tag,
   }
   counter_counts[ counter_idx ]++;
   counter_idx++;
-  std::cout << "counter_idx: " << counter_idx << std::endl;
+  //  std::cout << "counter_idx: " << counter_idx << std::endl;
 }
