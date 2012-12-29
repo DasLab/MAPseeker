@@ -241,10 +241,10 @@ int main(int argc, const char *argv[]) {
       ////////////////////////////////////////////////////////////////
       // Look for the constant region (primer binding site)
       ////////////////////////////////////////////////////////////////
-      String<char> ndl=cseq;
-      Finder<String<char> > finder_constant_sequence(seq1);
+      Finder<String<char> > finder_constant_sequence(seq1); // this is what to search.
 
       //Set options for gap, mismatch,deletion
+      String<char> ndl=cseq; // this is the needle
       Pattern<String<char>, DPSearch<SimpleScore> > pattern_constant_sequence(ndl,SimpleScore(0, -2, -1));
 
       // Find best match in case there are several.
