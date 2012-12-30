@@ -76,7 +76,7 @@ int main(int argc, const char *argv[]) {
     // a.k.a. TruSeq Universal Adapter -- gets added to one end of many illumina preps. Should be shared 5' end of all primers.
     std::string const universal_adapter_sequence("AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGATCT");
 
-    addOption(parser, addArgumentText(CommandLineOption("c", "cseq", "Constant sequence", OptionType::String,daslab_tail2_sequence), "<DNA sequence>"));
+    addOption(parser, addArgumentText(CommandLineOption("c", "cseq", "Constant sequence", OptionType::String,""), "<DNA sequence>"));
     addOption(parser, addArgumentText(CommandLineOption("1", "miseq1", "miseq output [read 1] containing primer ids",OptionType::String), "<FASTAQ FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("2", "miseq2", "miseq output [read 2] containing 3' ends",OptionType::String), "<FASTAQ FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("l", "library", "library of sequences to align against", OptionType::String),"<FASTA FILE>"));
@@ -85,6 +85,7 @@ int main(int argc, const char *argv[]) {
     addOption(parser, addArgumentText(CommandLineOption("o", "outfile", "output filename", (int)OptionType::String, "out.fasta"), "<Filename>"));
     addOption(parser, addArgumentText(CommandLineOption("n", "sid.length", "sequence id length", OptionType::Int), "<Int>"));
     addOption(parser, addArgumentText(CommandLineOption("d", "debug", "full output =1, condensed output=0", OptionType::Int, 0), "<Int>"));
+    addOption(parser, addArgumentText(CommandLineOption("f", "fast_match", "force exact match in sequence ID in read 1", OptionType::Bool, false), "<Int>"));
     addOption(parser, addArgumentText(CommandLineOption("a", "adapter", "Illumina Adapter sequence = 5' DNA sequence shared by all primers", OptionType::String,""), "<DNA sequence>"));
 
 
@@ -108,6 +109,7 @@ int main(int argc, const char *argv[]) {
     getOptionValueLong(parser, "barcodes",file_expt_id);
     getOptionValueLong(parser, "primers",file_primers);
     getOptionValueLong(parser, "outfile",outfile);
+    bool fast_match = isSetLong( parser, "fast_match" );
     int seqid_length=-1;
     int debug=0;
     getOptionValueLong(parser,"sid.length",seqid_length);
@@ -126,7 +128,7 @@ int main(int argc, const char *argv[]) {
     if (!open(multiSeqFile1.concat, file1.c_str(), OPEN_RDONLY) ) return 1;
     if (!open(multiSeqFile2.concat, file2.c_str(), OPEN_RDONLY) ) return 1;
     if (!open(multiSeqFile_library.concat, file_library.c_str(), OPEN_RDONLY) ) return 1;
-    if (cseq=="" || seqid_length==-1 )  return 1;
+    //if (cseq=="" || seqid_length==-1 )  return 1;
 
     //The SeqAn library has a built in file parser that can guess the file format
     //we use the AutoSeqFormat option for the MiSeq, Library, and barcode files
@@ -171,8 +173,6 @@ int main(int argc, const char *argv[]) {
     /////////////////////////////////////////////////////////////////////////
     if ( length( file_primers ) > 0 ){
 
-      std::cout << "Checking out: " << file_primers << std::endl;
-
       MultiSeqFile multiSeqFile_primers; //barcode patterns
       if (!open(multiSeqFile_primers.concat, file_primers.c_str(), OPEN_RDONLY) ) return 1;
       AutoSeqFormat format_primers;
@@ -180,7 +180,6 @@ int main(int argc, const char *argv[]) {
       split(multiSeqFile_primers, format_primers);
 
       unsigned seqCount_primers = length(multiSeqFile_primers);
-      std::cout << "Getting " << seqCount_primers << " primers." << std::endl;
       if ( seqCount_primers == 0 ) { std::cerr << "Must have at least one primer!" << std::endl; return 1; }
 
       String<char > seq_primer;
@@ -193,11 +192,10 @@ int main(int argc, const char *argv[]) {
 	reverseComplement( seq_primer_RC );
 	seq_primers_RC.push_back( seq_primer_RC);
       }
-      std::cout << "Got " << seqCount_primers << " primers." << std::endl;
 
       // now look for what sequence is shared across all primers from 5' end (should be Illumina adapter):
       unsigned match_5prime = get_number_of_matching_residues( seq_primers );
-      std::cout << "Matching from 5'' end" << match_5prime << std::endl;
+      //std::cout << "Matching from 5' end" << match_5prime << std::endl;
       CharString adapterSequence_inferred = prefix( seq_primers[1], match_5prime );
       if (length(adapterSequence) > 0 ){
 	if ( adapterSequence != adapterSequence_inferred ){
@@ -206,12 +204,14 @@ int main(int argc, const char *argv[]) {
 	  std::cerr << adapterSequence_inferred << " [inferred adapterSequence]" << std::endl;
 	  std::cerr << "over-riding with user-input." << std::endl << std::endl;
 	}
+      } else {
+	adapterSequence = adapterSequence_inferred;
       }
       std::cout << "Adapter sequence shared by primers: " << adapterSequence << std::endl;
 
 
       unsigned match_3prime = get_number_of_matching_residues( seq_primers_RC );
-      std::cout << "Matching from 3'' end [showing reverse complement]" << match_3prime << std::endl;
+      //      std::cout << "Matching from 3' end [showing reverse complement]" << match_3prime << std::endl;
       CharString cseq_inferred =  prefix( seq_primers_RC[1], match_3prime );
       if (length(cseq) > 0 ){
 	if ( cseq != cseq_inferred ){
@@ -220,6 +220,8 @@ int main(int argc, const char *argv[]) {
 	  std::cerr << cseq_inferred << " [inferred cseq]" << std::endl;
 	  std::cerr << "over-riding with user-input." << std::endl << std::endl;
 	}
+      } else {
+	cseq = cseq_inferred;
       }
       std::cout << "Constant sequence shared by primers [reverse complement]: " << cseq << std::endl;
 
@@ -362,6 +364,7 @@ int main(int argc, const char *argv[]) {
 
       while ( !found_match_in_read2 && get_next_variant( sequence_id_region_in_sequence1, sequence_id_region_variant, variant_counter, seqid_length ) ){
 	//std::cout << "Looking for: " << sequence_id_region_variant << " " << variant_counter << std::endl;
+	if ( fast_match && variant_counter > 1 ) break;
 
 	if (!found_match_in_read1){
 	  record_counter( "found match in RNA sequence (read 1)", counter_idx, counter_counts, counter_tags );
@@ -476,8 +479,6 @@ get_number_of_matching_residues( std::vector< CharString > const & seq_primers )
   int count = 1;
   int seqCount_primers = seq_primers.size();
   bool all_match( true );
-  std::cout << count << " " << length( seq_primers[0] ) << std::endl;
-
   while ( all_match && count < length( seq_primers[0] )){
     char current_char;
     for(unsigned j=0; j< seqCount_primers; j++) {
