@@ -117,19 +117,16 @@ int main(int argc, const char *argv[]) {
     getOptionValueLong(parser,"debug",debug);
 
     //Opening the output file and returning an error if it can't be opened
-    FILE * oFile;
-    oFile = fopen(outfile.c_str(),"w");
+    //FILE * oFile;
+    //oFile = fopen(outfile.c_str(),"w");
 
-    /////////////////////////////////////////////////////////////////////////
-    // Read in Miseq files and RNA Library.
-    /////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////
+    // Read in Illumina fastq files
+    ////////////////////////////////////////////////////////////////////
     MultiSeqFile multiSeqFile1;
     MultiSeqFile multiSeqFile2;
-    MultiSeqFile multiSeqFile_library;
     if (!open(multiSeqFile1.concat, file1.c_str(), OPEN_RDONLY) ) return 1;
     if (!open(multiSeqFile2.concat, file2.c_str(), OPEN_RDONLY) ) return 1;
-    if (!open(multiSeqFile_library.concat, file_library.c_str(), OPEN_RDONLY) ) return 1;
-    //if (cseq=="" || seqid_length==-1 )  return 1;
 
     //The SeqAn library has a built in file parser that can guess the file format
     //we use the AutoSeqFormat option for the MiSeq, Library, and barcode files
@@ -143,19 +140,11 @@ int main(int argc, const char *argv[]) {
     guessFormat(multiSeqFile2.concat, format2);
     split(multiSeqFile2, format2);
 
-    //Library
-    AutoSeqFormat format_library;
-    guessFormat(multiSeqFile_library.concat, format_library);
-    split(multiSeqFile_library, format_library);
-
-    std::cout << "Reading MiSEQ and RNA library sequence files took: " << SEQAN_PROTIMEDIFF(loadTime) << " seconds." << std::endl;
-
     //Getting the total number of sequences in each of the files
     //The two MiSeq files should match in the number of sequences
     //They should also be in the same order
     unsigned seqCount1 = length(multiSeqFile1);
     unsigned seqCount2 = length(multiSeqFile2);
-    unsigned seqCount_library = length(multiSeqFile_library);
 
     if(seqCount1 != seqCount2 ){
         std::cout << "MiSeq input files contain different number of sequences" << std::endl;
@@ -164,10 +153,50 @@ int main(int argc, const char *argv[]) {
         std::cout << "Total Pairs: " << length(multiSeqFile1) << ":" << length(multiSeqFile2) << std::endl;
     }
 
+    // following would be way more memory efficient -- a stream.
+    // however, RecordReader no longer seems to exist in seqan library !?
+
+    // std::ifstream fastq1(file1.c_str(), std::ios_base::in | std::ios_base::binary);
+    // if (!fastq1.good())  return 1;
+    // RecordReader<std::ifstream, SinglePass<> > reader1(fastq1);
+    // if (!checkStreamFormat(reader1, format1))  return 1;
+
+    // std::ifstream fastq1(file2.c_str(), std::ios_base::in | std::ios_base::binary);
+    // if (!fastq2.good())  return 1;
+    // RecordReader<std::ifstream, SinglePass<> > reader2(fastq2);
+    // if (!checkStreamFormat(reader2, format2))  return 1;
+
+
+    //////////////////////////////////////////////
+    // Read library of RNA sequences
+    //////////////////////////////////////////////
     // FRAGMENT(read_sequences)
     String<char> seq1,seq1id,seq2,seq_library,seq_libraryid,seq_expt_id,seq_expt_id_id,qual1,qual2,id1,id2;
     THaystacks haystacks_rna_library, haystacks_expt_ids;
     std::vector< String<char> > short_expt_ids;
+
+    MultiSeqFile multiSeqFile_library;
+    if (!open(multiSeqFile_library.concat, file_library.c_str(), OPEN_RDONLY) ) return 1;
+    //Library
+    AutoSeqFormat format_library;
+    guessFormat(multiSeqFile_library.concat, format_library);
+    split(multiSeqFile_library, format_library);
+
+    // Index library sequences for alignment
+    unsigned seqCount_library = length(multiSeqFile_library);
+    unsigned max_rna_len( 0 );
+    std::cout << "Indexing Sequences(N=" << seqCount_library << ")..";
+    for(unsigned j=0; j< seqCount_library; j++) {
+        assignSeq(seq_library, multiSeqFile_library[j], format_library);    // read sequence
+	RNA2DNA( seq_library );
+        appendValue(haystacks_rna_library, seq_library);
+	if ( max_rna_len < length( seq_library ) ) max_rna_len = length( seq_library );
+    }
+    //    Index<THaystacks> index(haystacks_rna_library);
+    Finder<Index<THaystacks> > finder_sequence_id( haystacks_rna_library );
+    std::cout << "completed" << std::endl;
+    std::cout << "RNA sequence Lengths(max=" << max_rna_len <<"):" << std::endl;
+
 
     /////////////////////////////////////////////////////////////////////////
     // Figure out experimental IDs and primer binding site from barcodes.
@@ -266,19 +295,8 @@ int main(int argc, const char *argv[]) {
     //    Index<THaystacks> index_expt_ids(haystacks_expt_ids);
     Finder<Index<THaystacks> > finder_expt_id(haystacks_expt_ids);
 
-// Index library sequences for alignment
-    unsigned max_rna_len( 0 );
-    std::cout << "Indexing Sequences(N=" << seqCount_library << ")..";
-    for(unsigned j=0; j< seqCount_library; j++) {
-        assignSeq(seq_library, multiSeqFile_library[j], format_library);    // read sequence
-	RNA2DNA( seq_library );
-        appendValue(haystacks_rna_library, seq_library);
-	if ( max_rna_len < length( seq_library ) ) max_rna_len = length( seq_library );
-    }
-    //    Index<THaystacks> index(haystacks_rna_library);
-    Finder<Index<THaystacks> > finder_sequence_id( haystacks_rna_library );
-    std::cout << "completed" << std::endl;
-    std::cout << "RNA sequence Lengths(max=" << max_rna_len <<"):" << std::endl;
+
+    std::cout << "Reading MiSEQ, RNA library, primer sequence files took: " << SEQAN_PROTIMEDIFF(loadTime) << " seconds." << std::endl;
 
     // initialize a histogram recording the counts [convenient for plotting in matlab, R, etc.]
     std::vector< float > sequence_counts( max_rna_len+1,0.0 );
@@ -295,8 +313,8 @@ int main(int argc, const char *argv[]) {
     SEQAN_PROTIMESTART(alignTime); // reset counter.
     if ( debug) std::cout << "Output should be appearing in " << outfile.c_str() << std::endl;
 
-    for (unsigned i = 0; i < seqCount1; ++i)
-    {
+    //    while (!atEnd(reader1) && !atEnd(reader2)){
+    for (unsigned i = 0; i < seqCount1; ++i) {
 
       ////////////////////////////////////////////////////////////////
       // Get the next forward and reverse read...
@@ -308,6 +326,13 @@ int main(int argc, const char *argv[]) {
       assignSeq(seq2, multiSeqFile2[i], format2);    // read sequence
       assignQual(qual2, multiSeqFile2[i], format2);  // read ascii quality values
       assignSeqId(id2, multiSeqFile2[i], format2);   // read sequence id
+
+      // following would be way more memory efficient -- a stream.
+      // however, RecordReader no longer seems to exist in seqan library !?
+
+      // if (readRecord(id1, seq1, reader1, format1) != 0) return 1;
+      // if (readRecord(id2, seq2, reader2, format2) != 0) return 1;
+
 
       reverseComplement(seq1);
 
@@ -409,7 +434,7 @@ int main(int argc, const char *argv[]) {
 	      }
 	      if ( cscr == mscr ){ // in case of ties, keep track of all hits
 		findBegin( finder_in_specific_sequence, pattern_in_specific_sequence, mscr ); // the proper thing to do if DP is used.
-		int mpos = beginPosition( finder_in_specific_sequence ) - 1;
+		int mpos = beginPosition( finder_in_specific_sequence );
 		mpos_vector.push_back( mpos );
 	      }
 	    }
@@ -433,7 +458,7 @@ int main(int argc, const char *argv[]) {
 		mpos_vector.clear();
 	      }
 	      if ( cscr == mscr ){ // in case of ties, keep track of all hits
-		int mpos = position( finder_in_specific_sequence ) - length(seq2)-1;// get from end to position just before beginning of the read
+		int mpos = position( finder_in_specific_sequence ) - length(seq2) + 1;// get from end to position just before beginning of the read
 		mpos_vector.push_back( mpos );
 	      }
 	    }
@@ -449,6 +474,11 @@ int main(int argc, const char *argv[]) {
 	    int mpos = mpos_vector[q];
 	    if ( mpos < 0 ) mpos = 0;
 	    all_count[ expt_idx ][ sid_idx ][ mpos ] += weight;
+	    //if ( sid_idx > 3917 ){
+	    //	      std::cout << seq2 << " " << mpos << std::endl;
+	    //	      std::cout << seq_library << std::endl;
+	    //	      std::cout << std::endl;
+	    //	    }
 	  }
 
 	}
@@ -483,8 +513,12 @@ int main(int argc, const char *argv[]) {
       fclose( stats_oFile );
     }
 
-    return 0;
+    return 1;
 }
+
+///////////////////////////////////////////////
+// helper utilities -- move to separate file?
+///////////////////////////////////////////////
 
 /////////////////////////////////////////////
 // how many residues match up from one end?
