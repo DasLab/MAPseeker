@@ -66,7 +66,7 @@ int main(int argc, const char *argv[]) {
     addTitleLine(parser, "*************************************************");
     addTitleLine(parser, "                                                 ");
 
-    addUsageLine(parser, "-c <constant sequence> -1 <miseq output1> -2 <miseq output2> -l <library> -b <experimental barcodes> -n <sequence id length> -d <0/1 output type>");
+    addUsageLine(parser, "-c <constant sequence> -1 <miseq fastq1> -2 <miseq fastq2> -l <RNA library fasta> -p <primers fasta> -n <sequence id length>");
 
     addSection(parser, "Main Options:");
 
@@ -76,17 +76,20 @@ int main(int argc, const char *argv[]) {
     // a.k.a. TruSeq Universal Adapter -- gets added to one end of many illumina preps. Should be shared 5' end of all primers.
     std::string const universal_adapter_sequence("AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGATCT");
 
-    addOption(parser, addArgumentText(CommandLineOption("c", "cseq", "Constant sequence", OptionType::String,""), "<DNA sequence>"));
     addOption(parser, addArgumentText(CommandLineOption("1", "miseq1", "miseq output [read 1] containing primer ids",OptionType::String), "<FASTAQ FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("2", "miseq2", "miseq output [read 2] containing 3' ends",OptionType::String), "<FASTAQ FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("l", "library", "library of sequences to align against", OptionType::String),"<FASTA FILE>"));
-    addOption(parser, addArgumentText(CommandLineOption("b", "barcodes", "fasta file containing experimental barcodes", OptionType::String,""), "<FASTA FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("p", "primers", "fasta file containing experimental primers", OptionType::String,""), "<FASTA FILE>"));
-    addOption(parser, addArgumentText(CommandLineOption("o", "outfile", "output filename", (int)OptionType::String, "out.fasta"), "<Filename>"));
-    addOption(parser, addArgumentText(CommandLineOption("n", "sid_length", "sequence id length", OptionType::Int), "<Int>"));
+    addOption(parser, addArgumentText(CommandLineOption("n", "sid_length", "sequence id length (nts 3' of shared primer binding site)", OptionType::Int, 8), "<Int>"));
+
+    addOption(parser, addArgumentText(CommandLineOption("O", "outpath", "output path for stats files", OptionType::String, ""), "<out path>"));
+    addOption(parser, addArgumentText(CommandLineOption("N", "start_at_read","align reads whose number modulo N is j (N = job ID)", OptionType::Int, 0), "<start at this read number>"));
+    addOption(parser, addArgumentText(CommandLineOption("j", "increment_between_reads", "align reads whose number modulo N is j (j = total # jobs)", OptionType::Int, 1), "<increment between reads>"));
+
+    addOption(parser, addArgumentText(CommandLineOption("b", "barcodes", "fasta file containing experimental barcodes", OptionType::String,""), "<FASTA FILE>"));
+    addOption(parser, addArgumentText(CommandLineOption("c", "cseq", "Constant sequence", OptionType::String,""), "<DNA sequence>"));
     addOption(parser, addArgumentText(CommandLineOption("x", "match_single_nt_variants", "check off-by-one matches in sequence ID in read 1", OptionType::Bool, false), ""));
     addOption(parser, addArgumentText(CommandLineOption("D", "match_DP", "use dynamic programming in matching sequence ID in read 2 (allow in/del)", OptionType::Bool, false), ""));
-    addOption(parser, addArgumentText(CommandLineOption("d", "debug", "full output =1, condensed output=0", OptionType::Int, 0), "<Int>"));
     addOption(parser, addArgumentText(CommandLineOption("a", "adapter", "Illumina Adapter sequence = 5' DNA sequence shared by all primers", OptionType::String,""), "<DNA sequence>"));
 
 
@@ -95,12 +98,13 @@ int main(int argc, const char *argv[]) {
       return 0;
     }
 
-    if (!parse(parser, argc, argv, ::std::cerr)) return 1;
+    if (!parse(parser, argc, argv, std::cerr)) return 1;
     if (isSetLong(parser, "help") || isSetLong(parser, "version")) return 0;	// print help or version and exit
 
 //This isn't required but shows you how long the processing took
     SEQAN_PROTIMESTART(loadTime);
-    std::string file1,file2,file_library,file_expt_id,file_primers,outfile;
+    int seqid_length( 0 ), increment_between_reads( 0 ), start_at_read( 0 );
+    std::string file1,file2,file_library,file_expt_id,file_primers,outfile,outpath;
     String<char> cseq,adapterSequence;
     getOptionValueLong(parser, "cseq",cseq);
     getOptionValueLong(parser, "adapter",adapterSequence);
@@ -109,12 +113,13 @@ int main(int argc, const char *argv[]) {
     getOptionValueLong(parser, "library",file_library);
     getOptionValueLong(parser, "barcodes",file_expt_id);
     getOptionValueLong(parser, "primers",file_primers);
-    getOptionValueLong(parser, "outfile",outfile);
+    getOptionValueLong(parser, "outpath",outpath);
+    if ( outpath.size() > 0 && outpath[ outpath.size()-1 ] != '/' ) outpath += '/';
     bool match_single_nt_variants = isSetLong( parser, "match_single_nt_variants" );
     bool match_DP = isSetLong( parser, "match_DP" );
-    int seqid_length=-1;    int debug=0;
     getOptionValueLong(parser,"sid_length",seqid_length);
-    getOptionValueLong(parser,"debug",debug);
+    getOptionValueLong(parser,"increment_between_reads", increment_between_reads); // for job splitting
+    getOptionValueLong(parser,"start_at_read",start_at_read); // for job splitting
 
     //Opening the output file and returning an error if it can't be opened
     //FILE * oFile;
@@ -295,7 +300,6 @@ int main(int argc, const char *argv[]) {
     //    Index<THaystacks> index_expt_ids(haystacks_expt_ids);
     Finder<Index<THaystacks> > finder_expt_id(haystacks_expt_ids);
 
-
     std::cout << "Reading MiSEQ, RNA library, primer sequence files took: " << SEQAN_PROTIMEDIFF(loadTime) << " seconds." << std::endl;
 
     // initialize a histogram recording the counts [convenient for plotting in matlab, R, etc.]
@@ -311,10 +315,9 @@ int main(int argc, const char *argv[]) {
     std::cout << "Running alignment" << std::endl;
 
     SEQAN_PROTIMESTART(alignTime); // reset counter.
-    if ( debug) std::cout << "Output should be appearing in " << outfile.c_str() << std::endl;
 
     //    while (!atEnd(reader1) && !atEnd(reader2)){
-    for (unsigned i = 0; i < seqCount1; ++i) {
+    for (unsigned i = start_at_read; i < seqCount1; i += increment_between_reads) {
 
       ////////////////////////////////////////////////////////////////
       // Get the next forward and reverse read...
@@ -467,6 +470,7 @@ int main(int argc, const char *argv[]) {
 	  if ( mpos_vector.size() == 0 ) continue;
 	  record_counter( "found match in RNA sequence (read 2)", counter_idx, counter_counts, counter_tags );
 
+	  // no longer in use.
 	  //if(debug==1) fprintf(oFile,"%s,%s,%s,%s,%d,%d,%s,%s\n",toCString(id1),toCString(id2),edescr.c_str(),toCString(seq_libraryid),(mpos+1),mscr,toCString(seq2),toCString(seq_library));
 
 	  float const weight = 1.0 / mpos_vector.size();
@@ -499,8 +503,8 @@ int main(int argc, const char *argv[]) {
     //  output matrices with stored counts.
     //////////////////////////////////////////////////////
     for ( unsigned i = 0; i < seqCount_expt_id; i++ ){
-      char stats_outFileName[ 50 ];
-      sprintf( stats_outFileName, "stats_ID%d.txt", i+1 ); // index by 1.
+      char stats_outFileName[ 100 ];
+      sprintf( stats_outFileName, "%sstats_ID%d.txt", outpath.c_str(), i+1 ); // index by 1.
       std::cout << "Outputting counts to: " << stats_outFileName << std::endl;
       FILE * stats_oFile;
       stats_oFile = fopen( stats_outFileName,"w");
