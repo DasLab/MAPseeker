@@ -271,12 +271,10 @@ int main(int argc, const char *argv[]) {
 	int min_pos=pos1-length(cseq)-seqid_length+1;
 	if(min_pos < 0)	 min_pos=0;
 	String<char> sequence_id_region_in_sequence1=infixWithLength(seq1,min_pos,seqid_length);
-	std::cout << "Search for: " << sequence_id_region_in_sequence1 << std::endl;
 
 	// We append the primer binding site to make sure that the search will be over actual barcode regions (adjoining the constant sequence) from the RNA library.
 	append(sequence_id_region_in_sequence1,cseq);
 	Pattern<CharString> pattern_sequence_id_in_read1(sequence_id_region_in_sequence1); // this is now the 'needle' -- look for this sequence in the haystack of potential sequence IDs
-
 
 	if(find(finder_sequence_id, pattern_sequence_id_in_read1)) { // wait, shouldn't we try *all* possibilities?
 	  // std::cout << beginPosition(finder_sequence_id).i1 << std::endl;
