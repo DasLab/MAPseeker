@@ -33,6 +33,9 @@ int try_DP_match( CharString & seq1, CharString & cseq, unsigned & perfect );
 
 int try_DP_match_expt_ids( std::vector< CharString > & short_expt_ids, CharString & expt_id_in_read1 );
 
+bool
+get_next_variant( CharString const & seq, CharString & seq_var, unsigned & variant_counter, int const & seqid_length );
+
 //The known library of sequences is stored as a StringSet called THaystacks
 //We will generate an index against this file to make the search faster
 typedef StringSet<CharString> THaystacks;
@@ -63,20 +66,30 @@ int main(int argc, const char *argv[]) {
     addUsageLine(parser, "-c <constant sequence> -1 <miseq output1> -2 <miseq output2> -l <library> -b <experimental barcodes> -n <sequence id length> -d <0/1 output type>");
 
     addSection(parser, "Main Options:");
-    addOption(parser, addArgumentText(CommandLineOption("c", "cseq", "Constant sequence", OptionType::String), "<DNA sequence>"));
+
+    //cseq is the constant region between the experimental id and the sequence id
+    //in the Das lab this is the tail2 sequence AAAGAAACAACAACAACAAC
+    std::string const daslab_tail2_sequence("AAAGAAACAACAACAACAAC");
+    // a.k.a. TruSeq Universal Adapter -- gets added to one end of many illumina preps. Should be shared 5' end of all primers.
+    std::string const universal_adapter_sequence("AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGATCT");
+
+    addOption(parser, addArgumentText(CommandLineOption("c", "cseq", "Constant sequence", OptionType::String,daslab_tail2_sequence), "<DNA sequence>"));
     addOption(parser, addArgumentText(CommandLineOption("1", "miseq1", "miseq output [read 1] containing primer ids",OptionType::String), "<FASTAQ FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("2", "miseq2", "miseq output [read 2] containing 3' ends",OptionType::String), "<FASTAQ FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("l", "library", "library of sequences to align against", OptionType::String),"<FASTA FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("b", "barcodes", "fasta file containing experimental barcodes", OptionType::String), "<FASTA FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("o", "outfile", "output filename", (int)OptionType::String, "out.fasta"), "<Filename>"));
     addOption(parser, addArgumentText(CommandLineOption("n", "sid.length", "sequence id length", OptionType::Int), "<Int>"));
-    addOption(parser, addArgumentText(CommandLineOption("d", "debug", "full output =1 condensed output=0", OptionType::Int), "<Int>"));
-    //    adapterSequence = "";
+    addOption(parser, addArgumentText(CommandLineOption("d", "debug", "full output =1, condensed output=0", OptionType::Int, 0), "<Int>"));
+    addOption(parser, addArgumentText(CommandLineOption("a", "adapter", "Illumina Adapter sequence = 5' DNA sequence shared by all primers", OptionType::String, universal_adapter_sequence), "<DNA sequence>"));
+
+
+
 
     if (argc == 1)
     {
-        shortHelp(parser, std::cerr);	// print short help and exit
-        return 0;
+      shortHelp(parser, std::cerr);	// print short help and exit
+      return 0;
     }
 
     if (!parse(parser, argc, argv, ::std::cerr)) return 1;
@@ -85,11 +98,9 @@ int main(int argc, const char *argv[]) {
 //This isn't required but shows you how long the processing took
     SEQAN_PROTIMESTART(loadTime);
     std::string file1,file2,file3,file4,outfile;
-
-//cseq is the constant region between the experimental id and the sequence id
-//in the Das lab this is the tail2 sequence AAAGAAACAACAACAACAAC
-    String<char> cseq="";
+    String<char> cseq,adapterSequence;
     getOptionValueLong(parser, "cseq",cseq);
+    getOptionValueLong(parser, "adapter",adapterSequence);
     getOptionValueLong(parser, "miseq1",file1);
     getOptionValueLong(parser, "miseq2",file2);
     getOptionValueLong(parser, "library",file3);
@@ -216,9 +227,9 @@ int main(int argc, const char *argv[]) {
     std::cout << "RNA sequence Lengths(max=" << max_rna_len <<"):" << std::endl;
 
     // initialize a histogram recording the counts [convenient for plotting in matlab, R, etc.]
-    std::vector< unsigned > sequence_counts( max_rna_len,0);
-    std::vector< std::vector< unsigned > > bunch_of_sequence_counts( seqCount3+1, sequence_counts);
-    std::vector< std::vector< std::vector < unsigned > > > all_count( seqCount4, bunch_of_sequence_counts);
+    std::vector< float > sequence_counts( max_rna_len+1,0.0 );
+    std::vector< std::vector< float > > bunch_of_sequence_counts( seqCount3+1, sequence_counts);
+    std::vector< std::vector< std::vector < float > > > all_count( seqCount4, bunch_of_sequence_counts);
 
     // keep track of how many sequences pass through each filter
     std::vector< unsigned > counter_counts;
@@ -259,7 +270,7 @@ int main(int argc, const char *argv[]) {
       // case, we'll have to rewrite this code unfortunately.
       ///////////////////////////////////////////////////////////////////////////////////////////
       //pos1 = try_exact_match( seq1, cseq, perfect );  //  interesting -- DPsearch (see next) is no slower than available exact matches.
-      if ( pos1 < 0 ) pos1 = try_DP_match( seq1, cseq, perfect ); // allows for 2 mismatches
+      if ( pos1 < 0 ) pos1 = try_DP_match( seq1, cseq, perfect ); // allows for 1 mismatch, 2 deletions
 
       if ( pos1 < 0 ) continue;
       record_counter( "found primer binding site", counter_idx, counter_counts, counter_tags );
@@ -291,73 +302,87 @@ int main(int argc, const char *argv[]) {
       // We append the primer binding site to make sure that the search will be over actual barcode regions (adjoining the constant sequence) from the RNA library.
       append(sequence_id_region_in_sequence1,cseq);
 
+      // Start by looking for exact match of sequence ID in read 1, and then look for match in read 2.
+      //   If that doesn't work, try single nucleotide variants [this is the job of get_next_variant()]);
 
-      Pattern<CharString> pattern_sequence_id_in_read1(sequence_id_region_in_sequence1); // this is now the 'needle' -- look for this sequence in the haystack of potential sequence IDs
+      bool found_match_in_read1( false ), found_match_in_read2( false );
+      unsigned variant_counter( 0 );
+      CharString sequence_id_region_variant( sequence_id_region_in_sequence1 );
 
-      // crap, cannot handle inexact matches off indexed library... may want to try DP instead?
-      //Pattern<String<char>, MyersUkkonen > pattern_sequence_id_in_read1( sequence_id_region_in_sequence1 );
-      //setScoreLimit( pattern_sequence_id_in_read1, 0);
+      while ( !found_match_in_read2 && get_next_variant( sequence_id_region_in_sequence1, sequence_id_region_variant, variant_counter, seqid_length ) ){
+	//std::cout << "Looking for: " << sequence_id_region_variant << " " << variant_counter << std::endl;
 
-      if( find(finder_sequence_id, pattern_sequence_id_in_read1)) { // wait, shouldn't we try *all* possibilities?
-	// seq3 contains the RNA library sequences
-	int sid_idx = beginPosition(finder_sequence_id).i1;
+	if (!found_match_in_read1){
+	  record_counter( "found match in RNA sequence (read 1)", counter_idx, counter_counts, counter_tags );
+	  found_match_in_read1 = true;
+	}
 
-	// what is the DNA?
-	assignSeq(seq3, multiSeqFile3[sid_idx], format3); // read sequence of the RNA
-	append( seq3, short_expt_ids[ expt_idx ] ); // experimental ID, added  in MAP-seq protocol as part of reverse transcription primer
-	append( seq3, adapterSequence ); // piece of illumina DNA, added in MAP-seq protocol as part of reverse transcription primer
+	Pattern<CharString> pattern_sequence_id_in_read1(sequence_id_region_variant); // this is now the 'needle' -- look for this sequence in the haystack of potential sequence IDs
 
-	//	assignSeqId(seq3id,multiSeqFile3[sid_idx], format3); // read the ID of the RNA -- is this used anymore?
+	clear( finder_sequence_id ); //reset.
+	if( find(finder_sequence_id, pattern_sequence_id_in_read1)) { // wait, shouldn't we try *all* possibilities?
 
-	record_counter( "found RNA sequence", counter_idx, counter_counts, counter_tags );
+	  // seq3 contains the RNA library sequences
+	  int sid_idx = beginPosition(finder_sequence_id).i1;
 
-	////////////////////////////////////////////////////////////////////////////////////////
-	// Look for the second read to determine where the reverse transcription stop is.
-	////////////////////////////////////////////////////////////////////////////////////////
-	RNA2DNA( seq3 );
-	Finder<String<char> > finder_in_specific_sequence(seq3);
+	  // what is the DNA?
+	  assignSeq(seq3, multiSeqFile3[sid_idx], format3); // read sequence of the RNA
+	  append( seq3, short_expt_ids[ expt_idx ] ); // experimental ID, added  in MAP-seq protocol as part of reverse transcription primer
+	  append( seq3, adapterSequence ); // piece of illumina DNA, added in MAP-seq protocol as part of reverse transcription primer
 
-	Pattern<String<char>, MyersUkkonen> pattern_sequence2(seq2);
+	  //	assignSeqId(seq3id,multiSeqFile3[sid_idx], format3); // read the ID of the RNA -- is this used anymore?
 
-	// Switch following to DP? would be more forgiving to indels.
-	// also, would be good to use Quality information -- MAQ style.
-	int const EDIT_DISTANCE_SCORE_CUTOFF = -2;
-	setScoreLimit(pattern_sequence2, EDIT_DISTANCE_SCORE_CUTOFF);//Edit Distance used to be -10! not very stringent.
+	  ////////////////////////////////////////////////////////////////////////////////////////
+	  // Look for the second read to determine where the reverse transcription stop is.
+	  ////////////////////////////////////////////////////////////////////////////////////////
+	  RNA2DNA( seq3 );
+	  Finder<String<char> > finder_in_specific_sequence(seq3);
 
-	int mpos( -1), mscr( EDIT_DISTANCE_SCORE_CUTOFF - 1 );
+	  //Set options for gap, mismatch, deletion. Again, should make these variables.
+	  Pattern<String<char>, DPSearch<SimpleScore> > pattern_in_specific_sequence(seq2,SimpleScore(0, -2, -1));
+	  // Alternative to DP -- edit distance, used by JP
+	  // Pattern<String<char>, MyersUkkonen> pattern_in_specific_sequence(seq2);
 
-	// Here, looking for best score -- but assuming that we've nailed the right RNA sequence (which may not be the case).
-	while (find(finder_in_specific_sequence, pattern_sequence2)) {
-	  int cscr=getScore(pattern_sequence2);
+	  int const EDIT_DISTANCE_SCORE_CUTOFF( -4 );
+	  setScoreLimit(pattern_in_specific_sequence, EDIT_DISTANCE_SCORE_CUTOFF);//Edit Distance used to be -10! not very stringent.
 
-	  if(cscr > mscr) {
-	    mscr=cscr;
-	    mpos=position( finder_in_specific_sequence ); //end position. Or do I want begin position?
+	  int  mscr( EDIT_DISTANCE_SCORE_CUTOFF - 1 );
+	  std::vector< int > mpos_vector;
+	  // Here, looking for best score -- but assuming that we've nailed the right RNA sequence (which may not be the case).
+	  while (find(finder_in_specific_sequence, pattern_in_specific_sequence)) {
+	    int cscr=getScore(pattern_in_specific_sequence);
+	    if(cscr > mscr) {
+	      found_match_in_read2 = true;
+	      mscr=cscr;
+	      mpos_vector.clear();
+	    }
+	    if ( cscr == mscr ){ // in case of ties, keep track of all hits
+	      int mpos_end=position( finder_in_specific_sequence ); //end position. Or do I want begin position?
+	      int mpos = mpos_end - length(seq2);// get from end to beginning of the read
+
+	      //findBegin( finder_in_specific_sequence, pattern_in_specific_sequence, mscr ); // the proper thing to do if DP is used.
+	      //mpos = beginPosition( finder_in_specific_sequence ) - 1;
+	      mpos_vector.push_back( mpos );
+	    }
+	  }
+
+	  if ( found_match_in_read2 )  {
+	    record_counter( "found match in RNA sequence (read 2)", counter_idx, counter_counts, counter_tags );
+
+	    //if(debug==1) fprintf(oFile,"%s,%s,%s,%s,%d,%d,%s,%s\n",toCString(id1),toCString(id2),edescr.c_str(),toCString(seq3id),(mpos+1),mscr,toCString(seq2),toCString(seq3));
+	    assert( mpos_vector.size() > 0 );
+
+	    float const weight = 1.0 / mpos_vector.size();
+	    for (unsigned q = 0; q < mpos_vector.size(); q++ ){
+	      int mpos = mpos_vector[q];
+	      if ( mpos < 0 ) mpos = 0;
+	      all_count[ expt_idx ][ sid_idx ][ mpos ] += weight;
+	    }
 	  }
 
 	}
 
-	if (mpos < 0) continue;
-	record_counter( "found match in sequence", counter_idx, counter_counts, counter_tags );
-
-	mpos=mpos - length(seq2); // what?
-
-	if(debug==1) {
-	  //	    fprintf(oFile,"%s,%s,%s,%s,%d,%d,%s,%s\n",toCString(id1),toCString(id2),edescr.c_str(),toCString(seq3id),(mpos+1),mscr,toCString(seq2),toCString(seq3));
-	}
-	else {
-	  // need to replace this with a histogram... or save a vector of information (perhaps with weights?) that we histogram below.
-	  //fprintf(oFile,"%s,%s,%d,%d\n",edescr.c_str(),toCString(seq3id),(mpos+1),mscr);
-	  if ( mpos < -1 ) mpos = -1;
-	  all_count[ expt_idx ][ sid_idx ][ mpos+1 ]++;
-	}
-
-      } else {
-	unmatchedlib++;
-	//fprintf(uFile,"%s,%s,%d,%d,%s,%s\n",mid,uid,seq1id);
       }
-      clear(finder_sequence_id);
-
     }
     std::cout << "Aligning " << seqCount1 << " sequences took " << SEQAN_PROTIMEDIFF(alignTime);
     std::cout << " seconds." << std::endl << std::endl;
@@ -383,7 +408,7 @@ int main(int argc, const char *argv[]) {
       stats_oFile = fopen( stats_outFileName,"w");
       for ( unsigned j = 0; j < seqCount3; j++ ){
     	for ( unsigned k = 0; k < max_rna_len; k++ ){
-    	  fprintf( stats_oFile, " %d", all_count[i][j][k] );
+    	  fprintf( stats_oFile, " %8.1f", all_count[i][j][k] );
     	}
     	fprintf( stats_oFile, "\n");
       }
@@ -509,3 +534,38 @@ try_DP_match_expt_ids( std::vector< CharString > & short_expt_ids, CharString & 
   return expt_idx;
 }
 
+
+////////////////////////////////////////////////////
+bool
+get_next_variant( CharString const & seq, CharString & seq_var, unsigned & variant_counter, int const & seqid_length ){
+
+  seq_var = seq;
+
+  if (variant_counter == 0 ){
+    variant_counter++; return true;
+  }
+
+  unsigned count(0), pos_count( 0);
+  seqan::Iterator<seqan::String<char> >::Type it = begin(seq_var);
+  seqan::Iterator<seqan::String<char> >::Type itEnd = end(seq_var);
+
+  static std::string const DNAchars ("ACGT"); // this probably exists somewhere in seqan... too lazy to go find it.
+
+  while ( it != itEnd && pos_count < seqid_length ) {
+    for ( int n = 0; n < DNAchars.size(); n++ ){
+      if ( DNAchars[n] == *it ) continue;
+
+      count++;
+      if ( count == variant_counter ){
+	*it = DNAchars[n];
+	variant_counter++;
+	return true;
+      }
+    }
+    ++it;
+    pos_count++;
+  }
+
+  return false;
+
+}
