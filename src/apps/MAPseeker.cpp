@@ -437,7 +437,7 @@ int main(int argc, const char *argv[]) {
 
       }
     }
-    std::cout << "Aligning " << seqCount1 << " sequences took " << SEQAN_PROTIMEDIFF(alignTime);
+    std::cout << "Aligning " << seqCount1 << " sequences took " << SEQAN_PROTIMEDIFF(alignTime) << std::endl;
     std::cout << "Perfect constant sequence matches: " << perfect << std::endl;
 
     std::cout << std::endl;
