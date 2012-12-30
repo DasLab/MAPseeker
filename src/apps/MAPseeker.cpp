@@ -19,6 +19,9 @@ std::string IntToStr( int n )
     return result.str();
 }
 
+int
+get_number_of_matching_residues( std::vector< CharString > const & seq_primers );
+
 // could put following in util file?
 void RNA2DNA( String<char> & seq );
 
@@ -77,17 +80,15 @@ int main(int argc, const char *argv[]) {
     addOption(parser, addArgumentText(CommandLineOption("1", "miseq1", "miseq output [read 1] containing primer ids",OptionType::String), "<FASTAQ FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("2", "miseq2", "miseq output [read 2] containing 3' ends",OptionType::String), "<FASTAQ FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("l", "library", "library of sequences to align against", OptionType::String),"<FASTA FILE>"));
-    addOption(parser, addArgumentText(CommandLineOption("b", "barcodes", "fasta file containing experimental barcodes", OptionType::String), "<FASTA FILE>"));
+    addOption(parser, addArgumentText(CommandLineOption("b", "barcodes", "fasta file containing experimental barcodes", OptionType::String,""), "<FASTA FILE>"));
+    addOption(parser, addArgumentText(CommandLineOption("p", "primers", "fasta file containing experimental primers", OptionType::String,""), "<FASTA FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("o", "outfile", "output filename", (int)OptionType::String, "out.fasta"), "<Filename>"));
     addOption(parser, addArgumentText(CommandLineOption("n", "sid.length", "sequence id length", OptionType::Int), "<Int>"));
     addOption(parser, addArgumentText(CommandLineOption("d", "debug", "full output =1, condensed output=0", OptionType::Int, 0), "<Int>"));
-    addOption(parser, addArgumentText(CommandLineOption("a", "adapter", "Illumina Adapter sequence = 5' DNA sequence shared by all primers", OptionType::String, universal_adapter_sequence), "<DNA sequence>"));
+    addOption(parser, addArgumentText(CommandLineOption("a", "adapter", "Illumina Adapter sequence = 5' DNA sequence shared by all primers", OptionType::String,""), "<DNA sequence>"));
 
 
-
-
-    if (argc == 1)
-    {
+    if (argc == 1) {
       shortHelp(parser, std::cerr);	// print short help and exit
       return 0;
     }
@@ -97,37 +98,38 @@ int main(int argc, const char *argv[]) {
 
 //This isn't required but shows you how long the processing took
     SEQAN_PROTIMESTART(loadTime);
-    std::string file1,file2,file3,file4,outfile;
+    std::string file1,file2,file_library,file_expt_id,file_primers,outfile;
     String<char> cseq,adapterSequence;
     getOptionValueLong(parser, "cseq",cseq);
     getOptionValueLong(parser, "adapter",adapterSequence);
     getOptionValueLong(parser, "miseq1",file1);
     getOptionValueLong(parser, "miseq2",file2);
-    getOptionValueLong(parser, "library",file3);
-    getOptionValueLong(parser, "barcodes",file4);
+    getOptionValueLong(parser, "library",file_library);
+    getOptionValueLong(parser, "barcodes",file_expt_id);
+    getOptionValueLong(parser, "primers",file_primers);
     getOptionValueLong(parser, "outfile",outfile);
     int seqid_length=-1;
     int debug=0;
     getOptionValueLong(parser,"sid.length",seqid_length);
     getOptionValueLong(parser,"debug",debug);
 
-//Opening the output file and returning an error if it can't be opened
+    //Opening the output file and returning an error if it can't be opened
     FILE * oFile;
     oFile = fopen(outfile.c_str(),"w");
 
+    /////////////////////////////////////////////////////////////////////////
+    // Read in Miseq files and RNA Library.
+    /////////////////////////////////////////////////////////////////////////
     MultiSeqFile multiSeqFile1;
     MultiSeqFile multiSeqFile2;
-    MultiSeqFile multiSeqFile3;
-    MultiSeqFile multiSeqFile4; //barcode patterns
+    MultiSeqFile multiSeqFile_library;
     if (!open(multiSeqFile1.concat, file1.c_str(), OPEN_RDONLY) ) return 1;
     if (!open(multiSeqFile2.concat, file2.c_str(), OPEN_RDONLY) ) return 1;
-    if (!open(multiSeqFile3.concat, file3.c_str(), OPEN_RDONLY) ) return 1;
-    if (!open(multiSeqFile4.concat, file4.c_str(), OPEN_RDONLY) ) return 1;
+    if (!open(multiSeqFile_library.concat, file_library.c_str(), OPEN_RDONLY) ) return 1;
     if (cseq=="" || seqid_length==-1 )  return 1;
 
-//The SeqAn library has a built in file parser that can guess the file format
-//we use the AutoSeqFormat option for the MiSeq, Library, and barcode files
-
+    //The SeqAn library has a built in file parser that can guess the file format
+    //we use the AutoSeqFormat option for the MiSeq, Library, and barcode files
     //MiSeq File1
     AutoSeqFormat format1;
     guessFormat(multiSeqFile1.concat, format1);
@@ -139,87 +141,136 @@ int main(int argc, const char *argv[]) {
     split(multiSeqFile2, format2);
 
     //Library
-    AutoSeqFormat format3;
-    guessFormat(multiSeqFile3.concat, format3);
-    split(multiSeqFile3, format3);
+    AutoSeqFormat format_library;
+    guessFormat(multiSeqFile_library.concat, format_library);
+    split(multiSeqFile_library, format_library);
 
-    //Barcodes
-    AutoSeqFormat format4;
-    guessFormat(multiSeqFile4.concat, format4);
-    split(multiSeqFile4, format4);
+    std::cout << "Reading MiSEQ and RNA library sequence files took: " << SEQAN_PROTIMEDIFF(loadTime) << " seconds." << std::endl;
 
-    std::cout << "Reading un sequence files took: " << SEQAN_PROTIMEDIFF(loadTime) << " seconds." << std::endl;
+    //Getting the total number of sequences in each of the files
+    //The two MiSeq files should match in the number of sequences
+    //They should also be in the same order
+    unsigned seqCount1 = length(multiSeqFile1);
+    unsigned seqCount2 = length(multiSeqFile2);
+    unsigned seqCount_library = length(multiSeqFile_library);
 
-    if(length(multiSeqFile1)!=length(multiSeqFile2)) {
+    if(seqCount1 != seqCount2 ){
         std::cout << "MiSeq input files contain different number of sequences" << std::endl;
         return 1;
     } else {
         std::cout << "Total Pairs: " << length(multiSeqFile1) << ":" << length(multiSeqFile2) << std::endl;
     }
 
-//Getting the total number of sequences in each of the files
-//The two MiSeq files should match in the number of sequences
-//They should also be in the same order
-    unsigned seqCount1 = length(multiSeqFile1);
-    unsigned seqCount3 = length(multiSeqFile3);
-    unsigned seqCount4 = length(multiSeqFile4);
-    int unmatchedtail=0;
-    int unmatchedlib=0;
-
-// FRAGMENT(read_sequences)
-    String<char> seq1;
-    String<char> seq1id;
-    String<char> seq2;
-    String<char> seq3;
-    String<char> seq3id;
-    String<char> seq4;
-    String<char> seq4id;
-    CharString qual1;
-    CharString qual2;
-    CharString id1;
-    CharString id2;
+    // FRAGMENT(read_sequences)
+    String<char> seq1,seq1id,seq2,seq_library,seq_libraryid,seq_expt_id,seq_expt_id_id,qual1,qual2,id1,id2;
     THaystacks haystacks_rna_library, haystacks_expt_ids;
+    std::vector< String<char> > short_expt_ids;
 
-    std::cout << "Getting " << seqCount4 << " Barcodes.. " << std::endl;
+    /////////////////////////////////////////////////////////////////////////
+    // Figure out experimental IDs and primer binding site from barcodes.
+    /////////////////////////////////////////////////////////////////////////
+    if ( length( file_primers ) > 0 ){
 
-    hashmap idmap;
-    std::vector<int> eidlen;
-    int max_eidlen=0;
+      std::cout << "Checking out: " << file_primers << std::endl;
 
-    std::vector< String<char> > full_expt_ids, short_expt_ids;
-    ///////////////////////////////////////////////////
-    // create a haystack to search with barcodes.
-    ///////////////////////////////////////////////////
-    for(unsigned j=0; j< seqCount4; j++) {
-      assignSeqId(seq4id, multiSeqFile4[j], format4);    // read sequence
-      assignSeq(seq4, multiSeqFile4[j], format4);    // read sequence
+      MultiSeqFile multiSeqFile_primers; //barcode patterns
+      if (!open(multiSeqFile_primers.concat, file_primers.c_str(), OPEN_RDONLY) ) return 1;
+      AutoSeqFormat format_primers;
+      guessFormat(multiSeqFile_primers.concat, format_primers);
+      split(multiSeqFile_primers, format_primers);
 
-      // following may not be use any more...
-      String< char > full_expt_id = cseq;
-      append( full_expt_id, seq4 ); // later directly read in primers...
-      std::cout << "PRIMER SEQUENCE WITH ID: " << full_expt_id << std::endl;
-      full_expt_ids.push_back( full_expt_id );
+      unsigned seqCount_primers = length(multiSeqFile_primers);
+      std::cout << "Getting " << seqCount_primers << " primers." << std::endl;
+      if ( seqCount_primers == 0 ) { std::cerr << "Must have at least one primer!" << std::endl; return 1; }
 
-      short_expt_ids.push_back( seq4 );
-      appendValue(haystacks_expt_ids, seq4 );
+      String<char > seq_primer;
+      std::vector< String<char> > seq_primers, seq_primers_RC;
+      for(unsigned j=0; j< seqCount_primers; j++) {
+	assignSeq(seq_primer, multiSeqFile_primers[j], format_primers);    // read sequence
+	seq_primers.push_back( seq_primer );
+
+	CharString seq_primer_RC( seq_primer );
+	reverseComplement( seq_primer_RC );
+	seq_primers_RC.push_back( seq_primer_RC);
+      }
+      std::cout << "Got " << seqCount_primers << " primers." << std::endl;
+
+      // now look for what sequence is shared across all primers from 5' end (should be Illumina adapter):
+      unsigned match_5prime = get_number_of_matching_residues( seq_primers );
+      std::cout << "Matching from 5'' end" << match_5prime << std::endl;
+      CharString adapterSequence_inferred = prefix( seq_primers[1], match_5prime );
+      if (length(adapterSequence) > 0 ){
+	if ( adapterSequence != adapterSequence_inferred ){
+	  std::cerr << "WARNING! these do not match: " << std::endl;
+	  std::cerr << adapterSequence << " [user input adapterSequence]" << std::endl;
+	  std::cerr << adapterSequence_inferred << " [inferred adapterSequence]" << std::endl;
+	  std::cerr << "over-riding with user-input." << std::endl << std::endl;
+	}
+      }
+      std::cout << "Adapter sequence shared by primers: " << adapterSequence << std::endl;
+
+
+      unsigned match_3prime = get_number_of_matching_residues( seq_primers_RC );
+      std::cout << "Matching from 3'' end [showing reverse complement]" << match_3prime << std::endl;
+      CharString cseq_inferred =  prefix( seq_primers_RC[1], match_3prime );
+      if (length(cseq) > 0 ){
+	if ( cseq != cseq_inferred ){
+	  std::cerr << "WARNING! these do not match: " << std::endl;
+	  std::cerr << cseq << " [user input cseq]" << std::endl;
+	  std::cerr << cseq_inferred << " [inferred cseq]" << std::endl;
+	  std::cerr << "over-riding with user-input." << std::endl << std::endl;
+	}
+      }
+      std::cout << "Constant sequence shared by primers [reverse complement]: " << cseq << std::endl;
+
+      for(unsigned j=0; j< seqCount_primers; j++) {
+	CharString seq_expt_id = infix( seq_primers_RC[j], match_3prime, length( seq_primers_RC[j] ) - match_5prime );
+	std::cout << "Experimental ID inferred [reverse complement of region in primer]: " << j << " " << seq_expt_id << std::endl;
+	short_expt_ids.push_back( seq_expt_id );
+	appendValue(haystacks_expt_ids, seq_expt_id );
+      }
+
+    } else if ( length( file_expt_id ) > 0 && length( cseq ) > 0 ){
+
+      MultiSeqFile multiSeqFile_expt_id; //barcode patterns
+      if (!open(multiSeqFile_expt_id.concat, file_expt_id.c_str(), OPEN_RDONLY) ) return 1;
+
+      AutoSeqFormat format_expt_id;
+      guessFormat(multiSeqFile_expt_id.concat, format_expt_id);
+      split(multiSeqFile_expt_id, format_expt_id);
+
+      unsigned seqCount_expt_id = length(multiSeqFile_expt_id);
+
+      if ( length( adapterSequence ) == 0 ) adapterSequence = universal_adapter_sequence;
+
+      std::cout << "Getting " << seqCount_expt_id << " experimental IDs from 'barcode' file" << std::endl;
+      ///////////////////////////////////////////////////
+      // create a haystack to search with barcodes.
+      ///////////////////////////////////////////////////
+      for(unsigned j=0; j< seqCount_expt_id; j++) {
+	assignSeqId(seq_expt_id_id, multiSeqFile_expt_id[j], format_expt_id);    // read sequence
+	assignSeq(seq_expt_id, multiSeqFile_expt_id[j], format_expt_id);    // read sequence
+
+	short_expt_ids.push_back( seq_expt_id );
+	appendValue(haystacks_expt_ids, seq_expt_id );
+      }
+    } else {
+      std::cerr << std::endl << "ERROR! Must specify -p <primer_file>, or -b <barcode_file> -c <constant DNA sequence>." << std::endl;;
+      return 1;
     }
+    unsigned seqCount_expt_id = short_expt_ids.size();
+
     //    Index<THaystacks> index_expt_ids(haystacks_expt_ids);
     Finder<Index<THaystacks> > finder_expt_id(haystacks_expt_ids);
 
-    //If barcodes are of different lengths print the lengths here
-    std::cout << "Barcode Lengths(max=" << max_eidlen <<"):" << std::endl;
-    for(int i=0; i<eidlen.size(); i++) {
-        std::cout << "length: " << eidlen[i] << std::endl;
-    }
-
 // Index library sequences for alignment
     unsigned max_rna_len( 0 );
-    std::cout << "Indexing Sequences(N=" << seqCount3 << ")..";
-    for(unsigned j=0; j< seqCount3; j++) {
-        assignSeq(seq3, multiSeqFile3[j], format3);    // read sequence
-	RNA2DNA( seq3 );
-        appendValue(haystacks_rna_library, seq3);
-	if ( max_rna_len < length( seq3 ) ) max_rna_len = length( seq3 );
+    std::cout << "Indexing Sequences(N=" << seqCount_library << ")..";
+    for(unsigned j=0; j< seqCount_library; j++) {
+        assignSeq(seq_library, multiSeqFile_library[j], format_library);    // read sequence
+	RNA2DNA( seq_library );
+        appendValue(haystacks_rna_library, seq_library);
+	if ( max_rna_len < length( seq_library ) ) max_rna_len = length( seq_library );
     }
     //    Index<THaystacks> index(haystacks_rna_library);
     Finder<Index<THaystacks> > finder_sequence_id( haystacks_rna_library );
@@ -228,8 +279,8 @@ int main(int argc, const char *argv[]) {
 
     // initialize a histogram recording the counts [convenient for plotting in matlab, R, etc.]
     std::vector< float > sequence_counts( max_rna_len+1,0.0 );
-    std::vector< std::vector< float > > bunch_of_sequence_counts( seqCount3+1, sequence_counts);
-    std::vector< std::vector< std::vector < float > > > all_count( seqCount4, bunch_of_sequence_counts);
+    std::vector< std::vector< float > > bunch_of_sequence_counts( seqCount_library+1, sequence_counts);
+    std::vector< std::vector< std::vector < float > > > all_count( seqCount_expt_id, bunch_of_sequence_counts);
 
     // keep track of how many sequences pass through each filter
     std::vector< unsigned > counter_counts;
@@ -322,21 +373,21 @@ int main(int argc, const char *argv[]) {
 	clear( finder_sequence_id ); //reset.
 	if( find(finder_sequence_id, pattern_sequence_id_in_read1)) { // wait, shouldn't we try *all* possibilities?
 
-	  // seq3 contains the RNA library sequences
+	  // seq_library contains the RNA library sequences
 	  int sid_idx = beginPosition(finder_sequence_id).i1;
 
 	  // what is the DNA?
-	  assignSeq(seq3, multiSeqFile3[sid_idx], format3); // read sequence of the RNA
-	  append( seq3, short_expt_ids[ expt_idx ] ); // experimental ID, added  in MAP-seq protocol as part of reverse transcription primer
-	  append( seq3, adapterSequence ); // piece of illumina DNA, added in MAP-seq protocol as part of reverse transcription primer
+	  assignSeq(seq_library, multiSeqFile_library[sid_idx], format_library); // read sequence of the RNA
+	  append( seq_library, short_expt_ids[ expt_idx ] ); // experimental ID, added  in MAP-seq protocol as part of reverse transcription primer
+	  append( seq_library, adapterSequence ); // piece of illumina DNA, added in MAP-seq protocol as part of reverse transcription primer
 
-	  //	assignSeqId(seq3id,multiSeqFile3[sid_idx], format3); // read the ID of the RNA -- is this used anymore?
+	  //	assignSeqId(seq_libraryid,multiSeqFile_library[sid_idx], format_library); // read the ID of the RNA -- is this used anymore?
 
 	  ////////////////////////////////////////////////////////////////////////////////////////
 	  // Look for the second read to determine where the reverse transcription stop is.
 	  ////////////////////////////////////////////////////////////////////////////////////////
-	  RNA2DNA( seq3 );
-	  Finder<String<char> > finder_in_specific_sequence(seq3);
+	  RNA2DNA( seq_library );
+	  Finder<String<char> > finder_in_specific_sequence(seq_library);
 
 	  //Set options for gap, mismatch, deletion. Again, should make these variables.
 	  Pattern<String<char>, DPSearch<SimpleScore> > pattern_in_specific_sequence(seq2,SimpleScore(0, -2, -1));
@@ -369,7 +420,7 @@ int main(int argc, const char *argv[]) {
 	  if ( found_match_in_read2 )  {
 	    record_counter( "found match in RNA sequence (read 2)", counter_idx, counter_counts, counter_tags );
 
-	    //if(debug==1) fprintf(oFile,"%s,%s,%s,%s,%d,%d,%s,%s\n",toCString(id1),toCString(id2),edescr.c_str(),toCString(seq3id),(mpos+1),mscr,toCString(seq2),toCString(seq3));
+	    //if(debug==1) fprintf(oFile,"%s,%s,%s,%s,%d,%d,%s,%s\n",toCString(id1),toCString(id2),edescr.c_str(),toCString(seq_libraryid),(mpos+1),mscr,toCString(seq2),toCString(seq_library));
 	    assert( mpos_vector.size() > 0 );
 
 	    float const weight = 1.0 / mpos_vector.size();
@@ -385,10 +436,7 @@ int main(int argc, const char *argv[]) {
       }
     }
     std::cout << "Aligning " << seqCount1 << " sequences took " << SEQAN_PROTIMEDIFF(alignTime);
-    std::cout << " seconds." << std::endl << std::endl;
-    std::cout << "Total Sequence Pairs: " << length(multiSeqFile1) << std::endl;
     std::cout << "Perfect constant sequence matches: " << perfect << std::endl;
-    std::cout << "Unmatched Lib: " << unmatchedlib << std::endl;
 
     std::cout << std::endl;
     std::cout << "Purification table" << std::endl;
@@ -400,13 +448,13 @@ int main(int argc, const char *argv[]) {
     //////////////////////////////////////////////////////
     //  output matrices with stored counts.
     //////////////////////////////////////////////////////
-    for ( unsigned i = 0; i < seqCount4; i++ ){
+    for ( unsigned i = 0; i < seqCount_expt_id; i++ ){
       char stats_outFileName[ 50 ];
       sprintf( stats_outFileName, "stats_ID%d.txt", i+1 ); // index by 1.
       std::cout << "Outputting counts to: " << stats_outFileName << std::endl;
       FILE * stats_oFile;
       stats_oFile = fopen( stats_outFileName,"w");
-      for ( unsigned j = 0; j < seqCount3; j++ ){
+      for ( unsigned j = 0; j < seqCount_library; j++ ){
     	for ( unsigned k = 0; k < max_rna_len; k++ ){
     	  fprintf( stats_oFile, " %8.1f", all_count[i][j][k] );
     	}
@@ -418,6 +466,29 @@ int main(int argc, const char *argv[]) {
     return 0;
 }
 
+/////////////////////////////////////////////
+// how many residues match up from one end?
+int
+get_number_of_matching_residues( std::vector< CharString > const & seq_primers ){
+
+  int count = 1;
+  int seqCount_primers = seq_primers.size();
+  bool all_match( true );
+  std::cout << count << " " << length( seq_primers[0] ) << std::endl;
+
+  while ( all_match && count < length( seq_primers[0] )){
+    char current_char;
+    for(unsigned j=0; j< seqCount_primers; j++) {
+      if ( j == 0 ) current_char = getValue( seq_primers[j], count );
+      if (getValue( seq_primers[j], count ) != current_char ){
+	all_match = false;
+	break;
+      }
+    }
+    count++;
+  }
+  return (count-1);
+}
 /////////////////////////////////////
 void RNA2DNA( String<char> & seq ){
  seqan::Iterator<seqan::String<char> >::Type it = begin(seq);
