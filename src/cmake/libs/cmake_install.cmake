@@ -1,4 +1,4 @@
-# Install script for directory: /Users/rhiju/src/map_seeker/src/cmake/libs
+# Install script for directory: /home/rhiju/src/map_seeker/src/cmake/libs
 
 # Set the install prefix
 IF(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -27,9 +27,14 @@ IF(NOT CMAKE_INSTALL_COMPONENT)
   ENDIF(COMPONENT)
 ENDIF(NOT CMAKE_INSTALL_COMPONENT)
 
+# Install shared libraries without execute permission?
+IF(NOT DEFINED CMAKE_INSTALL_SO_NO_EXE)
+  SET(CMAKE_INSTALL_SO_NO_EXE "0")
+ENDIF(NOT DEFINED CMAKE_INSTALL_SO_NO_EXE)
+
 IF(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
-  INCLUDE("/Users/rhiju/src/map_seeker/src/cmake/libs/samtools/cmake_install.cmake")
+  INCLUDE("/home/rhiju/src/map_seeker/src/cmake/libs/samtools/cmake_install.cmake")
 
 ENDIF(NOT CMAKE_INSTALL_LOCAL_ONLY)
 
