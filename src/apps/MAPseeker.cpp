@@ -83,9 +83,10 @@ int main(int argc, const char *argv[]) {
     addOption(parser, addArgumentText(CommandLineOption("b", "barcodes", "fasta file containing experimental barcodes", OptionType::String,""), "<FASTA FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("p", "primers", "fasta file containing experimental primers", OptionType::String,""), "<FASTA FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("o", "outfile", "output filename", (int)OptionType::String, "out.fasta"), "<Filename>"));
-    addOption(parser, addArgumentText(CommandLineOption("n", "sid.length", "sequence id length", OptionType::Int), "<Int>"));
+    addOption(parser, addArgumentText(CommandLineOption("n", "sid_length", "sequence id length", OptionType::Int), "<Int>"));
+    addOption(parser, addArgumentText(CommandLineOption("x", "match_single_nt_variants", "check off-by-one matches in sequence ID in read 1", OptionType::Bool, false), ""));
+    addOption(parser, addArgumentText(CommandLineOption("D", "match_DP", "use dynamic programming in matching sequence ID in read 2 (allow in/del)", OptionType::Bool, false), ""));
     addOption(parser, addArgumentText(CommandLineOption("d", "debug", "full output =1, condensed output=0", OptionType::Int, 0), "<Int>"));
-    addOption(parser, addArgumentText(CommandLineOption("f", "fast_match", "force exact match in sequence ID in read 1", OptionType::Bool, false), "<Int>"));
     addOption(parser, addArgumentText(CommandLineOption("a", "adapter", "Illumina Adapter sequence = 5' DNA sequence shared by all primers", OptionType::String,""), "<DNA sequence>"));
 
 
@@ -109,10 +110,10 @@ int main(int argc, const char *argv[]) {
     getOptionValueLong(parser, "barcodes",file_expt_id);
     getOptionValueLong(parser, "primers",file_primers);
     getOptionValueLong(parser, "outfile",outfile);
-    bool fast_match = isSetLong( parser, "fast_match" );
-    int seqid_length=-1;
-    int debug=0;
-    getOptionValueLong(parser,"sid.length",seqid_length);
+    bool match_single_nt_variants = isSetLong( parser, "match_single_nt_variants" );
+    bool match_DP = isSetLong( parser, "match_DP" );
+    int seqid_length=-1;    int debug=0;
+    getOptionValueLong(parser,"sid_length",seqid_length);
     getOptionValueLong(parser,"debug",debug);
 
     //Opening the output file and returning an error if it can't be opened
@@ -364,7 +365,7 @@ int main(int argc, const char *argv[]) {
 
       while ( !found_match_in_read2 && get_next_variant( sequence_id_region_in_sequence1, sequence_id_region_variant, variant_counter, seqid_length ) ){
 	//std::cout << "Looking for: " << sequence_id_region_variant << " " << variant_counter << std::endl;
-	if ( fast_match && variant_counter > 1 ) break;
+	if ( !match_single_nt_variants && variant_counter > 1 ) break;
 
 	if (!found_match_in_read1){
 	  record_counter( "found match in RNA sequence (read 1)", counter_idx, counter_counts, counter_tags );
@@ -391,49 +392,63 @@ int main(int argc, const char *argv[]) {
 	  ////////////////////////////////////////////////////////////////////////////////////////
 	  RNA2DNA( seq_library );
 	  Finder<String<char> > finder_in_specific_sequence(seq_library);
-
-	  //Set options for gap, mismatch, deletion. Again, should make these variables.
-	  //Pattern<String<char>, DPSearch<SimpleScore> > pattern_in_specific_sequence(seq2,SimpleScore(0, -2, -1));
-	  //	  int const EDIT_DISTANCE_SCORE_CUTOFF( -4 );
-
-	  // Alternative to DP -- edit distance, used by JP
-	  Pattern<String<char>, MyersUkkonen> pattern_in_specific_sequence(seq2);
-	  int const EDIT_DISTANCE_SCORE_CUTOFF( -2 );
-
-	  setScoreLimit(pattern_in_specific_sequence, EDIT_DISTANCE_SCORE_CUTOFF);//Edit Distance used to be -10! not very stringent.
-
-	  int  mscr( EDIT_DISTANCE_SCORE_CUTOFF - 1 );
 	  std::vector< int > mpos_vector;
-	  // Here, looking for best score -- but assuming that we've nailed the right RNA sequence (which may not be the case).
-	  while (find(finder_in_specific_sequence, pattern_in_specific_sequence)) {
-	    int cscr=getScore(pattern_in_specific_sequence);
-	    if(cscr > mscr) {
-	      found_match_in_read2 = true;
-	      mscr=cscr;
-	      mpos_vector.clear();
-	    }
-	    if ( cscr == mscr ){ // in case of ties, keep track of all hits
-	      int mpos_end=position( finder_in_specific_sequence ); //end position. Or do I want begin position?
-	      int mpos = mpos_end - length(seq2)-1;// get from end to position just before beginning of the read
+	  if ( match_DP ){
+	    //Set options for gap, mismatch, deletion. Again, should make these variables.
+	    Pattern<String<char>, DPSearch<SimpleScore> >  pattern_in_specific_sequence (seq2,SimpleScore(0, -2, -1));
+	    int EDIT_DISTANCE_SCORE_CUTOFF( -4 );
+	    setScoreLimit(pattern_in_specific_sequence, EDIT_DISTANCE_SCORE_CUTOFF);
 
-	      //findBegin( finder_in_specific_sequence, pattern_in_specific_sequence, mscr ); // the proper thing to do if DP is used.
-	      //mpos = beginPosition( finder_in_specific_sequence ) - 1;
-	      mpos_vector.push_back( mpos );
+	    int mscr( EDIT_DISTANCE_SCORE_CUTOFF - 1 );
+	    // Here, looking for best score -- but assuming that we've nailed the right RNA sequence (which may not be the case).
+	    while (find(finder_in_specific_sequence, pattern_in_specific_sequence)) {
+	      int cscr = getScore(pattern_in_specific_sequence);
+	      if(cscr > mscr) {
+		mscr=cscr;
+		mpos_vector.clear();
+	      }
+	      if ( cscr == mscr ){ // in case of ties, keep track of all hits
+		findBegin( finder_in_specific_sequence, pattern_in_specific_sequence, mscr ); // the proper thing to do if DP is used.
+		int mpos = beginPosition( finder_in_specific_sequence ) - 1;
+		mpos_vector.push_back( mpos );
+	      }
+	    }
+
+	  } else {  // default -- use fast MyersUkkonen, which does not allow in/dels
+
+	    // following copies code from DP block. Can't figure out how to avoid this -- Pattern is not sub-classed,
+	    // so Pattern< MyersUkkonen> cannot be interchanced with Pattern< DPsearch >. --Rhiju
+
+	    // Alternative to DP -- edit distance, used by JP
+	    Pattern<String<char>, MyersUkkonen> pattern_in_specific_sequence(seq2);
+	    int EDIT_DISTANCE_SCORE_CUTOFF( -2 );
+	    setScoreLimit(pattern_in_specific_sequence, EDIT_DISTANCE_SCORE_CUTOFF);//Edit Distance used to be -10! not very stringent.
+
+	    int  mscr( EDIT_DISTANCE_SCORE_CUTOFF - 1 );
+	    // Here, looking for best score -- but assuming that we've nailed the right RNA sequence (which may not be the case).
+	    while (find(finder_in_specific_sequence, pattern_in_specific_sequence)) {
+	      int cscr = getScore(pattern_in_specific_sequence);
+	      if(cscr > mscr) {
+		mscr=cscr;
+		mpos_vector.clear();
+	      }
+	      if ( cscr == mscr ){ // in case of ties, keep track of all hits
+		int mpos = position( finder_in_specific_sequence ) - length(seq2)-1;// get from end to position just before beginning of the read
+		mpos_vector.push_back( mpos );
+	      }
 	    }
 	  }
 
-	  if ( found_match_in_read2 )  {
-	    record_counter( "found match in RNA sequence (read 2)", counter_idx, counter_counts, counter_tags );
+	  if ( mpos_vector.size() == 0 ) continue;
+	  record_counter( "found match in RNA sequence (read 2)", counter_idx, counter_counts, counter_tags );
 
-	    //if(debug==1) fprintf(oFile,"%s,%s,%s,%s,%d,%d,%s,%s\n",toCString(id1),toCString(id2),edescr.c_str(),toCString(seq_libraryid),(mpos+1),mscr,toCString(seq2),toCString(seq_library));
-	    assert( mpos_vector.size() > 0 );
+	  //if(debug==1) fprintf(oFile,"%s,%s,%s,%s,%d,%d,%s,%s\n",toCString(id1),toCString(id2),edescr.c_str(),toCString(seq_libraryid),(mpos+1),mscr,toCString(seq2),toCString(seq_library));
 
-	    float const weight = 1.0 / mpos_vector.size();
-	    for (unsigned q = 0; q < mpos_vector.size(); q++ ){
-	      int mpos = mpos_vector[q];
-	      if ( mpos < 0 ) mpos = 0;
-	      all_count[ expt_idx ][ sid_idx ][ mpos ] += weight;
-	    }
+	  float const weight = 1.0 / mpos_vector.size();
+	  for (unsigned q = 0; q < mpos_vector.size(); q++ ){
+	    int mpos = mpos_vector[q];
+	    if ( mpos < 0 ) mpos = 0;
+	    all_count[ expt_idx ][ sid_idx ][ mpos ] += weight;
 	  }
 
 	}
