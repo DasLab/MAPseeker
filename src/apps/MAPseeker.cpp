@@ -390,11 +390,13 @@ int main(int argc, const char *argv[]) {
 	  Finder<String<char> > finder_in_specific_sequence(seq_library);
 
 	  //Set options for gap, mismatch, deletion. Again, should make these variables.
-	  Pattern<String<char>, DPSearch<SimpleScore> > pattern_in_specific_sequence(seq2,SimpleScore(0, -2, -1));
-	  // Alternative to DP -- edit distance, used by JP
-	  // Pattern<String<char>, MyersUkkonen> pattern_in_specific_sequence(seq2);
+	  //Pattern<String<char>, DPSearch<SimpleScore> > pattern_in_specific_sequence(seq2,SimpleScore(0, -2, -1));
+	  //	  int const EDIT_DISTANCE_SCORE_CUTOFF( -4 );
 
-	  int const EDIT_DISTANCE_SCORE_CUTOFF( -4 );
+	  // Alternative to DP -- edit distance, used by JP
+	  Pattern<String<char>, MyersUkkonen> pattern_in_specific_sequence(seq2);
+	  int const EDIT_DISTANCE_SCORE_CUTOFF( -2 );
+
 	  setScoreLimit(pattern_in_specific_sequence, EDIT_DISTANCE_SCORE_CUTOFF);//Edit Distance used to be -10! not very stringent.
 
 	  int  mscr( EDIT_DISTANCE_SCORE_CUTOFF - 1 );
