@@ -414,7 +414,7 @@ int main(int argc, const char *argv[]) {
 	    }
 	    if ( cscr == mscr ){ // in case of ties, keep track of all hits
 	      int mpos_end=position( finder_in_specific_sequence ); //end position. Or do I want begin position?
-	      int mpos = mpos_end - length(seq2);// get from end to beginning of the read
+	      int mpos = mpos_end - length(seq2)-1;// get from end to position just before beginning of the read
 
 	      //findBegin( finder_in_specific_sequence, pattern_in_specific_sequence, mscr ); // the proper thing to do if DP is used.
 	      //mpos = beginPosition( finder_in_specific_sequence ) - 1;
