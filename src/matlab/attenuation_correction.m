@@ -1,1 +1,0 @@
-function D_correct = attenuation_correction(  D  );
