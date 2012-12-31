@@ -65,7 +65,9 @@ hold on;
 plot( median_counts* [1 1], [0 ymax],'r'); 
 plot( mean_counts  * [1 1], [0 ymax]); 
 hold off;
-ylim([0 ymax]);
+if ( ymax > 0 )
+  ylim([0 ymax]);
+end
 xlim([0 xmax]); 
 xlabel( '# counts, summed over all primers, for RNA');
 legend( 'frequency','median','mean');

@@ -32,6 +32,7 @@ void record_counter( std::string const tag,
 		     std::vector< std::string > & counter_tags );
 
 int try_exact_match( CharString & seq1, CharString & cseq, unsigned & perfect );
+int try_exact_match( CharString & seq1, CharString & cseq );
 int try_DP_match( CharString & seq1, CharString & cseq, unsigned & perfect );
 
 int try_DP_match_expt_ids( std::vector< CharString > & short_expt_ids, CharString & expt_id_in_read1 );
@@ -80,16 +81,16 @@ int main(int argc, const char *argv[]) {
     addOption(parser, addArgumentText(CommandLineOption("2", "miseq2", "miseq output [read 2] containing 3' ends",OptionType::String), "<FASTAQ FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("l", "library", "library of sequences to align against", OptionType::String),"<FASTA FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("p", "primers", "fasta file containing experimental primers", OptionType::String,""), "<FASTA FILE>"));
-    addOption(parser, addArgumentText(CommandLineOption("n", "sid_length", "sequence id length (nts 3' of shared primer binding site)", OptionType::Int, 8), "<Int>"));
+    addOption(parser, addArgumentText(CommandLineOption("n", "sid_length", "sequence id length (nts 3' of shared primer binding site)", OptionType::Int, 8), "<int>"));
 
     addOption(parser, addArgumentText(CommandLineOption("O", "outpath", "output path for stats files", OptionType::String, ""), "<out path>"));
-    addOption(parser, addArgumentText(CommandLineOption("N", "start_at_read","align reads whose number modulo N is j (N = job ID)", OptionType::Int, 0), "<start at this read number>"));
-    addOption(parser, addArgumentText(CommandLineOption("j", "increment_between_reads", "align reads whose number modulo N is j (j = total # jobs)", OptionType::Int, 1), "<increment between reads>"));
+    addOption(parser, addArgumentText(CommandLineOption("N", "start_at_read","align reads starting at this number, going from 0 (e.g., N = job ID)", OptionType::Int, 0), "<int>"));
+    addOption(parser, addArgumentText(CommandLineOption("j", "increment_between_reads", "align reads separated by this increment (e.g., j = total # jobs)", OptionType::Int, 1), "<int>"));
 
     addOption(parser, addArgumentText(CommandLineOption("b", "barcodes", "fasta file containing experimental barcodes", OptionType::String,""), "<FASTA FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("c", "cseq", "Constant sequence", OptionType::String,""), "<DNA sequence>"));
-    addOption(parser, addArgumentText(CommandLineOption("x", "match_single_nt_variants", "check off-by-one matches in sequence ID in read 1", OptionType::Bool, false), ""));
-    addOption(parser, addArgumentText(CommandLineOption("D", "match_DP", "use dynamic programming in matching sequence ID in read 2 (allow in/del)", OptionType::Bool, false), ""));
+    addOption(parser, addArgumentText(CommandLineOption("x", "match_single_nt_variants", "check off-by-one to match sequence ID in read 1", OptionType::Bool, false), ""));
+    addOption(parser, addArgumentText(CommandLineOption("D", "match_DP", "use dynamic programming to match sequence ID in read 2 (allow in/del)", OptionType::Bool, false), ""));
     addOption(parser, addArgumentText(CommandLineOption("a", "adapter", "Illumina Adapter sequence = 5' DNA sequence shared by all primers", OptionType::String,""), "<DNA sequence>"));
 
 
@@ -176,7 +177,7 @@ int main(int argc, const char *argv[]) {
     // Read library of RNA sequences
     //////////////////////////////////////////////
     // FRAGMENT(read_sequences)
-    String<char> seq1,seq1id,seq2,seq_library,seq_libraryid,seq_expt_id,seq_expt_id_id,qual1,qual2,id1,id2;
+    String<char> seq1,seq1id,seq2,seq_from_library,seq_from_libraryid,seq_expt_id,seq_expt_id_id,qual1,qual2,id1,id2;
     THaystacks haystacks_rna_library, haystacks_expt_ids;
     std::vector< String<char> > short_expt_ids;
 
@@ -192,10 +193,10 @@ int main(int argc, const char *argv[]) {
     unsigned max_rna_len( 0 );
     std::cout << "Indexing Sequences(N=" << seqCount_library << ")..";
     for(unsigned j=0; j< seqCount_library; j++) {
-        assignSeq(seq_library, multiSeqFile_library[j], format_library);    // read sequence
-	RNA2DNA( seq_library );
-        appendValue(haystacks_rna_library, seq_library);
-	if ( max_rna_len < length( seq_library ) ) max_rna_len = length( seq_library );
+        assignSeq(seq_from_library, multiSeqFile_library[j], format_library);    // read sequence
+	RNA2DNA( seq_from_library );
+        appendValue(haystacks_rna_library, seq_from_library);
+	if ( max_rna_len < length( seq_from_library ) ) max_rna_len = length( seq_from_library );
     }
     //    Index<THaystacks> index(haystacks_rna_library);
     Finder<Index<THaystacks> > finder_sequence_id( haystacks_rna_library );
@@ -405,22 +406,27 @@ int main(int argc, const char *argv[]) {
 	clear( finder_sequence_id ); //reset.
 	if( find(finder_sequence_id, pattern_sequence_id_in_read1)) { // wait, shouldn't we try *all* possibilities?
 
-	  // seq_library contains the RNA library sequences
+	  // seq_from_library contains the RNA library sequences
 	  int sid_idx = beginPosition(finder_sequence_id).i1;
 
 	  // what is the DNA?
-	  assignSeq(seq_library, multiSeqFile_library[sid_idx], format_library); // read sequence of the RNA
-	  append( seq_library, short_expt_ids[ expt_idx ] ); // experimental ID, added  in MAP-seq protocol as part of reverse transcription primer
-	  append( seq_library, adapterSequence ); // piece of illumina DNA, added in MAP-seq protocol as part of reverse transcription primer
+	  assignSeq(seq_from_library, multiSeqFile_library[sid_idx], format_library); // read sequence of the RNA
+	  append( seq_from_library, short_expt_ids[ expt_idx ] ); // experimental ID, added  in MAP-seq protocol as part of reverse transcription primer
+	  append( seq_from_library, adapterSequence ); // piece of illumina DNA, added in MAP-seq protocol as part of reverse transcription primer
 
-	  //	assignSeqId(seq_libraryid,multiSeqFile_library[sid_idx], format_library); // read the ID of the RNA -- is this used anymore?
+	  //	assignSeqId(seq_from_libraryid,multiSeqFile_library[sid_idx], format_library); // read the ID of the RNA -- is this used anymore?
 
 	  ////////////////////////////////////////////////////////////////////////////////////////
 	  // Look for the second read to determine where the reverse transcription stop is.
 	  ////////////////////////////////////////////////////////////////////////////////////////
-	  RNA2DNA( seq_library );
-	  Finder<String<char> > finder_in_specific_sequence(seq_library);
+	  RNA2DNA( seq_from_library );
+	  Finder<String<char> > finder_in_specific_sequence(seq_from_library);
 	  std::vector< int > mpos_vector;
+
+	  //reads beyond sequence ID are nonsense -- sequence ID better be there based on match to read1 above.
+	  int mpos_max = try_exact_match( seq_from_library, cseq ) - seqid_length;
+	  if ( mpos_max < 0 ) mpos_max = length( seq_from_library );  //to catch boundary cases -- no match to constant sequence.
+
 	  if ( match_DP ){
 	    //Set options for gap, mismatch, deletion. Again, should make these variables.
 	    Pattern<String<char>, DPSearch<SimpleScore> >  pattern_in_specific_sequence (seq2,SimpleScore(0, -2, -1));
@@ -438,7 +444,7 @@ int main(int argc, const char *argv[]) {
 	      if ( cscr == mscr ){ // in case of ties, keep track of all hits
 		findBegin( finder_in_specific_sequence, pattern_in_specific_sequence, mscr ); // the proper thing to do if DP is used.
 		int mpos = beginPosition( finder_in_specific_sequence );
-		mpos_vector.push_back( mpos );
+		if ( mpos <= mpos_max ) mpos_vector.push_back( mpos );
 	      }
 	    }
 
@@ -462,16 +468,19 @@ int main(int argc, const char *argv[]) {
 	      }
 	      if ( cscr == mscr ){ // in case of ties, keep track of all hits
 		int mpos = position( finder_in_specific_sequence ) - length(seq2) + 1;// get from end to position just before beginning of the read
-		mpos_vector.push_back( mpos );
+		// watch out ... this can't go beyond the "sequence id"!?
+		if ( mpos <= mpos_max ) mpos_vector.push_back( mpos );
 	      }
 	    }
 	  }
 
 	  if ( mpos_vector.size() == 0 ) continue;
+
+	  found_match_in_read2 = true;
 	  record_counter( "found match in RNA sequence (read 2)", counter_idx, counter_counts, counter_tags );
 
 	  // no longer in use.
-	  //if(debug==1) fprintf(oFile,"%s,%s,%s,%s,%d,%d,%s,%s\n",toCString(id1),toCString(id2),edescr.c_str(),toCString(seq_libraryid),(mpos+1),mscr,toCString(seq2),toCString(seq_library));
+	  //if(debug==1) fprintf(oFile,"%s,%s,%s,%s,%d,%d,%s,%s\n",toCString(id1),toCString(id2),edescr.c_str(),toCString(seq_from_libraryid),(mpos+1),mscr,toCString(seq2),toCString(seq_from_library));
 
 	  float const weight = 1.0 / mpos_vector.size();
 	  for (unsigned q = 0; q < mpos_vector.size(); q++ ){
@@ -480,7 +489,7 @@ int main(int argc, const char *argv[]) {
 	    all_count[ expt_idx ][ sid_idx ][ mpos ] += weight;
 	    //if ( sid_idx > 3917 ){
 	    //	      std::cout << seq2 << " " << mpos << std::endl;
-	    //	      std::cout << seq_library << std::endl;
+	    //	      std::cout << seq_from_library << std::endl;
 	    //	      std::cout << std::endl;
 	    //	    }
 	  }
@@ -572,6 +581,7 @@ void record_counter( std::string const tag,
 }
 
 
+
 /////////////////////////////////////////////////////////////////////////////
 int
 try_exact_match( CharString & seq1, CharString & cseq, unsigned & perfect ){
@@ -593,6 +603,12 @@ try_exact_match( CharString & seq1, CharString & cseq, unsigned & perfect ){
   return pos1; // no position found
 }
 
+/////////////////////////////////////////////////////////////////////////////
+int
+try_exact_match( CharString & seq1, CharString & cseq ){
+  unsigned perfect( 0 );
+  return try_exact_match( seq1, cseq, perfect );
+}
 
 
 /////////////////////////////////////////////////////////////////////////////
