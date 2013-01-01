@@ -7,6 +7,11 @@ from os.path import basename, abspath, dirname
 from glob import glob
 
 outdirs = sys.argv[1:]
+delete_files = False
+if '--delete' in outdirs:
+    pos =outdirs.index( '--delete')
+    del( outdirs[ pos ] )
+    delete_files = True
 
 scripts_path = dirname( abspath( sys.argv[0] ) )
 
@@ -14,15 +19,15 @@ which_files_to_cat = {}
 
 for outdir in outdirs:
 
-    globfiles = glob( outdir+'/*/stats*txt' )
+    globfiles_all = glob( outdir+'/*/stats*txt' )
 
-    basenames = map( lambda x:basename(x), globfiles )
+    basenames = map( lambda x:basename(x), globfiles_all )
     basenames = set( basenames )
 
     print basenames
 
-    for basename in basenames:
-        globfiles = glob( outdir+'/*/'+basename )
+    for filename in basenames:
+        globfiles = glob( outdir+'/*/'+filename )
         N = []
         for file in globfiles: # probably could use pickle or something.
             lines = open( file ).readlines()
@@ -38,10 +43,24 @@ for outdir in outdirs:
                     k = float(cols[m])
                     N[i][m] += k
 
-        final_file = outdir+'/'+basename
+        final_file = outdir+'/'+filename
         fid = open( final_file, 'w' )
         for row in N:
-            for m in row: fid.write( '%8.1f' % m )
+            for m in row: fid.write( '%11.4f' % m )
             fid.write( '\n' )
         fid.close()
-        print 'Created: ', final_file
+
+        system( 'cp %s ./' % final_file )
+        print 'Created: ', basename(final_file)
+
+    if ( delete_files ): # remove dirs.
+        dirs_to_delete = []
+        for file in globfiles_all:
+            if not dirname( file ) in dirs_to_delete: dirs_to_delete.append( dirname(file) )
+        command = 'rm -rf '+string.join( dirs_to_delete  )
+        system( command )
+
+        # clogs up system -- and will affect any future runs...
+        command = 'rm -rf dagMAPSEEKER.*'
+        system( command )
+

@@ -38,7 +38,7 @@ int try_DP_match( CharString & seq1, CharString & cseq, unsigned & perfect );
 int try_DP_match_expt_ids( std::vector< CharString > & short_expt_ids, CharString & expt_id_in_read1 );
 
 bool
-get_next_variant( CharString const & seq, CharString & seq_var, unsigned & variant_counter, int const & seqid_length );
+get_next_variant( CharString const & seq, CharString & seq_var, unsigned & variant_counter, unsigned const & seqid_length );
 
 //The known library of sequences is stored as a StringSet called THaystacks
 //We will generate an index against this file to make the search faster
@@ -104,7 +104,7 @@ int main(int argc, const char *argv[]) {
 
 //This isn't required but shows you how long the processing took
     SEQAN_PROTIMESTART(loadTime);
-    int seqid_length( 0 ), increment_between_reads( 0 ), start_at_read( 0 );
+    unsigned seqid_length( 0 ), increment_between_reads( 0 ), start_at_read( 0 );
     std::string file1,file2,file_library,file_expt_id,file_primers,outfile,outpath;
     String<char> cseq,adapterSequence;
     getOptionValueLong(parser, "cseq",cseq);
@@ -304,9 +304,9 @@ int main(int argc, const char *argv[]) {
     std::cout << "Reading MiSEQ, RNA library, primer sequence files took: " << SEQAN_PROTIMEDIFF(loadTime) << " seconds." << std::endl;
 
     // initialize a histogram recording the counts [convenient for plotting in matlab, R, etc.]
-    std::vector< float > sequence_counts( max_rna_len+1,0.0 );
-    std::vector< std::vector< float > > bunch_of_sequence_counts( seqCount_library+1, sequence_counts);
-    std::vector< std::vector< std::vector < float > > > all_count( seqCount_expt_id, bunch_of_sequence_counts);
+    std::vector< double > sequence_counts( max_rna_len+1,0.0 );
+    std::vector< std::vector< double > > bunch_of_sequence_counts( seqCount_library, sequence_counts);
+    std::vector< std::vector< std::vector < double > > > all_count( seqCount_expt_id, bunch_of_sequence_counts);
 
     // keep track of how many sequences pass through each filter
     std::vector< unsigned > counter_counts;
@@ -487,11 +487,6 @@ int main(int argc, const char *argv[]) {
 	    int mpos = mpos_vector[q];
 	    if ( mpos < 0 ) mpos = 0;
 	    all_count[ expt_idx ][ sid_idx ][ mpos ] += weight;
-	    //if ( sid_idx > 3917 ){
-	    //	      std::cout << seq2 << " " << mpos << std::endl;
-	    //	      std::cout << seq_from_library << std::endl;
-	    //	      std::cout << std::endl;
-	    //	    }
 	  }
 
 	}
@@ -518,9 +513,12 @@ int main(int argc, const char *argv[]) {
       FILE * stats_oFile;
       stats_oFile = fopen( stats_outFileName,"w");
       for ( unsigned j = 0; j < seqCount_library; j++ ){
-    	for ( unsigned k = 0; k < max_rna_len; k++ ){
-    	  fprintf( stats_oFile, " %8.1f", all_count[i][j][k] );
+	double total_for_RNA( 0.0 );
+    	for ( unsigned k = 0; k < max_rna_len+1; k++ ){
+    	  fprintf( stats_oFile, " %11.3f", all_count[i][j][k] );
+	  total_for_RNA += all_count[i][j][k];
     	}
+	// std::cout << total_for_RNA << std::endl; // was used to check if total was integer.
     	fprintf( stats_oFile, "\n");
       }
       fclose( stats_oFile );
@@ -538,8 +536,8 @@ int main(int argc, const char *argv[]) {
 int
 get_number_of_matching_residues( std::vector< CharString > const & seq_primers ){
 
-  int count = 1;
-  int seqCount_primers = seq_primers.size();
+  unsigned count = 1;
+  unsigned seqCount_primers = seq_primers.size();
   bool all_match( true );
   while ( all_match && count < length( seq_primers[0] )){
     char current_char;
@@ -655,7 +653,8 @@ try_DP_match_expt_ids( std::vector< CharString > & short_expt_ids, CharString & 
     // could we save some time by preconstructing patterns?
     String<char> & ndl = short_expt_ids[n]; // this is the needle. const doesn't seem to work.
     //Set options for gap, mismatch, deletion. Again, should make these variables.
-    Pattern<String<char>, DPSearch<SimpleScore> > pattern_expt_id(ndl,SimpleScore(0, -2, -1));
+    // penalize gaps to take into account length mismatches!
+    Pattern<String<char>, DPSearch<SimpleScore> > pattern_expt_id(ndl,SimpleScore(-1, -2, -1));
 
     best_score = score_cutoff - 1;
 
@@ -680,7 +679,7 @@ try_DP_match_expt_ids( std::vector< CharString > & short_expt_ids, CharString & 
 
 ////////////////////////////////////////////////////
 bool
-get_next_variant( CharString const & seq, CharString & seq_var, unsigned & variant_counter, int const & seqid_length ){
+get_next_variant( CharString const & seq, CharString & seq_var, unsigned & variant_counter, unsigned const & seqid_length ){
 
   seq_var = seq;
 
@@ -695,7 +694,7 @@ get_next_variant( CharString const & seq, CharString & seq_var, unsigned & varia
   static std::string const DNAchars ("ACGT"); // this probably exists somewhere in seqan... too lazy to go find it.
 
   while ( it != itEnd && pos_count < seqid_length ) {
-    for ( int n = 0; n < DNAchars.size(); n++ ){
+    for ( unsigned n = 0; n < DNAchars.size(); n++ ){
       if ( DNAchars[n] == *it ) continue;
 
       count++;

@@ -6,19 +6,20 @@ from os.path import basename,dirname,expanduser,exists
 import string
 
 def Help():
-    print argv[0]+' <text file with MAPSEEKER command> <outdir> <# jobs>  [# hours]'
+    print argv[0]+' <text file with MAPSEEKER command> <# jobs>  [# hours]'
+    print " note that MAPseeker command must have flag  --outpath <outpath> to specify path."
+    print " only condor stuff has been tested carefully at this point."
     exit()
 
-if len( argv ) < 4:
+if len( argv ) < 3:
     Help()
 
 infile = argv[1]
-outdir = argv[2]
 try:
-    n_jobs = int( argv[3] )
+    n_jobs = int( argv[2] )
 except:
     print 'NEED TO SUPPLY NUMBER OF JOBS'
-
+    Help()
 
 tasks_per_node_MPI = 12 # lonestar
 
@@ -41,7 +42,6 @@ if len( argv ) > 4:
 lines = open(infile).readlines()
 
 bsub_file = 'bsubMAPSEEKER'
-condor_file = 'condorMAPSEEKER'
 condor_dagman_file = 'dagMAPSEEKER'
 qsub_file = 'qsubMAPSEEKER'
 qsub_file_MPI = 'qsubMPI'
@@ -49,7 +49,8 @@ qsub_file_MPI_ONEBATCH = 'qsubMPI_ONEBATCH'
 job_file_MPI_ONEBATCH = 'MPI_ONEBATCH.job'
 
 fid = open( bsub_file,'w')
-fid_condor = open( condor_file,'w')
+
+system( 'rm -rf dagMAPSEEKER*' ) # clear out old crap
 fid_condor_dagman = open( condor_dagman_file,'w')
 fid_qsub = open( qsub_file,'w')
 
@@ -58,11 +59,6 @@ fid_job_MPI_ONEBATCH = open( job_file_MPI_ONEBATCH,'w')
 fid_qsub_MPI_ONEBATCH = open( qsub_file_MPI_ONEBATCH,'w')
 
 tot_jobs = 0
-
-universe = 'vanilla';
-fid_condor.write('+TGProject = "TG-MCB090153"\n')
-fid_condor.write('universe = %s\n' % universe)
-fid_condor.write('notification = never\n')
 
 HOMEDIR = expanduser('~')
 CWD = getcwd()
@@ -73,6 +69,7 @@ if not exists( qsub_file_dir ): system( 'mkdir '+qsub_file_dir )
 qsub_file_dir_MPI = 'qsub_files_MPI/'
 if not exists( qsub_file_dir_MPI ): system( 'mkdir '+qsub_file_dir_MPI )
 
+condor_files = []
 command_lines_explicit = []
 job_count = 0
 for line in lines:
@@ -81,11 +78,25 @@ for line in lines:
     if line[0] == '#': continue
     #if string.split( line[0]) == []: continue
 
-    dir = outdir + '/$(Process)/'
     command_line = line[:-1]
     command_line = command_line.replace( 'Users', 'home')
     command_line = command_line.replace( '~/', HOMEDIR+'/')
     command_line = command_line.replace( '/home/rhiju',HOMEDIR)
+
+    # figure out outpath ... there better be an outpath flagxo
+    cols = string.split( command_line )
+    if len( cols ) == 0: continue
+    if ( not "--outpath" in cols ):
+        print cols
+        print "MUST HAVE OUTPATH in ", infile
+        Help()
+    pos = cols.index( "--outpath" )
+    del( cols[pos])
+    outdir = cols[pos]
+    del( cols[pos])
+    command_line = string.join( cols )
+
+    dir = outdir + '/$(Process)/'
 
     if command_line.find( "MAPseeker" ) > -1 :
         command_line += " --outpath "+dir
@@ -105,8 +116,19 @@ for line in lines:
         cols[ pos+1 ] = '$(Process)'
         command_line = string.join( cols )
 
-    job_name = 'MAPseeker%d' % job_count
+    job_name = 'MAPSEEKER%d' % job_count
+    #job_name = outdir.replace('/','')
+
+    # initialize condor file for this job
+    condor_file = 'condor'+job_name
+    condor_files.append( condor_file )
+    fid_condor = open( condor_file,'w')
     fid_condor.write( 'log = %s\n' % job_name )
+
+    universe = 'vanilla';
+    fid_condor.write('+TGProject = "TG-MCB090153"\n')
+    fid_condor.write('universe = %s\n' % universe)
+    fid_condor.write('notification = never\n')
 
     if save_logs:
         outfile_general = '$(Process).out'
@@ -141,7 +163,6 @@ for line in lines:
 
         fid_qsub.write( 'qsub %s\n' % qsub_submit_file )
 
-
         # MPI job file
         fid_job_MPI_ONEBATCH.write( '%s ;;; %s\n' % (CWD, command_line_explicit) )
 
@@ -150,8 +171,7 @@ for line in lines:
 
     EXE = cols[ 0 ]
     EXE_original = EXE
-    if not exists( EXE ):
-        EXE = HOMEDIR + '/src/map_seeker/src/cmake/apps/'+EXE_original
+    EXE = HOMEDIR + '/src/map_seeker/src/cmake/apps/MAPseeker'
     assert( exists( EXE ) )
 
     # reducer script for DAGMAN runs
@@ -166,11 +186,14 @@ for line in lines:
         fid_condor.write( 'error  = %s\n' % errfile_general )
     fid_condor.write('Queue %d\n' % n_jobs )
 
-    reducer_command = '%s %s' % (REDUCER, outdir)
+    #reducer_command = '%s %s ' % (REDUCER, outdir)
+    reducer_command = '%s %s --delete' % (REDUCER, outdir)
     fid_condor_dagman.write( 'JOB %s %s\n' % (job_name, condor_file ) )
-    fid_condor_dagman.write( 'SCRIPT POST %s %s\n' % (job_name, reducer_command) )
+    fid_condor_dagman.write( 'SCRIPT POST %s %s\n\n' % (job_name, reducer_command) )
 
     job_count += 1
+
+    fid_condor.close()
 
 
 N_MPIJOBS_ONEBATCH =  tot_jobs
@@ -223,6 +246,7 @@ for n in range( tot_nodes ):
 
 
 
+
 fid_qsub_MPI_ONEBATCH.write( '#!/bin/bash 	 \n')
 fid_qsub_MPI_ONEBATCH.write( '#$ -V 	#Inherit the submission environment\n')
 fid_qsub_MPI_ONEBATCH.write( '#$ -cwd 	# Start job in submission directory\n')
@@ -242,7 +266,6 @@ fid_qsub_MPI_ONEBATCH.write( 'ibrun mpi_simple_job_submit.py %s	# Run the MPI py
 
 
 fid.close()
-fid_condor.close()
 fid_condor_dagman.close()
 fid_qsub.close()
 fid_qsub_MPI.close()
@@ -257,12 +280,12 @@ if len( hostname ) == 0:
 
 if len( hostname ) == 0 or hostname == 'ade':
     print 'Created condor submission file ',condor_file,' with ',tot_jobs, ' jobs queued. To run, type: '
-    print '>condor_submit',condor_file
+    for condor_file in condor_files:        print '>condor_submit',condor_file
     print
-    if (job_count == 1):
-        print 'Created condor DAGMAN file ',condor_dagman_file,' with ',tot_jobs, ' jobs queued. To run & post-process, type: '
-        print '>condor_submit_dag',condor_dagman_file
-        print
+
+    print 'OR Created condor DAGMAN file ',condor_dagman_file,' with ',tot_jobs, ' jobs queued. To run & post-process, type: '
+    print '>condor_submit_dag',condor_dagman_file
+    print
 
 if len( hostname ) == 0:
     print 'Created qsub submission files ',qsub_file,' with ',tot_jobs, ' jobs queued. To run, type: '
