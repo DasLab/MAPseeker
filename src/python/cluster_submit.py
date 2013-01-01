@@ -116,7 +116,7 @@ for line in lines:
         cols[ pos+1 ] = '$(Process)'
         command_line = string.join( cols )
 
-    job_name = 'MAPSEEKER%d' % job_count
+    job_name = 'dagMAPSEEKER.job%d' % job_count
     #job_name = outdir.replace('/','')
 
     # initialize condor file for this job
@@ -186,8 +186,8 @@ for line in lines:
         fid_condor.write( 'error  = %s\n' % errfile_general )
     fid_condor.write('Queue %d\n' % n_jobs )
 
-    #reducer_command = '%s %s ' % (REDUCER, outdir)
-    reducer_command = '%s %s --delete' % (REDUCER, outdir)
+    reducer_command = '%s %s ' % (REDUCER, outdir)
+    #reducer_command = '%s %s --delete' % (REDUCER, outdir)
     fid_condor_dagman.write( 'JOB %s %s\n' % (job_name, condor_file ) )
     fid_condor_dagman.write( 'SCRIPT POST %s %s\n\n' % (job_name, reducer_command) )
 
