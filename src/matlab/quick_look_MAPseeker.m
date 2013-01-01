@@ -1,4 +1,4 @@
-function quick_look_MAPseeker( library_file, primer_file, inpath );
+function D = quick_look_MAPseeker( library_file, primer_file, inpath );
 %
 % quick_look_MAPseeker( library_file, primer_file, inpath );
 %
