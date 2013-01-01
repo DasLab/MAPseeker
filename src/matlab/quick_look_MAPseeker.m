@@ -2,12 +2,25 @@ function quick_look_MAPseeker( library_file, primer_file, inpath );
 %
 % quick_look_MAPseeker( library_file, primer_file, inpath );
 %
+%      Reads in MAPseeker output and prints useful graphs for your
+%      notebook.
+%
+% library_file = [default: 'RNA_sequences.fasta'] all probed RNA sequences in 
+%                  FASTA format. Can include structures in dot/paren notation 
+%                  after each sequence (as output by Vienna's RNAfold).
+% primer_file  = [default: 'primers.fasta'] DNA sequences of reverse 
+%                  transcription primers in FASTA format
+% inpath       = [default: './' (current directory)] where to find
+%                  MAPseeker output files: stats_ID1.txt, stats_ID2.txt, ...
+%
+%
 %
 % (C) R. Das, 2012-2013
 
-if ~exist( 'library_file') library_file = 'RNA_structures.fasta';end;
-if ~exist( 'primer_file') primer_file = 'primers.fasta';end;
-if ~exist( 'inpath') inpath = './';end;
+if ~exist( 'library_file') | length( library_file ) == 0;  library_file = 'RNA_structures.fasta'; end;
+if ~exist( library_file );  library_file = 'RNA_sequences.fasta'; end    
+if ~exist( 'primer_file') | length( primer_file ) == 0; primer_file = 'primers.fasta';end;
+if ~exist( 'inpath') | length( inpath ) == 0; inpath = './';end;
 
 output_tag = strrep( strrep( inpath, '.','' ), '/', '' ); % could be blank
 
@@ -24,7 +37,6 @@ for i = 1:N_primers;
 end
 Nidx = size( D{1}, 1 );
 
-for i = 1:N_primers; primer_tags{i} = primer_info(i).Header; end 
 
 N_res  = size( D{1}, 2);
 N_RNA = size(D{1},1);
@@ -34,7 +46,10 @@ if N_RNA  ~= length( RNA_info );
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-figure(1) % overall summary of reads
+% overall summary of total reads
+FigHandle = figure(1);
+figure_xsize = 1000;
+set(FigHandle, 'Position', [50, 50, figure_xsize, 400]);
 clf;
 for i = 1:N_primers
   num_counts_per_sequence(:,i) = sum(D{i}');
@@ -44,22 +59,26 @@ subplot(1,2,1);
 total_counts = sum( sum( num_counts_per_sequence ));
 num_counts_per_primer = sum( num_counts_per_sequence, 1);
 colorcode = jet( N_primers );
+colorcode(:,2) = 0.8 * colorcode(:,2);
 my_bar_graph( num_counts_per_primer );
 colormap( colorcode );
+
+for i = 1:N_primers; primer_tags{i} = regexprep(primer_info(i).Header,'\t','\n'); end 
 set( gca, 'xticklabel',primer_tags );
-title( sprintf( 'Distributions of %9d counts over primers',round(total_counts)));
+
+ylabel( sprintf( 'Distributions of %9d counts over primers',round(total_counts)));
 xticklabel_rotate;
 set(gcf, 'PaperPositionMode','auto','color','white');;
+h=title( basename(pwd) ); set(h,'interpreter','none','fontsize',7 )
 
 subplot(1,2,2);
 num_counts_total = sum(num_counts_per_sequence,2);
-med = median( num_counts_total );
-xmax = max(10*med,10);
+mean_counts = mean( num_counts_total );
+median_counts = round(median( num_counts_total ));
+xmax = max(5*mean_counts,10);
 r = [0:10:xmax]; % should adjust this automatically.
 h = hist( num_counts_total, r);
 plot( r, h,'k','linew',2 ); 
-mean_counts = mean( num_counts_total );
-median_counts = median( num_counts_total );
 ymax = max( h(2:end-1) );
 hold on; 
 plot( median_counts* [1 1], [0 ymax],'r'); 
@@ -70,9 +89,13 @@ if ( ymax > 0 )
 end
 xlim([0 xmax]); 
 xlabel( '# counts, summed over all primers, for RNA');
-legend( 'frequency','median','mean');
-title( sprintf( 'Distributions of %9d counts over RNAs',round(total_counts)));
+legend( 'frequency',...
+	['median: ',num2str(median_counts)],...
+	['mean: ',num2str(mean_counts)] );
+ylabel( sprintf( 'Distributions of %9d counts over RNAs',round(total_counts)));
 set(gcf, 'PaperPositionMode','auto','color','white');
+h=title( basename(pwd) ); set(h,'interpreter','none','fontsize',7 )
+
 print( '-depsc2',[output_tag,'Figure1.eps'] )
 
 
@@ -94,42 +117,39 @@ for i = most_common_sequences
   fprintf( '%s Counts: %8d. ID %6d: %s\n', RNA_info(i).Sequence, round(num_counts_total(i)), i, RNA_info(i).Header );
 end
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% apply attenuation correction...
+[ D_correct, D_correct_err ] = determine_corrected_reactivity( D );
 
+figure_ysize = min( N_RNA*150, 800);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-figure(2)
-clf
-set(gcf, 'PaperPositionMode','auto','color','white');
-for j = 1:N_display;
-  subplot(N_display,1,j);
-  idx = most_common_sequences(j);
-  make_stair_plot( idx, D, RNA_info, colorcode );
-end
+%  Make 1D plots of most common sequences
+FigHandle = figure(2);
+set(FigHandle, 'Position', [150,150,600,figure_ysize]);
+make_stair_plots( D, most_common_sequences, RNA_info, primer_info, colorcode );
 print( '-depsc2',[output_tag,'Figure2.eps'] )
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-figure(3)  
-% apply attenuation correction...
-[ D_correct, D_correct_err ] = determine_corrected_reactivity( D );
-clf
-set(gcf, 'PaperPositionMode','auto','color','white');
-for j = 1:N_display;
-  subplot(N_display,1,j);
-  idx = sortidx(N_RNA - j + 1);
-  make_stair_plot( idx, D_correct, RNA_info, colorcode, D_correct_err );
-end
-
+%  Make 1D plots of most common sequences, apply correction
+FigHandle = figure(3);
+set(FigHandle, 'Position', [200,200,600,figure_ysize]);
+make_stair_plots( D_correct, most_common_sequences, RNA_info, primer_info, colorcode, D_correct_err );
 print( '-depsc2',[output_tag,'Figure3.eps'] )
 
 %pause;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% gray plots of all counts
-figure(4)
+% Make 2D gray of all counts
+FigHandle = figure(4);
+set(FigHandle, 'Position', [250,250,600,figure_ysize]);
 clf;
 make_image_plot( D, RNA_info, primer_info, most_common_sequences , 'raw counts');
 print( '-depsc2',[output_tag,'Figure4.eps'] )
 
-figure(5)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Make 2D gray of all reactivies, corrected
+FigHandle = figure(5);
+set(FigHandle, 'Position', [300,300,600,figure_ysize]);
 clf;
 make_image_plot( D_correct, RNA_info, primer_info, most_common_sequences, 'correct', 1000 );
 print( '-depsc2',[output_tag,'Figure5.eps'] )
@@ -157,63 +177,89 @@ set(ch,'FaceVertexCData',fvcd) %set to new face vertex cdata
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function make_image_plot( D, RNA_info, primer_info, most_common_sequences, title_tag, scalefactor );
 N_RNA = size( D{1}, 1 );
-N_res  = size( D{1}, 2 );
+N_res = size( D{1}, 2 ); % this is actually the number of residues + 1 (first value is at zero).
 N_primers = length( primer_info );
 
 STRUCTURES_DEFINED = ( length( RNA_info(1).Structure ) > 0 );
 N_plots = N_primers + STRUCTURES_DEFINED;
 
+imagex = zeros( N_RNA, (N_res * N_plots) );
+plot_titles = {};
+xticks = [];
+xticklabels = [];
+
+subplot(1,1,1);
+% just use lower half if there aren't that many RNAs..
+if (N_RNA < 3); subplot(2,1,2); end;
+
 if STRUCTURES_DEFINED
-  subplot( 1,N_plots, 1 );
-  imagex = zeros( N_RNA, N_res);
+
+  scalefactor_structure = 40;
   for k = 1:N_RNA
     structure = RNA_info( k ).Structure;
-    imagex( k, 1) = 1;
-    imagex( k, strfind( structure, '.' )+1 ) = 1;
+    imagex( k, 1) = scalefactor_structure;
+    imagex( k, strfind( structure, '.' )+1 ) = scalefactor_structure;
   end
-  image( [0:N_res], [1:N_RNA], imagex* 30 );
 
   plot_title = 'Predicted Structure';
   if exist( 'title_tag' ); plot_title = sprintf('%s\n%s',plot_title,title_tag ); end;
-  h = title( plot_title ); 
-  set(h,'fontw','bold','fontsize',12,'interpreter','none');
 
+  plot_titles = [ plot_titles, plot_title ];
+  xticks      = [ xticks,      [0:20:N_res-20] ];
+  xticklabels = [ xticklabels, [0:20:N_res-20] ];  
 end
 
 for i = 1:N_primers
-  subplot( 1,N_plots, i+STRUCTURES_DEFINED );
+
+  offset = (i+STRUCTURES_DEFINED-1)*N_res;
+  minresidx = 1 + offset; 
+  maxresidx = N_res + offset;
   Dplot = D{i};
   if ~exist( 'scalefactor' )
     meanval = mean(mean(Dplot(:,2:end-1)));
-    if meanval <= 0; continue; end;
-    scalefactor1 = 20/meanval;
+    if meanval > 0;
+      scalefactor_to_use = 20/meanval;
+    else
+      scalefactor_to_use = 1.0;
+    end
   else
-    scalefactor1 = scalefactor;
+    scalefactor_to_use = scalefactor;
   end
-  image( [0:N_res], 1:N_RNA, Dplot * scalefactor1 );  
-  
+  imagex( :, [minresidx:maxresidx] ) = Dplot * scalefactor_to_use;
+
   plot_title = regexprep(primer_info(i).Header,'\t','\n');
   if exist( 'title_tag' ); plot_title = sprintf('%s\n%s',plot_title,title_tag ); end;
-  h = title( plot_title );
-  set(h,'fontw','bold','fontsize',12,'interpreter','none');
+  plot_titles = [ plot_titles, plot_title ];
 
-  set( gca,'yticklabel',[],'tickdir','out');
-  if (i + STRUCTURES_DEFINED ) > 0;
-    set(gca,'yticklabel',[]);
-  end
+  xticks      = [ xticks,      [0:20:N_res-20] + offset];
+  xticklabels = [ xticklabels, [0:20:N_res-20] ];
+
 end
+
+image( [0:(N_res*N_plots)-1], [1:N_RNA], imagex );
+set( gca,'tickdir','out','xtick',xticks,'xticklabel',xticklabels,'fontw','bold','fonts',8);
+
+for i = 1:N_plots
+  hold on; 
+  %plot( (i*N_res - 1 + 0.5) * [1 1], [0 N_RNA+0.5], 'k','linew',2);
+  h = text( (i - 1) * N_res, 0.5, plot_titles{i} );
+  set(h,'fontw','bold','fontsize',9,'interpreter','none','verticalalign','bottom','horizontalalign','left');
+end
+hold off
+box off
 
 N_display = length( most_common_sequences );
 for j = 1:N_display
   idx = most_common_sequences(j);
   hold on
-  plot( N_res, idx, 'ro','markersize',5,'markerfacecolor','r','clipping','off');
-  h = text( N_res, idx,  regexprep( RNA_info( idx ).Header, '\t','\n' ) );
+  plot( N_res*N_plots - 20, idx, 'ro','markersize',5,'markerfacecolor','r','clipping','off');
+  h = text( N_res*N_plots - 15, idx,  regexprep( RNA_info( idx ).Header, '\t','\n' ) );
   set(h,'clipping','off','verticalalign','middle','fontweight','bold','fontsize',7,'interpreter','none');
 end
 
 colormap( 1 - gray(100))
 set(gcf, 'PaperPositionMode','auto','color','white');
 
+xlabel( basename(pwd),'interpreter','none' );
 %print( '-dpdf',sprintf( 'EteRNA_PlayerProjects_RawData%02d.pdf',j) );
 
