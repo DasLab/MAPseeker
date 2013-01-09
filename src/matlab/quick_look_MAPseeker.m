@@ -1,6 +1,6 @@
-function D = quick_look_MAPseeker( library_file, primer_file, inpath );
+function [D, RNA_info, primer_info, D_correct, D_correct_err ] = quick_look_MAPseeker( library_file, primer_file, inpath, COLLAPSE );
 %
-% quick_look_MAPseeker( library_file, primer_file, inpath );
+% [D, , RNA_info, primer_info, D_correct, D_correct_err ] = quick_look_MAPseeker( library_file, primer_file, inpath );
 %
 %      Reads in MAPseeker output and prints useful graphs for your
 %      notebook.
@@ -13,15 +13,14 @@ function D = quick_look_MAPseeker( library_file, primer_file, inpath );
 % inpath       = [default: './' (current directory)] where to find
 %                  MAPseeker output files: stats_ID1.txt, stats_ID2.txt, ...
 %
-%
-%
 % (C) R. Das, 2012-2013
 
 if ~exist( 'library_file') | length( library_file ) == 0;  library_file = 'RNA_structures.fasta'; end;
 if ~exist( library_file );  library_file = 'RNA_sequences.fasta'; end    
 if ~exist( 'primer_file') | length( primer_file ) == 0; primer_file = 'primers.fasta';end;
 if ~exist( 'inpath') | length( inpath ) == 0; inpath = './';end;
-
+if ~exist( 'COLLAPSE' ) COLLAPSE = 0;end;
+  
 output_tag = strrep( strrep( inpath, '.','' ), '/', '' ); % could be blank
 
 RNA_info = fastaread_structures( library_file );
@@ -37,6 +36,10 @@ for i = 1:N_primers;
 end
 Nidx = size( D{1}, 1 );
 
+if COLLAPSE > 0
+  [D, RNA_info] =  collapse_by_tag( D, RNA_info, COLLAPSE );
+  output_tag = [output_tag, '_collapse',num2str(COLLAPSE),'_'];
+end
 
 N_res  = size( D{1}, 2);
 N_RNA = size(D{1},1);
@@ -44,6 +47,7 @@ if N_RNA  ~= length( RNA_info );
   fprintf( ['Number of lines in data files ',num2str(N_RNA),' does not match number of sequences in library ', library_file,' ', num2str(length(RNA_info)), '!\n'] ); 
   return;
 end
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % overall summary of total reads
@@ -63,8 +67,17 @@ colorcode(:,2) = 0.8 * colorcode(:,2);
 my_bar_graph( num_counts_per_primer );
 colormap( colorcode );
 
-for i = 1:N_primers; primer_tags{i} = regexprep(primer_info(i).Header,'\t','\n'); end 
+for i = 1:N_primers; 
+  primer_tags{i} = regexprep(primer_info(i).Header,'\t','\n'); 
+end 
 set( gca, 'xticklabel',primer_tags );
+
+for i = 1:N_primers; 
+  tag = regexprep(primer_info(i).Header,'\t','   '); 
+  fprintf( '%9d %s\n', round(num_counts_per_primer( i )), tag );
+end
+
+
 
 ylabel( sprintf( 'Distributions of %9d counts over primers',round(total_counts)));
 xticklabel_rotate;
@@ -247,6 +260,11 @@ for i = 1:N_plots
 end
 hold off
 box off
+
+if (N_RNA < 220 );  %totally arbitrary cut
+  for j = 1:N_RNA; RNA_labels{j} = regexprep( RNA_info(j).Header, '\t',' '); end;    
+  set( gca,'ytick',[1:N_RNA],'yticklabel',RNA_labels);
+end
 
 N_display = length( most_common_sequences );
 for j = 1:N_display
