@@ -1,0 +1,165 @@
+############################################
+ MAPseeker, v1.0
+############################################
+(C) R. Das, 2013;  J.P. Bida, R. Das, 2012.
+
+E-mail: rhiju [at] stanford.edu.
+
+Multiplexed Accessibility Probing read out through next 
+generation Sequencing (MAP-seq) leverages multiple chemical 
+modification strategies to give information-rich structural 
+data on pools of RNAs. A stable version of the experimental 
+protocol is being described in a chapter for an upcoming 
+volume of Methods in Molecular Biology, and a preprint will 
+be made available at www.arxiv.org.
+
+This repository contains the MAPseeker project, which 
+collects and aims to share software from the Das lab for 
+the robust analysis of MAP-seq data:
+
+(1) The MAPseeker executable.  
+  Takes as input your FASTQ files from an Illumina run, 
+sequences of the RNAs probed, and sequences of the reverse 
+transcription primers. Outputs text files with raw counts of 
+how many reads corresponded to each reverse transcription 
+stop for each RNA probed -- one file for each primer used. 
+Written in C++ for speed. This software was developed 
+because of artefacts and severe slowdowns that we 
+encountered with Bowtie & BWA.
+
+(2) quick_look_MAPseeker() 
+  A function in MATLAB which reads the output for MAPseeker and makes summary plots for your notebook.
+
+(3) A collection of useful helper scripts
+  In Python, for pre-processing RNA fasta files if desired.
+  In MATLAB, for converting counts to chemical reactivities, subtracting backgrounds, outputting to RDAT text formats for sharing.
+
+###############
+How to install
+###############
+
+To compile the main MAPseeker executable,  go to 
+
+  src/cmake/
+
+and follow instructions in the README there for compilation. 
+
+###############
+ Example run
+###############
+
+#################################################
+1. Converting FASTQs to meaningful structure mapping data
+
+Some example data is included to test the scripts, involving MAP-seq data for 1M7 probing of a large set of RNAs including two 'control' constructs doped in at higher concentrations.
+
+Go to example/
+
+There are four files:
+
+ PhiX_S1_L001_R1_001.first100000.fastq
+ PhiX_S1_L001_R2_001.first100000.fastq
+   First 100,000 lines of forward and reverse read files
+   from a miseq run. The PhiX is a silly tag (most of the
+   run is not the PhiX genome).
+
+ primers.fasta
+   Primers used in the run in FASTA format. 
+   The headers describe the conditions used in the experiments
+   probed by each primer (the first two use the 1M7 
+   2'-OH acylating reagent, three used a mock treatment.) 
+   Two in vitro transcribed RNA libraries were tested (one 
+   that involved a PAGE  purification at an early DNA 
+   preparation step, and one that did not.)
+
+ RNA_sequences.fasta
+   Two of the ~4000 sequences tested in this run. 
+   In FASTA format.
+
+Run the command:
+
+MAPseeker -1 PhiX_S1_L001_R1_001.first100000.fastq  -2 PhiX_S1_L001_R2_001.first100000.fastq  -l RNA_sequences.fasta  -p primers.fasta  -n 8
+
+These are all the input files. The final argument "-n 8" 
+specifies that the first 8 residues read by the reverse 
+transcription primer should be used by MAPseeker to figure 
+out the RNA's ID. It is assumed that your library has unique 
+3' sequences just ahead of the reverse transcription binding site.
+
+The output should include the following purification table:
+
+Purification table
+25000 total
+11594 found primer binding site
+10641 found expt ID site
+10641 found match in RNA sequence (read 1)
+1339 found match in RNA sequence (read 2)
+
+The loss of signal in the last step is due to the fact that only about 10% of the library are the two doped in sequences specified in RNA_sequences.fasta. [We could get most of the rest of the reads if we specify the other sequences, which we're not doing here for simplicity.]
+
+There are five outputted text files, stats_ID1.txt through stats_ID5.txt. 
+
+They correspond to the 5 primers used. Each is a matrix of numbers. (They are not integers because MAPseeker spreads out counts to multiple stop sites if they are all equally consistent with a read.) Each row of the matrix is a different RNA. Each column of the matrix is a stop site. In particular, the first stop site corresponds to fully extended product ('site 0'); the second number corresponds to the product that stopped right before residue 1 ('site 1'), etc. There are N+1 columns, where N is the number of residues in the longest RNA probed.
+
+
+#################################################
+2. Visualizing the run.
+
+To view these files, you can use any plotting program (MATLAB, gnuplot, matplotlib in python). 
+
+We use a MATLAB script, available in src/matlab/. Include this in your MATLAB path, and run from within MATLAB:
+
+quick_look_MAPseeker( 'RNA_sequences.fasta','primers.fasta','./')
+
+If you don't specify the arguments, that will actually work here, as the script will assume that the RNA library file, primer FASTA file, and working directory with stats_ID1.txt, etc. are the ones used above.
+
+This gives a histogram of counts per primer, and counts per RNA; visualization of the counts (with estimated errors) for thefour most highly represented RNAs (in this case two); and 'reactivities', corrected for reverse transcriptase attenuation as follows:
+
+  R(site i) = F(site i)/[F(site 0) + F(site 1) + ... + F(site i) ]
+
+Both 1D profiles are shown (Figures 2 and 3), as well as 2D representation of the entire data set (Figures 4 and 5).
+
+
+#################################################
+3. Background subtracting and outputting the data
+
+To further process these data for useful output, you can take the output of quick_look_MAPseeker with the following command:
+
+ [D, RNA_info, primer_info, D_correct, D_correct_err ] = quick_look_MAPseeker( 'RNA_sequences.fasta','primers.fasta','./')
+
+D_correct and D_correct_err have the reactivities and their estimated errors. They are cells with one matrix for each primer. RNA_info has information on the sequences and descriptions of the RNA library. The error are based on Poisson statistics (note: sites with zero counts are assumed to have errors of +/-1 ).
+
+You can do background subtraction of the data for primer 1 (a 1M7 condition), using the control data for primer 3 (a mock treatment condition) and like this:
+
+ [D_sub, D_sub_err] = subtract_data( D_correct{1}, D_correct{3},D_correct_err{1},  D_correct_err{3} );
+
+Here, we have another subset of the data to average with these (based on primers 2 and 4, which probed an alternative library). We can average these in by the following commands:
+
+ [D_sub_ALT, D_sub_err_ALT] = subtract_data( D_correct{2}, D_correct{4},D_correct_err{2},  D_correct_err{4} );
+
+ [D_sub_FINAL, D_sub_err_FINAL] =  average_data( D_sub, D_sub_ALT, D_sub_err, D_sub_err_ALT );
+
+
+To output these data to an RDAT file, you will need the RDATkit (https://simtk.org/home/rdatkit). Then type:
+
+ filename = 'Example_output.rdat';
+ name = 'Big Library';
+ annotations = {'experimentType:StandardState','chemical:Na-HEPES:50mM(pH8.0)','chemical:MgCl:10mM','temperature:24C','processing:overmodificationCorrectionRigorous','processing:backgroundSubtraction','modifier:1M7'};
+ comments = {'Test of Miseq data output.', 'Used MAPseeker v1.0'};
+ output_MAPseeker_data_to_rdat_file( filename, name, D_sub_FINAL, D_sub_err_FINAL, annotations, comments, RNA_info );
+
+Done! You can now share the RDAT file, which is formatted a la specifications available at
+
+http://rmdb.stanford.edu/repository/specs/
+
+And you can read it into python or matlab with the RDATkit scripts.
+
+
+
+
+
+
+
+
+
+

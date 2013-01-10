@@ -1,0 +1,39 @@
+############################
+How to compile MAPseeker
+############################
+
+Inside this directory (map_seeker/src/cmake/), simply run:
+
+cmake -G Ninja
+ninja
+
+The application will show up in:
+
+  src/cmake/apps/MAPseeker
+
+You can add this directory to your path with a line like:
+
+ PATH=$PATH:/Users/rhiju/src/map_seeker/src/cmake/apps/
+
+in your .bashrc file.
+
+
+##############################################
+If you don't have cmake, download cmake at http://cmake.org/cmake/resources/software.html
+Go inside the cmake/ directory in a Terminal, and run 
+
+./bootstrap; make
+
+Install it with:
+
+ sudo make_install
+
+##############################################
+If you don't have ninja, download it from http://martine.github.com/ninja/manual.html, and compile it by running
+
+./boostrap.py
+
+Then put ninja in your path.
+
+[Alternatively, you can run cmake with normal make by typing 'cmake' and then 'make' in this directory, but you really should switch from make to ninja, as ninja is much much faster and smarter.]
+

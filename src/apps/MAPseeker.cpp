@@ -67,7 +67,7 @@ int main(int argc, const char *argv[]) {
     addTitleLine(parser, "*************************************************");
     addTitleLine(parser, "                                                 ");
 
-    addUsageLine(parser, "-c <constant sequence> -1 <miseq fastq1> -2 <miseq fastq2> -l <RNA library fasta> -p <primers fasta> -n <sequence id length>");
+    addUsageLine(parser, " -1 <miseq fastq1> -2 <miseq fastq2> -l <RNA library fasta> -p <primers fasta> -n <sequence id length>");
 
     addSection(parser, "Main Options:");
 
