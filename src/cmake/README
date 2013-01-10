@@ -15,7 +15,7 @@ You can add this directory to your path with a line like:
 
  PATH=$PATH:/Users/rhiju/src/map_seeker/src/cmake/apps/
 
-in your .bashrc file.
+in your .bash_profile or .bashrc file.
 
 
 ##############################################
@@ -33,7 +33,10 @@ If you don't have ninja, download it from http://martine.github.com/ninja/manual
 
 ./boostrap.py
 
-Then put ninja in your path.
+Then put ninja in your path with a line in your .bash_profile or .bashrc like:
+
+PATH=$PATH:/Users/rhiju/src/ninja/
+
 
 [Alternatively, you can run cmake with normal make by typing 'cmake' and then 'make' in this directory, but you really should switch from make to ninja, as ninja is much much faster and smarter.]
 

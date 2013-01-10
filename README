@@ -113,11 +113,11 @@ quick_look_MAPseeker( 'RNA_sequences.fasta','primers.fasta','./')
 
 If you don't specify the arguments, that will actually work here, as the script will assume that the RNA library file, primer FASTA file, and working directory with stats_ID1.txt, etc. are the ones used above.
 
-This gives a histogram of counts per primer, and counts per RNA; visualization of the counts (with estimated errors) for thefour most highly represented RNAs (in this case two); and 'reactivities', corrected for reverse transcriptase attenuation as follows:
+This gives a histogram of counts per primer, and counts per RNA (Figure 1); visualization of the counts (with estimated errors) for thefour most highly represented RNAs (in this case two); and 'reactivities', corrected for reverse transcriptase attenuation as follows:
 
   R(site i) = F(site i)/[F(site 0) + F(site 1) + ... + F(site i) ]
 
-Both 1D profiles are shown (Figures 2 and 3), as well as 2D representation of the entire data set (Figures 4 and 5).
+Both 1D profiles are shown (Figures 2 and 3), as well as 2D representation of the entire data set (Figures 4 and 5). All figures are also automatically saved to disk as EPS files.
 
 
 #################################################
