@@ -2,6 +2,8 @@
 How to compile MAPseeker
 ############################
 
+You will need cmake, ninja, and a C compiler (like gcc):
+
 Inside this directory (map_seeker/src/cmake/), simply run:
 
 cmake -G Ninja
@@ -17,6 +19,10 @@ You can add this directory to your path with a line like:
 
 in your .bash_profile or .bashrc file.
 
+
+##############################################
+If you don't have gcc, on Linux, ask your sys admin to install it. 
+On a Mac, install XCode (free at the App store).
 
 ##############################################
 If you don't have cmake, download cmake at http://cmake.org/cmake/resources/software.html
