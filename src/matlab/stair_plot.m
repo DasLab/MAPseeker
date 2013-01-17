@@ -34,8 +34,12 @@ for i = 1:N;
   end
 end
 
+% make a line along x-axis
+plot( [min(seqpos)-0.5 max(seqpos)+0.5],  [0 0], 'k' ); hold on; 
+
 if exist( 'tag' ) 
-  ylabel( tag );
+%  ylabel( tag );
+  title( tag );
 else
   ylabel(  [ , '   Counts: ',num2str(total_count)] );
 end
