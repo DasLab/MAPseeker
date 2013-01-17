@@ -217,6 +217,7 @@ int main(int argc, const char *argv[]) {
 
       unsigned seqCount_primers = length(multiSeqFile_primers);
       if ( seqCount_primers == 0 ) { std::cerr << "Must have at least one primer!" << std::endl; return 1; }
+      std::cout << "Number of primers: " << seqCount_primers << std::endl;
 
       String<char > seq_primer;
       std::vector< String<char> > seq_primers, seq_primers_RC;
@@ -230,9 +231,19 @@ int main(int argc, const char *argv[]) {
       }
 
       // now look for what sequence is shared across all primers from 5' end (should be Illumina adapter):
+      // this will need to be rewritten if we use primers containing index reads.
       unsigned match_5prime = get_number_of_matching_residues( seq_primers );
+
+      // straightforward override if illumina adapter is in there...
+      if ( length( seq_primers[0] ) > length( universal_adapter_sequence ) ){
+	if ( prefix( universal_adapter_sequence, length( universal_adapter_sequence ) ) == universal_adapter_sequence ){
+	  std::cout << "Identified universal Illumina adapter sequence in primers! " << std::endl;
+	  match_5prime = length( universal_adapter_sequence );
+	}
+      }
+
       //std::cout << "Matching from 5' end" << match_5prime << std::endl;
-      CharString adapterSequence_inferred = prefix( seq_primers[1], match_5prime );
+      CharString adapterSequence_inferred = prefix( seq_primers[0], match_5prime );
       if (length(adapterSequence) > 0 ){
 	if ( adapterSequence != adapterSequence_inferred ){
 	  std::cerr << "WARNING! these do not match: " << std::endl;
@@ -247,8 +258,8 @@ int main(int argc, const char *argv[]) {
 
 
       unsigned match_3prime = get_number_of_matching_residues( seq_primers_RC );
-      //      std::cout << "Matching from 3' end [showing reverse complement]" << match_3prime << std::endl;
-      CharString cseq_inferred =  prefix( seq_primers_RC[1], match_3prime );
+      std::cout << "Matching from 3' end [showing reverse complement]" << match_3prime << std::endl;
+      CharString cseq_inferred =  prefix( seq_primers_RC[0], match_3prime );
       if (length(cseq) > 0 ){
 	if ( cseq != cseq_inferred ){
 	  std::cerr << "WARNING! these do not match: " << std::endl;
