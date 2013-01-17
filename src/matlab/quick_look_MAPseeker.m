@@ -187,6 +187,12 @@ for i = 1:length(x)
 end
 set(ch,'FaceVertexCData',fvcd) %set to new face vertex cdata
 
+% actually show numbers over bars.
+for i = 1:length(x)
+  text( i, x(i),  num2str(round(x(i))), 'horizontalalign','center','verticalalign','bottom');
+end
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function make_image_plot( D, RNA_info, primer_info, most_common_sequences, title_tag, scalefactor );
 N_RNA = size( D{1}, 1 );
