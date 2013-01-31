@@ -23,7 +23,8 @@ sequences of the RNAs probed, and sequences of the reverse
 transcription primers. Outputs text files with raw counts of 
 how many reads corresponded to each reverse transcription 
 stop for each RNA probed -- one file for each primer used. 
-Written in C++ for speed. This software was developed 
+Written in C++ for speed, leveraging the excellent
+SEQAN library. This software was developed 
 because of artefacts and severe slowdowns that we 
 encountered with Bowtie (used by Lucks & colleagues, 2011) 
 and BWA.
