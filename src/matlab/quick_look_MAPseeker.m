@@ -1,6 +1,6 @@
-function [D, RNA_info, primer_info, D_correct, D_correct_err ] = quick_look_MAPseeker( library_file, primer_file, inpath, COLLAPSE );
+function [D, RNA_info, primer_info, D_correct, D_correct_err ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, combine_mode );
 %
-% [D, , RNA_info, primer_info, D_correct, D_correct_err ] = quick_look_MAPseeker( library_file, primer_file, inpath );
+% [D, , RNA_info, primer_info, D_correct, D_correct_err ] = quick_look_MAPseeker( library_file, primer_file, inpath [, full_length_correction_factor, combine_mode] );
 %
 %      Reads in MAPseeker output and prints useful graphs for your
 %      notebook.
@@ -13,13 +13,26 @@ function [D, RNA_info, primer_info, D_correct, D_correct_err ] = quick_look_MAPs
 % inpath       = [default: './' (current directory)] where to find
 %                  MAPseeker output files: stats_ID1.txt, stats_ID2.txt, ...
 %
+% Optional:
+% full_length_correction_factor
+%     =  amount to increase value of counts at site 0. Correction for 
+%        empirically observed ~50% ssDNA ligation efficiency by circLigase
+%        to 'full-length' complementary DNA created by SSIII.
+%        [NOTE: Default is 2.0, not 1.0]
+% combine_mode = [default 0, no 'collapse']. If this is 1, combine data for RNAs that have the same 
+%                   names, as specified in the library_file. If this is 2, combine data 
+%                   for RNAs that share any 'tags' (segments of the library_file names, separated by tabs);
+%                   this is useful if, for example, RNAs are double mutants and you want to project
+%                   to single mutants.
+%
 % (C) R. Das, 2012-2013
 
 if ~exist( 'library_file') | length( library_file ) == 0;  library_file = 'RNA_structures.fasta'; end;
 if ~exist( library_file );  library_file = 'RNA_sequences.fasta'; end    
 if ~exist( 'primer_file') | length( primer_file ) == 0; primer_file = 'primers.fasta';end;
 if ~exist( 'inpath') | length( inpath ) == 0; inpath = './';end;
-if ~exist( 'COLLAPSE' ) COLLAPSE = 0;end;
+if ~exist( 'full_length_correction_factor') | length( full_length_correction_factor ) == 0; full_length_correction_factor = 1.0;end;
+if ~exist( 'combine_mode' ) combine_mode = 0;end;
   
 output_tag = strrep( strrep( inpath, '.','' ), '/', '' ); % could be blank
 
@@ -36,9 +49,9 @@ for i = 1:N_primers;
 end
 Nidx = size( D{1}, 1 );
 
-if COLLAPSE > 0
-  [D, RNA_info] =  collapse_by_tag( D, RNA_info, COLLAPSE );
-  output_tag = [output_tag, '_collapse',num2str(COLLAPSE),'_'];
+if combine_mode > 0
+  [D, RNA_info] =  collapse_by_tag( D, RNA_info, combine_mode );
+  output_tag = [output_tag, '_collapse',num2str(combine_mode),'_'];
 end
 
 N_res  = size( D{1}, 2);
@@ -132,7 +145,7 @@ end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % apply attenuation correction...
-[ D_correct, D_correct_err ] = determine_corrected_reactivity( D );
+[ D_correct, D_correct_err ] = determine_corrected_reactivity( D, full_length_correction_factor );
 
 figure_ysize = min( N_RNA*150, 800);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -209,7 +222,7 @@ xticklabels = [];
 
 subplot(1,1,1);
 % just use lower half if there aren't that many RNAs..
-if (N_RNA < 3); subplot(2,1,2); end;
+if (N_RNA < 20); subplot(2,1,2); end;
 
 if STRUCTURES_DEFINED
 
