@@ -185,6 +185,8 @@ the following commands:
 save -ascii D_sub_FINAL.txt D_sub_FINAL
 save -ascii D_sub_err_FINAL.txt D_sub_err_FINAL
 
+ Don't forget that the first position corresponds to 'zero' (fully extended reverse transcription product), and the later positions correspond to RT stops. In the RDAT output script (see next), we don't output the value at 'zero'.
+
 #################################################
 4. Sharing the data
 
