@@ -9,6 +9,11 @@ Inside this directory (map_seeker/src/cmake/), simply run:
 cmake -G Ninja
 ninja
 
+If you don't have ninja, you can run: 
+
+cmake
+make
+
 The application will show up in:
 
   src/cmake/apps/MAPseeker

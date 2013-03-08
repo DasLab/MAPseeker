@@ -1,6 +1,6 @@
 function [D, RNA_info, primer_info, D_correct, D_correct_err ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, combine_mode );
 %
-% [D, , RNA_info, primer_info, D_correct, D_correct_err ] = quick_look_MAPseeker( library_file, primer_file, inpath [, full_length_correction_factor, combine_mode] );
+% [D, RNA_info, primer_info, D_correct, D_correct_err ] = quick_look_MAPseeker( library_file, primer_file, inpath [, full_length_correction_factor, combine_mode] );
 %
 %      Reads in MAPseeker output and prints useful graphs for your
 %      notebook.
@@ -83,13 +83,12 @@ colormap( colorcode );
 for i = 1:N_primers; 
   primer_tags{i} = regexprep(primer_info(i).Header,'\t','\n'); 
 end 
-set( gca, 'xticklabel',primer_tags );
+set( gca, 'xticklabel',primer_tags,'fonts',6 );
 
 for i = 1:N_primers; 
   tag = regexprep(primer_info(i).Header,'\t','   '); 
   fprintf( '%9d %s\n', round(num_counts_per_primer( i )), tag );
 end
-
 
 
 ylabel( sprintf( 'Distributions of %9d counts over primers',round(total_counts)));
@@ -222,7 +221,7 @@ xticklabels = [];
 
 subplot(1,1,1);
 % just use lower half if there aren't that many RNAs..
-if (N_RNA < 20); subplot(2,1,2); end;
+if (N_RNA < 20); subplot(2,2,4); end;
 
 if STRUCTURES_DEFINED
 
@@ -269,7 +268,7 @@ for i = 1:N_primers
 end
 
 image( [0:(N_res*N_plots)-1], [1:N_RNA], imagex );
-set( gca,'tickdir','out','xtick',xticks,'xticklabel',xticklabels,'fontw','bold','fonts',8);
+set( gca,'tickdir','out','xtick',xticks,'xticklabel',xticklabels,'fontw','bold','fonts',6);
 
 for i = 1:N_plots
   hold on; 
@@ -290,8 +289,8 @@ for j = 1:N_display
   idx = most_common_sequences(j);
   hold on
   plot( N_res*N_plots - 20, idx, 'ro','markersize',5,'markerfacecolor','r','clipping','off');
-  h = text( N_res*N_plots - 15, idx,  regexprep( RNA_info( idx ).Header, '\t','\n' ) );
-  set(h,'clipping','off','verticalalign','middle','fontweight','bold','fontsize',7,'interpreter','none');
+  %h = text( N_res*N_plots - 15, idx,  regexprep( RNA_info( idx ).Header, '\t','\n' ) );
+  %set(h,'clipping','off','verticalalign','middle','fontweight','bold','fontsize',7,'interpreter','none');
 end
 
 colormap( 1 - gray(100))

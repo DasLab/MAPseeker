@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 def reverse_complement( seq ):
-    rc = { 'A':'T', 'T':'A', 'U':'A', 'C':'G', 'G':'C' }
+    rc = { 'A':'T', 'T':'A', 'U':'A', 'C':'G', 'G':'C', 'N':'N' }
     seq_out = ''
     for m in seq[::-1]:
         if m not in rc.keys():

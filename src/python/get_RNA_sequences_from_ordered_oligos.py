@@ -2,6 +2,14 @@
 
 from sys import argv
 
+def Help():
+    print
+    print argv[0], ' OligoOrder_file More_info_file  [-add_therm1] '
+    print
+    exit()
+
+if len( argv ) < 2: Help()
+
 OligoOrder_file = 'Agilent_unique_eterna_short_sequences.txt'
 More_info_file = 'unique_eterna_short_sequences.txt'
 

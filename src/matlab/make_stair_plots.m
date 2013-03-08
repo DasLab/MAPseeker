@@ -17,10 +17,11 @@ N_primers = length( primer_info );
 if (N_primers ~= N ); fprintf( ['Mismatch in primer numbers: ',num2str(N), ' vs. ', N_primers,'\n']); return; end;
 
 for i = 1:N_primers; primer_tags{i} = regexprep(primer_info(i).Header,'\t',': '); end
+subplot(N_display,1,1);
 h =  legend( primer_tags );
 set(h,'interpreter','none','fontsize',9);
 
 if (N_display > 1 )
-  subplot(N_display,1,1);
+  subplot(N_display,1,N_display);
   h=legend( basename(pwd) ); set(h,'interpreter','none','fontsize',7 )
 end
