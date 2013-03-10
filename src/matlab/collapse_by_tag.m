@@ -34,7 +34,8 @@ for j = 1:N_RNA
     tag = RNA_tags{k};
 
     % silly hack for eterna player projects. Remove "-1", "-2", etc.
-    tag = remove_RNA_barcode_identifier( tag );
+    %tag = remove_RNA_barcode_identifier( tag );
+    tag = remove_ID_number( tag );
     
     if length( tag) == 0; continue; end
     found_tag = strcmp( tag, tags );
@@ -88,3 +89,8 @@ if ( is_a_number )
   cols{1} = join_string( subcols(1:end-1), '-' );
   tag = join_string( cols );
 end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function tag = remove_ID_number( tag )
+cols = split_string( tag, sprintf('\t') );
+tag = join_string( cols(2:end) );

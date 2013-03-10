@@ -23,7 +23,7 @@ function [D_correct, D_correct_err] = determine_corrected_reactivity(  D, full_e
 % 
 
 
-if ~exist( 'full_extension_correction_factor' ) full_extension_correction_factor = 2.0; end;
+if ~exist( 'full_extension_correction_factor' ) full_extension_correction_factor = 0.5; end;
 
 if iscell( D )
   for j = 1 : length( D )
@@ -37,7 +37,7 @@ end
 function [D_correct, D_correct_err] = get_corrected_reactivity(  D, full_extension_correction_factor  );
 
 D(:,1) = D(:,1) + 0.0001; % prevent NaN
-D(:,1) = D(:,1) * full_extension_correction_factor;
+D(:,1) = D(:,1) / full_extension_correction_factor;
 D_cumsum = cumsum(D, 2);
 D_correct = D ./ D_cumsum;
 

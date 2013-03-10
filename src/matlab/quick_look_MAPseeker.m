@@ -15,10 +15,10 @@ function [D, RNA_info, primer_info, D_correct, D_correct_err ] = quick_look_MAPs
 %
 % Optional:
 % full_length_correction_factor
-%     =  amount to increase value of counts at site 0. Correction for 
+%     =  amount by which value of counts at site 0 is underestimated. Correction for 
 %        empirically observed ~50% ssDNA ligation efficiency by circLigase
 %        to 'full-length' complementary DNA created by SSIII.
-%        [NOTE: Default is 2.0, not 1.0]
+%        [NOTE: Default is 0.5, not 1.0]
 % combine_mode = [default 0, no 'collapse']. If this is 1, combine data for RNAs that have the same 
 %                   names, as specified in the library_file. If this is 2, combine data 
 %                   for RNAs that share any 'tags' (segments of the library_file names, separated by tabs);
@@ -27,11 +27,13 @@ function [D, RNA_info, primer_info, D_correct, D_correct_err ] = quick_look_MAPs
 %
 % (C) R. Das, 2012-2013
 
+if nargin < 1; help( mfilename ); return; end;
+
 if ~exist( 'library_file') | length( library_file ) == 0;  library_file = 'RNA_structures.fasta'; end;
 if ~exist( library_file );  library_file = 'RNA_sequences.fasta'; end    
 if ~exist( 'primer_file') | length( primer_file ) == 0; primer_file = 'primers.fasta';end;
 if ~exist( 'inpath') | length( inpath ) == 0; inpath = './';end;
-if ~exist( 'full_length_correction_factor') | length( full_length_correction_factor ) == 0; full_length_correction_factor = 1.0;end;
+if ~exist( 'full_length_correction_factor') | length( full_length_correction_factor ) == 0; full_length_correction_factor = 0.5;end;
 if ~exist( 'combine_mode' ) combine_mode = 0;end;
   
 output_tag = strrep( strrep( inpath, '.','' ), '/', '' ); % could be blank
