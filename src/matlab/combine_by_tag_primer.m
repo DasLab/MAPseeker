@@ -1,96 +1,75 @@
-function [D_collapse, primer_info_collapse ] = collapse_by_tag_primer( D, primer_info, COLLAPSE_MODE )
+function [D_combine, primer_info_combine ] = combine_by_tag_primer( D, primer_info, COMBINE_MODE )
 %
-% [D_collapse, primer_info_collapse ] = collapse_by_tag( D, primer_info, COLLAPSE_MODE )
+% [D_combine, primer_info_combine ] = combine_by_tag( D, primer_info, COMBINE_MODE )
 %
-% D             = cell of M x N arrays with raw sequencing counts, where M is number of RNAs, and N is number of residues.
-% primer_info      = M structs with fields 'Header' and 'Sequence', as output by fastaread
-% COLLAPSE_MODE = 1: combine counts for RNAs with the same Header tag, 
-%                 2: combine counts for RNAs with the same subtags (delimited by tabs)
-%
-% Note: Header tags of the form "71323-1 [tab] blah blah blah" will be converted to
-%                               "71323 [tab] blah blah blah", before collapsing.
+% D             = cell of Q arrays with raw sequencing counts, where Q is the number of primers.
+% primer_info   = M structs with fields 'Header' and 'Sequence', as output by fastaread
+% COMBINE_MODE = 1: combine counts for primers with the same Header tag, after the first tab. 
 %
 % (C) R. Das, 2013
-if ~exist( 'COLLAPSE_MODE' ) COLLAPSE_MODE = 1; end;
-WEIGHT_BY_ERRORS = 0; % put this in later.
 
-N_RNA = length( primer_info );
-tags = {};
-% save mapping.
-index_for_tag = {}; 
-for j = 1:N_RNA
-  
-  index_for_tag{j} = [];
+if ~exist( 'COMBINE_MODE' ) COMBINE_MODE = 1; end;
 
-  complete_tag = primer_info(j).Header;
-
-  if COLLAPSE_MODE == 2
-    RNA_tags = split_string( complete_tag, sprintf('\t') );
-  else
-    RNA_tags = {complete_tag};
-  end
-  
-  for k = 1: length( RNA_tags )
-    tag = RNA_tags{k};
-
-    % silly hack for eterna player projects. Remove "-1", "-2", etc.
-    tag = remove_RNA_barcode_identifier( tag );
-    %tag = remove_ID_number( tag );
-    
-    if length( tag) == 0; continue; end
-    found_tag = strcmp( tag, tags );
-  
-    if sum( found_tag ) == 0
-      tags = [tags, tag ];
-      N_tags_collapse = length( tags );
-      index_for_tag{j} = [ N_tags_collapse ];
-      primer_info_collapse( N_tags_collapse ) = primer_info(j);
-    else
-      index_for_tag{j} = [index_for_tag{j}, find( found_tag )];
-    end
-  end
+if COMBINE_MODE == 0;
+  D_combine = D;
+  primer_info_combine = primer_info; 
+  return;
 end
 
-D_collapse = {};
-for i = 1:length(D)
+N_primer_in_D = length( D );
+N_primer = length( primer_info );
+if ( N_primer_in_D ~= N_primer ) 
+  fprintf( 'Disagreement between number of primers in primer_info [%d] and in D [%d]\n', N_primer, N_primer_in_D );
+  return;
+end  
 
-  N_RNA_in_D = size( D{i}, 1 );
-  if ( N_RNA_in_D ~= N_RNA ) 
-    fprintf( 'Disagreement between number of RNAs in primer_info [%d] and in D{%i} [%d]\n', N_RNA, i, N_RNA_in_D );
-    return;
-  end  
-
-  N_res  = size( D{i}, 2);
-  D_new = zeros( N_tags_collapse, N_res);
-  for j = 1:N_RNA
-    for m = index_for_tag{j}
-      D_new( m, : ) = D_new( m, : ) + D{i}(j, :);
-    end
+% save mapping.
+tags = {};
+index_for_tag = []; 
+for j = 1:N_primer
+  
+  complete_tag = primer_info(j).Header;
+  
+  tag = remove_text_before_first_tab( complete_tag );
+  
+  found_tag = 0;
+  if length( tag) > 0; % could be that user didn't specify enough info to combine primers. 
+    found_tag = strcmp( tag, tags );
+  end
+  
+  if sum( found_tag ) == 0
+    N_tags_combine = length( tags ) + 1;
+    tags{ N_tags_combine } = tag;
+    primer_info_combine( N_tags_combine ) = primer_info(j);
+    index_for_tag(j) = N_tags_combine;
+  else
+    index_for_tag(j) = found_tag(1);    
   end
 
-  D_collapse{i} = D_new;
+    
+end
+
+D_combine = {};
+for i = 1:N_tags_combine
+
+  D_new = D{1}*0;
+
+  for j = (find( index_for_tag == i) )
+    D_new = D_new + D{j};
+  end
+
+  D_combine{i} = D_new;
 end
 
 return;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function tag = remove_RNA_barcode_identifier( tag_in )
+function tag = remove_text_before_first_tab( tag_in )
 
-tag = tag_in;
+tag = '';
+cols = split_string( tag_in, sprintf('\t') );
 
-cols = split_string( tag, sprintf('\t') );
 if length( cols ) < 2; return; end;
 
-subcols = split_string( cols{1}, '-' );
-if length( subcols ) < 2; return; end
-
-[x,is_a_number] = str2num( subcols{end} );
-if ( is_a_number )
-  cols{1} = join_string( subcols(1:end-1), '-' );
-  tag = join_string( cols, sprintf('\t') );
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function tag = remove_ID_number( tag )
-cols = split_string( tag, sprintf('\t') );
-tag = join_string( cols(2:end) );
+tag = join_string( cols(2:end), sprintf('\t') );
+tag = strrep( tag, 'nomod','no mod' );

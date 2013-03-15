@@ -1,17 +1,17 @@
-function [D_collapse, RNA_info_collapse ] = collapse_by_tag( D, RNA_info, COLLAPSE_MODE )
+function [D_combine, RNA_info_combine ] = combine_by_tag( D, RNA_info, COMBINE_MODE )
 %
-% [D_collapse, RNA_info_collapse ] = collapse_by_tag( D, RNA_info, COLLAPSE_MODE )
+% [D_combine, RNA_info_combine ] = combine_by_tag( D, RNA_info, COMBINE_MODE )
 %
 % D             = cell of M x N arrays with raw sequencing counts, where M is number of RNAs, and N is number of residues.
 % RNA_info      = M structs with fields 'Header' and 'Sequence', as output by fastaread
-% COLLAPSE_MODE = 1: combine counts for RNAs with the same Header tag, 
+% COMBINE_MODE = 1: combine counts for RNAs with the same Header tag, 
 %                 2: combine counts for RNAs with the same subtags (delimited by tabs)
 %
 % Note: Header tags of the form "71323-1 [tab] blah blah blah" will be converted to
 %                               "71323 [tab] blah blah blah", before collapsing.
 %
 % (C) R. Das, 2013
-if ~exist( 'COLLAPSE_MODE' ) COLLAPSE_MODE = 1; end;
+if ~exist( 'COMBINE_MODE' ) COMBINE_MODE = 1; end;
 WEIGHT_BY_ERRORS = 0; % put this in later.
 
 N_RNA = length( RNA_info );
@@ -24,7 +24,7 @@ for j = 1:N_RNA
 
   complete_tag = RNA_info(j).Header;
 
-  if COLLAPSE_MODE == 2
+  if COMBINE_MODE == 2
     RNA_tags = split_string( complete_tag, sprintf('\t') );
   else
     RNA_tags = {complete_tag};
@@ -42,16 +42,16 @@ for j = 1:N_RNA
   
     if sum( found_tag ) == 0
       tags = [tags, tag ];
-      N_tags_collapse = length( tags );
-      index_for_tag{j} = [ N_tags_collapse ];
-      RNA_info_collapse( N_tags_collapse ) = RNA_info(j);
+      N_tags_combine = length( tags );
+      index_for_tag{j} = [ N_tags_combine ];
+      RNA_info_combine( N_tags_combine ) = RNA_info(j);
     else
       index_for_tag{j} = [index_for_tag{j}, find( found_tag )];
     end
   end
 end
 
-D_collapse = {};
+D_combine = {};
 for i = 1:length(D)
 
   N_RNA_in_D = size( D{i}, 1 );
@@ -61,14 +61,14 @@ for i = 1:length(D)
   end  
 
   N_res  = size( D{i}, 2);
-  D_new = zeros( N_tags_collapse, N_res);
+  D_new = zeros( N_tags_combine, N_res);
   for j = 1:N_RNA
     for m = index_for_tag{j}
       D_new( m, : ) = D_new( m, : ) + D{i}(j, :);
     end
   end
 
-  D_collapse{i} = D_new;
+  D_combine{i} = D_new;
 end
 
 return;

@@ -24,7 +24,7 @@ function [D, RNA_info, primer_info, D_correct, D_correct_err ] = quick_look_MAPs
 %                   for RNAs that share any 'tags' (segments of the library_file names, separated by tabs);
 %                   this is useful if, for example, RNAs are double mutants and you want to project
 %                   to single mutants.
-% combine_mode_RNA = [default 0, no 'combine']. If this is 1, combine data for primers that have the same 
+% combine_mode_primer = [default 0, no 'combine']. If this is 1, combine data for primers that have the same 
 %                   names, as specified in the primer_file. In the primer name, the text before the
 %                   first tab is ignored; the text after that is assumed to be a description of the library
 %                   probed or modifier and is used to determine which primers should be combined.
@@ -40,7 +40,8 @@ if ~exist( library_file );  library_file = 'RNA_sequences.fasta'; end
 if ~exist( 'primer_file') | length( primer_file ) == 0; primer_file = 'primers.fasta';end;
 if ~exist( 'inpath') | length( inpath ) == 0; inpath = './';end;
 if ~exist( 'full_length_correction_factor') | length( full_length_correction_factor ) == 0; full_length_correction_factor = 0.5;end;
-if ~exist( 'combine_mode' ) combine_mode = 0;end;
+if ~exist( 'combine_mode_RNA' ) combine_mode_RNA = 0;end;
+if ~exist( 'combine_mode_primer' ) combine_mode_primer = 0;end;
   
 output_tag = strrep( strrep( inpath, '.','' ), '/', '' ); % could be blank
 
@@ -57,14 +58,15 @@ for i = 1:N_primers;
 end
 Nidx = size( D{1}, 1 );
 
-if combine_mode > 0
-  [D, RNA_info] = combine_by_tag_primer( D, primer_info, combine_mode );
-  [D, RNA_info] = combine_by_tag( D, RNA_info, combine_mode );
-  output_tag = [output_tag, '_combine',num2str(combine_mode),'_'];
+if ( combine_mode_RNA > 0 | combine_mode_primer > 0 )
+  [D, primer_info] = combine_by_tag_primer( D, primer_info, combine_mode_primer );
+  [D, RNA_info] = combine_by_tag( D, RNA_info, combine_mode_RNA );
+  output_tag = [output_tag, '_combineRNA',num2str(combine_mode_RNA),'_combinePRIMER',num2str(combine_mode_primer)];
 end
 
 N_res  = size( D{1}, 2);
 N_RNA = size(D{1},1);
+N_primers = length( primer_info );
 if N_RNA  ~= length( RNA_info );
   fprintf( ['Number of lines in data files ',num2str(N_RNA),' does not match number of sequences in library ', library_file,' ', num2str(length(RNA_info)), '!\n'] ); 
   return;
