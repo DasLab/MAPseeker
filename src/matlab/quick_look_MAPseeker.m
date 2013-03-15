@@ -1,6 +1,6 @@
-function [D, RNA_info, primer_info, D_correct, D_correct_err ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, combine_mode );
+function [D, RNA_info, primer_info, D_correct, D_correct_err ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, combine_mode_RNA, combine_mode_primer );
 %
-% [D, RNA_info, primer_info, D_correct, D_correct_err ] = quick_look_MAPseeker( library_file, primer_file, inpath [, full_length_correction_factor, combine_mode] );
+% [D, RNA_info, primer_info, D_correct, D_correct_err ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, combine_mode_RNA, combine_mode_primer] );
 %
 %      Reads in MAPseeker output and prints useful graphs for your
 %      notebook.
@@ -19,15 +19,21 @@ function [D, RNA_info, primer_info, D_correct, D_correct_err ] = quick_look_MAPs
 %        empirically observed ~50% ssDNA ligation efficiency by circLigase
 %        to 'full-length' complementary DNA created by SSIII.
 %        [NOTE: Default is 0.5, not 1.0]
-% combine_mode = [default 0, no 'collapse']. If this is 1, combine data for RNAs that have the same 
+% combine_mode_RNA = [default 0, no 'combine']. If this is 1, combine data for RNAs that have the same 
 %                   names, as specified in the library_file. If this is 2, combine data 
 %                   for RNAs that share any 'tags' (segments of the library_file names, separated by tabs);
 %                   this is useful if, for example, RNAs are double mutants and you want to project
 %                   to single mutants.
+% combine_mode_RNA = [default 0, no 'combine']. If this is 1, combine data for primers that have the same 
+%                   names, as specified in the primer_file. In the primer name, the text before the
+%                   first tab is ignored; the text after that is assumed to be a description of the library
+%                   probed or modifier and is used to determine which primers should be combined.
+%
+                 
 %
 % (C) R. Das, 2012-2013
 
-if nargin < 1; help( mfilename ); return; end;
+%if nargin < 1; help( mfilename ); return; end;
 
 if ~exist( 'library_file') | length( library_file ) == 0;  library_file = 'RNA_structures.fasta'; end;
 if ~exist( library_file );  library_file = 'RNA_sequences.fasta'; end    
@@ -52,8 +58,9 @@ end
 Nidx = size( D{1}, 1 );
 
 if combine_mode > 0
-  [D, RNA_info] =  collapse_by_tag( D, RNA_info, combine_mode );
-  output_tag = [output_tag, '_collapse',num2str(combine_mode),'_'];
+  [D, RNA_info] = combine_by_tag_primer( D, primer_info, combine_mode );
+  [D, RNA_info] = combine_by_tag( D, RNA_info, combine_mode );
+  output_tag = [output_tag, '_combine',num2str(combine_mode),'_'];
 end
 
 N_res  = size( D{1}, 2);

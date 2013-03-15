@@ -1,9 +1,9 @@
-function [D_collapse, RNA_info_collapse ] = collapse_by_tag( D, RNA_info, COLLAPSE_MODE )
+function [D_collapse, primer_info_collapse ] = collapse_by_tag_primer( D, primer_info, COLLAPSE_MODE )
 %
-% [D_collapse, RNA_info_collapse ] = collapse_by_tag( D, RNA_info, COLLAPSE_MODE )
+% [D_collapse, primer_info_collapse ] = collapse_by_tag( D, primer_info, COLLAPSE_MODE )
 %
 % D             = cell of M x N arrays with raw sequencing counts, where M is number of RNAs, and N is number of residues.
-% RNA_info      = M structs with fields 'Header' and 'Sequence', as output by fastaread
+% primer_info      = M structs with fields 'Header' and 'Sequence', as output by fastaread
 % COLLAPSE_MODE = 1: combine counts for RNAs with the same Header tag, 
 %                 2: combine counts for RNAs with the same subtags (delimited by tabs)
 %
@@ -14,7 +14,7 @@ function [D_collapse, RNA_info_collapse ] = collapse_by_tag( D, RNA_info, COLLAP
 if ~exist( 'COLLAPSE_MODE' ) COLLAPSE_MODE = 1; end;
 WEIGHT_BY_ERRORS = 0; % put this in later.
 
-N_RNA = length( RNA_info );
+N_RNA = length( primer_info );
 tags = {};
 % save mapping.
 index_for_tag = {}; 
@@ -22,7 +22,7 @@ for j = 1:N_RNA
   
   index_for_tag{j} = [];
 
-  complete_tag = RNA_info(j).Header;
+  complete_tag = primer_info(j).Header;
 
   if COLLAPSE_MODE == 2
     RNA_tags = split_string( complete_tag, sprintf('\t') );
@@ -44,7 +44,7 @@ for j = 1:N_RNA
       tags = [tags, tag ];
       N_tags_collapse = length( tags );
       index_for_tag{j} = [ N_tags_collapse ];
-      RNA_info_collapse( N_tags_collapse ) = RNA_info(j);
+      primer_info_collapse( N_tags_collapse ) = primer_info(j);
     else
       index_for_tag{j} = [index_for_tag{j}, find( found_tag )];
     end
@@ -56,7 +56,7 @@ for i = 1:length(D)
 
   N_RNA_in_D = size( D{i}, 1 );
   if ( N_RNA_in_D ~= N_RNA ) 
-    fprintf( 'Disagreement between number of RNAs in RNA_info [%d] and in D{%i} [%d]\n', N_RNA, i, N_RNA_in_D );
+    fprintf( 'Disagreement between number of RNAs in primer_info [%d] and in D{%i} [%d]\n', N_RNA, i, N_RNA_in_D );
     return;
   end  
 
