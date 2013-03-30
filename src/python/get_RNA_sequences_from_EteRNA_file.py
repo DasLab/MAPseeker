@@ -10,6 +10,9 @@ def Help():
 
 if len( argv ) < 2: Help()
 
+ADD_P4P6 = False
+if '-addP4P6' in argv: ADD_P4P6 = True
+
 EteRNAfile = argv[1]
 
 outfile1 = 'RNA_sequences.fasta'
@@ -19,9 +22,17 @@ fid2 = open( outfile2, 'w')
 
 # get names of constructs
 lines = open( EteRNAfile ).readlines()
+
+if len( lines ) == 1:
+    lines = lines[0].split( '\r' )
+
+if ADD_P4P6:
+    lines.append( '0\tP4-P6 domain, Tetrahymena ribozyme\t0\tGGCCAAAGGCGUCGAGUAGACGCCAACAACGGAAUUGCGGGAAAGGGGUCAACAGCCGUUCAGUACCAAGUCUCAGGGGAAACUUUGAGAUGGCCUUGCAAAGGGUAUGGUAAUAAGCUGACGGACAUGGUCCUAACCACGCAGCCAAGUCCUAAGUCAACAGAUCUUCUGUUGAUAUGGAUGCAGUUCAAAACCAAACCGUCAGCGAGUAGCUGACAAAAAGAAACAACAACAACAAC\tP4-P6 with double reference hairpin\t.......((((((.....))))))...........((((((...((((((.....(((.((((.(((..(((((((((....)))))))))..((.......))....)))......)))))))....))))))..)).))))((...((((...(((((((((...)))))))))..))))...)).............((((((.....))))))......................\n' )
+
+
 tag_map = {}
 for line in lines:
-    cols = line[:-1].split( '\t' );
+    cols = line.replace('\n','').split( '\t' );
     header = '> '+cols[0]+'\t'+ cols[1] + '\t' + cols[4]
     sequence = cols[3]
     structure = cols[5]
