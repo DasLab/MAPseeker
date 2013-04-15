@@ -8,8 +8,8 @@ if ~exist( 'D_err' ) | length( D_err ) == 0
 end
 
 for i = 1:length( D )
-  D{i} = D{i}(idx,:);
-  D_err{i} = D_err{i}(idx,:);
+  D{i} = D{i}( :, idx );
+  D_err{i} = D_err{i}( :, idx );
 end
 
 stair_plot( D, ...

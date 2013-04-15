@@ -1,8 +1,10 @@
 function [D_correct, D_correct_err] = get_corrected_reactivity(  D, full_extension_correction_factor  );
 
-D(:,1) = D(:,1) + 0.0001; % prevent NaN
-D(:,1) = D(:,1) / full_extension_correction_factor;
-D_cumsum = cumsum(D, 2);
+% [D_correct, D_correct_err] = get_corrected_reactivity(  D, full_extension_correction_factor  );
+
+D(1,:) = D(1,:) + 0.0001; % prevent NaN
+D(1,:) = D(1,:) / full_extension_correction_factor;
+D_cumsum = cumsum( D );
 D_correct = D ./ D_cumsum;
 
 % ignores error in denominator, which is assumed to be much larger than numerator, and to have

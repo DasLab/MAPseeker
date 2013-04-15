@@ -54,17 +54,17 @@ end
 D_combine = {};
 for i = 1:length(D)
 
-  N_RNA_in_D = size( D{i}, 1 );
+  N_RNA_in_D = size( D{i}, 2 );
   if ( N_RNA_in_D ~= N_RNA ) 
     fprintf( 'Disagreement between number of RNAs in RNA_info [%d] and in D{%i} [%d]\n', N_RNA, i, N_RNA_in_D );
     return;
   end  
 
-  N_res  = size( D{i}, 2);
-  D_new = zeros( N_tags_combine, N_res);
+  N_res  = size( D{i}, 1);
+  D_new = zeros( N_res, N_tags_combine );
   for j = 1:N_RNA
     for m = index_for_tag{j}
-      D_new( m, : ) = D_new( m, : ) + D{i}(j, :);
+      D_new( :, m ) = D_new( :, m ) + D{i}(:, j);
     end
   end
 

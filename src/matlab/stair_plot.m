@@ -21,7 +21,7 @@ total_count = 0;
 % plot values as staircase
 for i = 1:N; 
   stairs( seqpos-0.5,  D{i}, 'color',colorcode(i,:), 'linew',2 ); hold on; 
-  ymax = max( ymax,  max( D{i}( :, 4:end) ) );
+  ymax = max( ymax,  max( D{i}( 4:end ) ) );
   total_count = total_count + sum( D{i} );
 end
 

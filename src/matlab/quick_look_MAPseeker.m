@@ -1,6 +1,6 @@
-function [D, RNA_info, primer_info, D_final, D_final_err ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, combine_mode_RNA, combine_mode_primer );
+function [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_ref ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, combine_mode_RNA, combine_mode_primer );
 %
-% [D, RNA_info, primer_info, D_final, D_final_err ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, combine_mode_RNA, combine_mode_primer] );
+% [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_ref ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, combine_mode_RNA, combine_mode_primer] );
 %
 %     Reads in MAPseeker output and prints useful graphs for your
 %      notebook.
@@ -41,16 +41,20 @@ function [D, RNA_info, primer_info, D_final, D_final_err ] = quick_look_MAPseeke
 %
 % Outputs:
 %
-% D           = matrix of raw counts. (Note that first column is total reads of fully extended cDNA, 'site 0')
-% RNA_info    = object with names & sequences (and structures, if given) in RNA library.
-% primer_info = object with names & sequences of primers
-% D_final     = final data after attenuation correction, background subtraction (if one of the primers is 'no mod'), and
+% D           = final data after attenuation correction, background subtraction (if one of the primers is 'no mod'), and
 %                 normalization (if one of the RNAs is defined as a 'REFERENCE'). Does not include 'site 0' -- first index
 %                 corresponds to a stop at site 1 (just before full extension of RNA).
-% D_final_err = error that goes with final data
+% D_err       = error that goes with final data
+% RNA_info    = object with names & sequences (and structures, if given) in RNA library.
+% primer_info = object with names & sequences of primers
+% D_raw       = matrix of raw counts. (Note that first column is total reads of fully extended cDNA, 'site 0')
+% D_ref       = final data for a REFERENCE hairpin
+% D_ref_err   = error for final data for a REFERENCE hairpin
 %
 %
 % (C) R. Das, 2012-2013
+
+VERSION_NUM_STRING = '1.2';
 
 %if nargin < 1; help( mfilename ); return; end;
 
@@ -58,8 +62,8 @@ if ~exist( 'library_file') | length( library_file ) == 0;  library_file = 'RNA_s
 if ~exist( library_file );  library_file = 'RNA_sequences.fasta'; end    
 if ~exist( 'primer_file') | length( primer_file ) == 0; primer_file = 'primers.fasta';end;
 if ~exist( 'inpath') | length( inpath ) == 0; inpath = './';end;
-if ~exist( 'combine_mode_RNA' ) combine_mode_RNA = 0;end;
-if ~exist( 'combine_mode_primer' ) combine_mode_primer = 0;end;
+if ~exist( 'combine_mode_RNA' ) combine_mode_RNA = 1; end;
+if ~exist( 'combine_mode_primer' ) combine_mode_primer = 1; end;
 PRINT_STUFF = 0;
 
 output_tag = strrep( strrep( inpath, '.','' ), '/', '' ); % could be blank
@@ -73,19 +77,22 @@ for i = 1:N_primers;
   stats_file = sprintf( '%s/stats_ID%d.txt', inpath,i);
   fprintf( sprintf('Looking for MAPseeker output file: %s\n', stats_file ) )
   if ~exist( stats_file );  fprintf( ['Could not find ',stats_file,'!\n']); return;end;
-  D{i} = load( stats_file ); 
+
+  % New: transpose D_raw matrix to make CE and Illumina data sets have similar format!
+  D_raw{i} = load( stats_file )'; 
 end
-Nidx = size( D{1}, 1 );
+Nidx = size( D_raw{1}, 2 );
 
 if ( combine_mode_RNA > 0 | combine_mode_primer > 0 )
-  [D, primer_info] = combine_by_tag_primer( D, primer_info, combine_mode_primer );
-  [D, RNA_info] = combine_by_tag( D, RNA_info, combine_mode_RNA );
+  [D_raw, primer_info] = combine_by_tag_primer( D_raw, primer_info, combine_mode_primer );
+  [D_raw, RNA_info]    = combine_by_tag(        D_raw, RNA_info,    combine_mode_RNA );
   output_tag = [output_tag, '_combineRNA',num2str(combine_mode_RNA),'_combinePRIMER',num2str(combine_mode_primer)];
 end
 
-N_res  = size( D{1}, 2);
-N_RNA = size(D{1},1);
+N_res  = size( D_raw{1}, 1);
+N_RNA  = size( D_raw{1}, 2);
 N_primers = length( primer_info );
+fprintf( '\n' );
 if N_RNA  ~= length( RNA_info );
   fprintf( ['Number of lines in data files ',num2str(N_RNA),' does not match number of sequences in library ', library_file,' ', num2str(length(RNA_info)), '!\n'] ); 
   return;
@@ -96,10 +103,10 @@ end
 % overall summary of total reads
 FigHandle = figure(1);
 figure_xsize = 1200;
-set(FigHandle, 'Position', [50, 50, figure_xsize, 400]);
+set(FigHandle, 'Position', [50, 50, figure_xsize, 400], 'name', 'Count Summary');
 clf;
 for i = 1:N_primers
-  num_counts_per_sequence(:,i) = sum(D{i}');
+  num_counts_per_sequence(:,i) = sum(D_raw{i});
 end
 
 subplot(1,2,1);
@@ -151,8 +158,6 @@ ylabel( sprintf( 'Distributions of %9d counts over RNAs',round(total_counts)));
 set(gcf, 'PaperPositionMode','auto','color','white');
 h=title( basename(pwd) ); set(h,'interpreter','none','fontsize',7 )
 
-if PRINT_STUFF; print( '-depsc2',[output_tag,'Figure1.eps'] ); end;
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % output least common sequences and most common sequences.
@@ -183,14 +188,14 @@ REFERENCE_INCLUDED = (ref_idx > 0 );
 % apply attenuation correction...
 AUTOFIT_ATTENUATION = 0;
 if ~exist( 'full_length_correction_factor') | length( full_length_correction_factor ) == 0;  % if not inputted, try this.
-  full_length_correction_factor = 0.5; % default. 
+  full_length_correction_factor = 1.0; % default. 
   if REFERENCE_INCLUDED
-    full_length_correction_factor = full_length_correction_factor_from_each_primer( D, nomod_for_each_primer, ref_segment, ref_idx, RNA_info, primer_info );
+    full_length_correction_factor = full_length_correction_factor_from_each_primer( D_raw, nomod_for_each_primer, ref_segment, ref_idx, RNA_info, primer_info );
     AUTOFIT_ATTENUATION = 1;
   end
 end;
 
-[ D_correct, D_correct_err ] = determine_corrected_reactivity( D, full_length_correction_factor );
+[ D_correct, D_correct_err ] = determine_corrected_reactivity( D_raw, full_length_correction_factor );
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % background subtraction
@@ -206,34 +211,20 @@ end
 
 
 figure_ysize = min( N_RNA*150, 800);
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%  Make 1D plots of most common sequences
-FigHandle = figure(2);
-set(FigHandle, 'Position', [150,150,600,figure_ysize]);
-%make_stair_plots( D, most_common_sequences, RNA_info, primer_info, colorcode );
-if PRINT_STUFF; print( '-depsc2',[output_tag,'Figure2.eps'] ); end;
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%  Make 1D plots of most common sequences, apply correction
-FigHandle = figure(3);
-set(FigHandle, 'Position', [200,200,600,figure_ysize]);
-%make_stair_plots( D_correct, most_common_sequences, RNA_info, primer_info, colorcode, D_correct_err );
-if PRINT_STUFF; print( '-depsc2',[output_tag,'Figure3.eps'] ); end;
-
 %pause;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Make 2D gray of all counts
 FigHandle = figure(4);
-set(FigHandle, 'Position', [250,250,600,figure_ysize]);
+set(FigHandle, 'Position', [250,250,600,figure_ysize], 'name', 'Counts (normalized per primer)');
 clf;
-make_image_plot( D, RNA_info, primer_info, most_common_sequences , 'raw counts');
+make_image_plot( D_raw, RNA_info, primer_info, most_common_sequences , 'raw counts');
 if PRINT_STUFF; print( '-depsc2',[output_tag,'Figure4.eps'] ); end;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Make 2D gray of all reactivies, corrected
 FigHandle = figure(5);
-set(FigHandle, 'Position', [300,300,600,figure_ysize]);
+set(FigHandle, 'Position', [300,300,600,figure_ysize], 'name', 'Reactivity');
 clf;
 make_image_plot( D_correct, RNA_info, primer_info, most_common_sequences, 'correct', 1000 );
 if PRINT_STUFF; print( '-depsc2',[output_tag,'Figure5.eps'] ); end;
@@ -244,20 +235,90 @@ if REFERENCE_INCLUDED
   final_image_scalefactor = 20;
 end
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Make 2D gray of all reactivies, background subtracted
 if BACKGD_SUB
   FigHandle = figure(6);
-  set(FigHandle, 'Position', [350,350,600,figure_ysize]);
+  set(FigHandle, 'Position', [350,350,600,figure_ysize],'name','Final');
   clf;
   make_image_plot( D_final, RNA_info, primer_info, most_common_sequences, 'final', final_image_scalefactor );
-  if PRINT_STUFF; print( '-depsc2',[output_tag,'Figure6.eps'] ); end;
 end
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%  Make 1D plots of most common sequences
+FigHandle = figure(2);
+set(FigHandle, 'Position', [150,150,600,figure_ysize], 'name', 'Counts [Most Common RNAs]');
+make_stair_plots( D_raw, most_common_sequences, RNA_info, primer_info, colorcode );
+if PRINT_STUFF; print( '-depsc2',[output_tag,'Figure2.eps'] ); end;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%  Make 1D plots of most common sequences, apply correction
+FigHandle = figure(3);
+set(FigHandle, 'Position', [200,200,600,figure_ysize],'name','Reactivity [Most Common RNAs]');
+make_stair_plots( D_correct, most_common_sequences, RNA_info, primer_info, colorcode, D_correct_err );
+if PRINT_STUFF; print( '-depsc2',[output_tag,'Figure3.eps'] ); end;
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Remove first position in D_final & D_final_err
+for i = 1:length(D_final)
+  D{i}     = D_final{i}(2:end,:);
+  D_err{i} = D_final_err{i}(2:end,:);
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% extract data for reference RNA (if available) into separate variable.
+D_ref = {};  D_ref_err = {}; RNA_info_ref = [];
+if REFERENCE_INCLUDED; 
+  [D, D_err, D_ref, D_ref_err, RNA_info, RNA_info_ref ] = separate_out_reference( D, D_err, RNA_info, ref_idx );
+end
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Output signal-to-noise ratio (statistics)
+if REFERENCE_INCLUDED; fprintf( '\nFollowing is for reference:\n'); output_signal_to_noise_ratio( D_ref, D_ref_err ); end;
+fprintf( '\nSignal-to-noise metrics:\n')
+output_signal_to_noise_ratio( D, D_err );
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% output RDAT
+fprintf( '\n' );
+dirnames = split_string( pwd, '/' );
+dirname = dirnames{end};
+rdat_filename = [ dirname, '.rdat' ];
+name = dirname; % maybe this should be input.
+comments = { ['Output of MAPseeker v',VERSION_NUM_STRING] };
+
+annotations = {};
+annotations = [annotations, 'processing:overmodificationCorrectionExact'];
+annotations = [annotations, ['processing:ligationBiasCorrection:',num2str(full_length_correction_factor,'%8.3f')] ];
+if BACKGD_SUB; annotations = [annotations, 'processing:backgroundSubtraction']; end;
+if REFERENCE_INCLUDED; annotations = [ annotations, ['processing:normalization:',ref_segment] ]; end;
+
+MAPseeker_to_rdat( rdat_filename, name, D, D_err, primer_info, RNA_info, comments, annotations );
+if REFERENCE_INCLUDED
+  rdat_filename = [ dirname, '_REFERENCE.rdat' ];
+  name = RNA_info_ref(1).Header;
+  MAPseeker_to_rdat( rdat_filename, name, D_ref, D_ref_err, primer_info, RNA_info_ref, comments, annotations );
+end
+
+if PRINT_STUFF; 
+  for k = 1:5;    print_fig( k, output_tag ); end;
+  if  BACKGD_SUB; print_fig( 6, output_tag ); end;
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 fprintf('\n')
 if BACKGD_SUB;  fprintf( 'Applied background subtraction.\n');
 else fprintf( 'Did NOT apply background subtraction.\n'); end;
 if REFERENCE_INCLUDED;  fprintf( 'Normalized based on reference.\n');
 else fprintf( 'Did not normalize based on reference -- absolute reactivities outputted.\n'); end;
 if AUTOFIT_ATTENUATION;  fprintf( 'Autofitted ligation bias for attenuation correction.\n'); end;
+
+
 
 return;
 
@@ -287,8 +348,11 @@ end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function make_image_plot( D, RNA_info, primer_info, most_common_sequences, title_tag, scalefactor );
-N_RNA = size( D{1}, 1 );
-N_res = size( D{1}, 2 ); % this is actually the number of residues + 1 (first value is at zero).
+
+clf;
+
+N_RNA = size( D{1}, 2 );
+N_res = size( D{1}, 1 ); % this is actually the number of residues + 1 (first value is at zero).
 N_primers = length( primer_info );
 
 % if there are lots of sequences with one length, and one with a longer length, ignore the latter.
@@ -320,7 +384,7 @@ if STRUCTURES_DEFINED
   end
 
   plot_title = 'Predicted Structure';
-  if exist( 'title_tag' ); plot_title = sprintf('%s\n%s',plot_title,title_tag ); end;
+  if exist( 'title_tag' ); plot_title = sprintf('%s\n%30s',plot_title,title_tag ); end;
 
   plot_titles = [ plot_titles, plot_title ];
   xticks      = [ xticks,      [0:20:L-20] ];
@@ -334,7 +398,7 @@ for i = 1:N_primers
   maxresidx = L + offset;
   Dplot = D{i};
   if ~exist( 'scalefactor' )
-    meanval = mean(mean(Dplot(:,2:end-1)));
+    meanval = mean(mean(Dplot(2:end-1, :)));
     if meanval > 0;
       scalefactor_to_use = 20/meanval;
     else
@@ -343,10 +407,12 @@ for i = 1:N_primers
   else
     scalefactor_to_use = scalefactor;
   end
-  imagex( :, [minresidx:maxresidx] ) = Dplot(:, 1:L) * scalefactor_to_use;
+  imagex( :, [minresidx:maxresidx] ) = Dplot(1:L,:)' * scalefactor_to_use;
 
-  plot_title = regexprep(primer_info(i).Header,'\t','\n');
-  if exist( 'title_tag' ); plot_title = sprintf('%s\n%s',plot_title,title_tag ); end;
+  plot_title = primer_info(i).Header;
+  title_cols = split_string( plot_title, '\t' ); if length( title_cols ) > 3; title_cols = title_cols(1:3);end;
+  if exist( 'title_tag', 'var' ); title_cols = [title_cols, 'title_tag' ];end;
+  plot_title = join_string( title_cols, '\n' );
   plot_titles = [ plot_titles, plot_title ];
 
   xticks      = [ xticks,      [0:20:L-20] + offset];
@@ -452,6 +518,7 @@ end
 
 if length( nomod_primers) == 0; return; end; % no backgrounds found!
 
+fprintf( '\n')
 for i = 1:N_primer
   similar_fields = [];
   primer_tag = primer_info(i).Header;
@@ -460,10 +527,9 @@ for i = 1:N_primer
   end
   [dummy, idx] = max( similar_fields );
   nomod_for_each_primer(i) = nomod_primers( idx );
-  fprintf( 'No mod for primer %d [%30s] is primer %d [%30s]\n', i,  ...
-	   strrep(primer_tag,'\t',' '), ...
-	   nomod_for_each_primer(i), ...
-	   strrep(nomod_primer_tags{idx},'\t',' ') );
+  fprintf( 'No mod for primer %d is primer %d\n', i,  ...
+	   nomod_for_each_primer(i) ...
+	   );
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -482,14 +548,26 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function  full_length_correction_factor = full_length_correction_factor_from_each_primer( D, nomod_for_each_primer, ref_segment, ref_idx, RNA_info, primer_info );
 
+FigHandle = figure(7);
+figure_xsize = 1200;
+set(FigHandle, 'Position', [70, 150, figure_xsize, 400], 'name', 'Ligation Bias Correction Factor');
+set(gcf, 'PaperPositionMode','auto','color','white');
+
 N_primer = length( primer_info );
 all_factors = NaN * ones( N_primer, 1 );
 
 fprintf( '\n' );
 for i = 1:N_primer
   j = nomod_for_each_primer(i);
-  if ( j > 0 &  i ~= j )
-    all_factors(i) = estimate_full_length_correction_factor( D{i}(ref_idx,:), D{j}(ref_idx,:), RNA_info(ref_idx).Sequence, ref_segment);
+  if ( i ~= j )
+    signal = D{i}(:, ref_idx);
+    if ( j > 0 )
+      background = D{j}(:, ref_idx);
+    else
+      background = 0 * signal;
+      fprintf( 'Could not figure out no mod! Specify ''no mod'' in a tab-delimited field for at least one primer in primers.fasta!\n' );
+    end
+    all_factors(i) = estimate_full_length_correction_factor( signal, background, RNA_info(ref_idx).Sequence, ref_segment);
     fprintf( 'Estimated full length correction factor from primer %d: %8.3f   [%30s]\n', i, all_factors(i), strrep( primer_info(i).Header, '\t',' ') );
   end  
 end
@@ -510,8 +588,8 @@ D_norm_err = D_err;
 
 fprintf( '\n' );
 for i = 1:length( D )
-  D_ref = D{i}(ref_idx,:)'; 
-  D_ref_err = D_err{i}(ref_idx,:)'; 
+  D_ref = D{i}(:, ref_idx)'; 
+  D_ref_err = D_err{i}(:, ref_idx)'; 
 
   ref_pos =  [ gp(1) + [1:length(ref_segment)], gp(2) + [1:length(ref_segment)] ];
   scalefactor = mean( D_ref( ref_pos ) );
@@ -520,4 +598,52 @@ for i = 1:length( D )
     D_norm{i} = D{i} / scalefactor;
     D_norm_err{i} = D_err{i} / scalefactor;
   end
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function print_fig( k, output_tag );
+figure(k);
+figure_name = [output_tag,'Figure',num2str(k),'.eps'];
+print( '-depsc2',figure_name ); 
+fprintf( 'Created: %s\n', figure_name );
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function  [D, D_err, D_ref, D_ref_err, RNA_info, RNA_info_ref ] = separate_out_reference( D, D_err, RNA_info, ref_idx );
+
+no_ref_idx = setdiff( [ 1 : size( D{1}, 2) ], ref_idx )';
+for i = 1:length(D)
+  D_ref{i}     = D{i}(:, ref_idx);
+  D_ref_err{i} = D_err{i}(:, ref_idx);
+  D{i}         = D{i}(:, no_ref_idx);
+  D_err{i}     = D_err{i}(:, no_ref_idx);    
+end
+
+RNA_info_ref = RNA_info( ref_idx );
+RNA_info     = RNA_info( no_ref_idx );
+
+[D,D_err]         = truncate_based_on_zeros( D    , D_err);
+[D_ref,D_ref_err] = truncate_based_on_zeros( D_ref, D_ref_err);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [D,D_err]         = truncate_based_on_zeros( D    , D_err);
+maxidx = 1;
+for i = 1:length( D )
+  total_reactivity = sum( D{i}, 2 );
+  maxidx_reactivity = max( find( abs( total_reactivity ) > 0 ) );
+  if ~isempty( maxidx_reactivity) maxidx = max( [maxidx, maxidx_reactivity] ); end;
+end
+for i = 1:length( D )
+  D{i}     = D{i}    (1:maxidx,:);
+  D_err{i} = D_err{i}(1:maxidx,:);
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function output_signal_to_noise_ratio( D, D_err );
+
+for i = 1:length(D)
+  SN_ratio = estimate_signal_to_noise_ratio( D{i}, D_err{i} );
+  fprintf( 'Signal-to-noise ratio for primer %d:  %8.3f [%s]\n', i, SN_ratio, classify_signal_to_noise_ratio( SN_ratio ) );
 end

@@ -8,6 +8,14 @@ function rdat = output_MAPseeker_data_to_rdat_file( filename, name, D_average, D
 %
 % (C) R. Das, 2013
 %
+fprintf( '\nWARNING! WARNING! WARNING! WARNING! \n' )
+fprintf( 'WARNING! WARNING! WARNING! WARNING! \n' )
+fprintf(  [mfilename, '\n is deprecated and will be removed soon\n'] );
+fprintf( 'Consider using MAPseeker_to_rdat instead (or\n functionality within quick_look_MAPseeker)\n');
+fprintf( 'WARNING! WARNING! WARNING! WARNING! \n' )
+fprintf( 'WARNING! WARNING! WARNING! WARNING! \n\n' )
+
+if nargin == 0; help( mfilename ); return; end;
 
 seqpos = [0:size(D_average,2)-1];
 

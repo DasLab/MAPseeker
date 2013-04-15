@@ -36,8 +36,10 @@ alpha = p;
 subplot(2,1,1);
 plot( 1:length( signal ), signal, 'r', 'linew',2); hold on
 plot( 1:length( signal ), background, 'b', 'linew',2); hold off
-ymax = max( [signal(2:end) background(2:end)] );
-ylim( [-ymax*0.1, ymax*1.1] );
+
+ymax = max( [max(signal(2:end)), max(background(2:end))] );
+set(gca, 'ylim', ymax*[-0.1, 1.1] );
+title( 'Raw counts' );
 
 subplot(2,1,2);
 plot( 1:length( signal ), signal_corrected, 'r', 'linew',2); hold on
@@ -45,6 +47,12 @@ plot( 1:length( signal ), background_corrected, 'b', 'linew',2);
 plot( 1:length( signal ), d, 'k', 'linew',2); 
 area( first_reference_bins, d( first_reference_bins), 'facecolor', [0.5 0.5 0.5] );
 area( second_reference_bins, d( second_reference_bins), 'facecolor', [0.5 0.5 0.5] );
-ymax = max( [signal_corrected(2:end) background_corrected(2:end)] );
-ylim( [-ymax*0.1, ymax*1.1] );
+set(gca,'xtick',2:length(signal),'xticklabel',sequence');
+
+h =title( ['After apply full_length_correction_factor: ',num2str(alpha)] ); set(h,'interp','none');
+
+legend( 'signal','background','subtracted','reference segments');
+
+ymax = max( [max(signal_corrected(2:end)), max(background_corrected(2:end))] );
+set(gca, 'ylim', ymax*[-0.1, 1.1] );
 hold off

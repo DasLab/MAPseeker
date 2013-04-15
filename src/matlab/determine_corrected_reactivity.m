@@ -2,7 +2,7 @@ function [D_correct, D_correct_err] = determine_corrected_reactivity(  D, full_e
 %
 % [D_correct, D_correct_err] = determine_corrected_reactivity(  D, full_extension_correction_factor  );
 %
-% D   =  input matrix (each row is an RNA, and each column is site of
+% D   =  input matrix (each column is an RNA, and each row is site of
 %         stop from 0, 1, ... N). Can also be a cell of such matrices.
 %
 % full_extension_correction_factor
