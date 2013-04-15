@@ -1,4 +1,4 @@
-function  dev2 = reference_sequence_deviation( p, signal, background, first_reference_bins, second_reference_bins );
+function  [dev2,d,signal_corrected,background_corrected] = reference_sequence_deviation( p, signal, background, first_reference_bins, second_reference_bins );
 
 alpha = p(1);
 

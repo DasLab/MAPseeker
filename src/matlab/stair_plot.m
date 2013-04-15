@@ -47,7 +47,10 @@ set(gca,'xaxisloc','top','xgrid','on','fontw','bold');
 
 ymax = ymax*1.2;
 if ymax>0; ylim([0 ymax]); end;
-xlim( [-0.5 Nres+1] );
+
+xmax = Nres;
+if length( sequence ) > 0; xmax = length(sequence); end;
+xlim( [-0.5 xmax+1] );
     
 for j = 1:(Nres-1); 
   if ( j > length( sequence ) ); continue; end;

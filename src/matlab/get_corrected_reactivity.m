@@ -9,3 +9,4 @@ D_correct = D ./ D_cumsum;
 % significantly less (statistical) fractional error than numerator.
 % padding with 1 count to determine error (this is kind of a 'prior' on bins with no counts)
 D_correct_err = ( sqrt(D) + 1)./ D_cumsum; 
+

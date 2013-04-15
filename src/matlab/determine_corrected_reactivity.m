@@ -9,7 +9,7 @@ function [D_correct, D_correct_err] = determine_corrected_reactivity(  D, full_e
 %     =  amount to increase value of counts at site 0. Correction for 
 %        empirically observed low ssDNA ligation efficiency by circLigase
 %        to 'full-length' complementary DNA created by SSIII.
-%        [NOTE!!! Default is 2.0, not 1.0]
+%        [NOTE!!! Default is 0.5, not 1.0 -- bias typically seen by Das lab with circLigase]
 %
 % Correction formula is exact:
 %

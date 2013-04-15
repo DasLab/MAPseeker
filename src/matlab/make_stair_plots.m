@@ -23,5 +23,5 @@ set(h,'interpreter','none','fontsize',9);
 
 if (N_display > 1 )
   subplot(N_display,1,N_display);
-  h=legend( basename(pwd) ); set(h,'interpreter','none','fontsize',7 )
+  h=legend( basename(pwd) ); set(h,'interpreter','none','fontsize',6 )
 end

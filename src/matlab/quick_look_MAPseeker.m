@@ -1,13 +1,22 @@
-function [D, RNA_info, primer_info, D_correct, D_correct_err ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, combine_mode_RNA, combine_mode_primer );
+function [D, RNA_info, primer_info, D_final, D_final_err ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, combine_mode_RNA, combine_mode_primer );
 %
-% [D, RNA_info, primer_info, D_correct, D_correct_err ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, combine_mode_RNA, combine_mode_primer] );
+% [D, RNA_info, primer_info, D_final, D_final_err ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, combine_mode_RNA, combine_mode_primer] );
 %
-%      Reads in MAPseeker output and prints useful graphs for your
+%     Reads in MAPseeker output and prints useful graphs for your
 %      notebook.
+%
+%     Include the words 'no mod' in primers that correspond to no modification controls; script
+%      will then do background subtraction. [If more than one 'no mod', e.g. several versions of the library,
+%      correspondence of which no mod goes with which mod experiment is based on similarity of primer names.]
+%
+%     Include the word 'REFERENCE' and a reference sequence segment (e.g., 'GAGUA') in the header for
+%      one of the reference RNAs and it will be used to determine full_length_correction_factor (ligation bias)
+%      and to normalize data at end! (Script will automatically look for Das lab P4P6 double hairpin sequence also...)
+%
 %
 % library_file = [default: 'RNA_sequences.fasta'] all probed RNA sequences in 
 %                  FASTA format. Can include structures in dot/paren notation 
-%                  after each sequence (as output by Vienna's RNAfold).
+%                  after each sequence (as output by Vienna's RNAfold). ('RNAstructures.fasta')
 % primer_file  = [default: 'primers.fasta'] DNA sequences of reverse 
 %                  transcription primers in FASTA format
 % inpath       = [default: './' (current directory)] where to find
@@ -29,7 +38,17 @@ function [D, RNA_info, primer_info, D_correct, D_correct_err ] = quick_look_MAPs
 %                   first tab is ignored; the text after that is assumed to be a description of the library
 %                   probed or modifier and is used to determine which primers should be combined.
 %
-                 
+%
+% Outputs:
+%
+% D           = matrix of raw counts. (Note that first column is total reads of fully extended cDNA, 'site 0')
+% RNA_info    = object with names & sequences (and structures, if given) in RNA library.
+% primer_info = object with names & sequences of primers
+% D_final     = final data after attenuation correction, background subtraction (if one of the primers is 'no mod'), and
+%                 normalization (if one of the RNAs is defined as a 'REFERENCE'). Does not include 'site 0' -- first index
+%                 corresponds to a stop at site 1 (just before full extension of RNA).
+% D_final_err = error that goes with final data
+%
 %
 % (C) R. Das, 2012-2013
 
@@ -39,10 +58,10 @@ if ~exist( 'library_file') | length( library_file ) == 0;  library_file = 'RNA_s
 if ~exist( library_file );  library_file = 'RNA_sequences.fasta'; end    
 if ~exist( 'primer_file') | length( primer_file ) == 0; primer_file = 'primers.fasta';end;
 if ~exist( 'inpath') | length( inpath ) == 0; inpath = './';end;
-if ~exist( 'full_length_correction_factor') | length( full_length_correction_factor ) == 0; full_length_correction_factor = 0.5;end;
 if ~exist( 'combine_mode_RNA' ) combine_mode_RNA = 0;end;
 if ~exist( 'combine_mode_primer' ) combine_mode_primer = 0;end;
-  
+PRINT_STUFF = 0;
+
 output_tag = strrep( strrep( inpath, '.','' ), '/', '' ); % could be blank
 
 RNA_info = fastaread_structures( library_file );
@@ -76,7 +95,7 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % overall summary of total reads
 FigHandle = figure(1);
-figure_xsize = 1000;
+figure_xsize = 1200;
 set(FigHandle, 'Position', [50, 50, figure_xsize, 400]);
 clf;
 for i = 1:N_primers
@@ -132,7 +151,7 @@ ylabel( sprintf( 'Distributions of %9d counts over RNAs',round(total_counts)));
 set(gcf, 'PaperPositionMode','auto','color','white');
 h=title( basename(pwd) ); set(h,'interpreter','none','fontsize',7 )
 
-print( '-depsc2',[output_tag,'Figure1.eps'] )
+if PRINT_STUFF; print( '-depsc2',[output_tag,'Figure1.eps'] ); end;
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -154,23 +173,52 @@ for i = most_common_sequences
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% figure out no mod matchups.
+nomod_for_each_primer  = figure_out_nomod_for_each_primer( primer_info );
+
+% look for a reference construct.
+[ref_idx, ref_segment] = get_reference_construct_index( RNA_info );
+REFERENCE_INCLUDED = (ref_idx > 0 );
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % apply attenuation correction...
+AUTOFIT_ATTENUATION = 0;
+if ~exist( 'full_length_correction_factor') | length( full_length_correction_factor ) == 0;  % if not inputted, try this.
+  full_length_correction_factor = 0.5; % default. 
+  if REFERENCE_INCLUDED
+    full_length_correction_factor = full_length_correction_factor_from_each_primer( D, nomod_for_each_primer, ref_segment, ref_idx, RNA_info, primer_info );
+    AUTOFIT_ATTENUATION = 1;
+  end
+end;
+
 [ D_correct, D_correct_err ] = determine_corrected_reactivity( D, full_length_correction_factor );
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% background subtraction
+D_final = D_correct;
+D_final_err = D_correct_err;
+BACKGD_SUB = sum(  nomod_for_each_primer ) > 0;
+if BACKGD_SUB  
+  for i = 1:N_primers
+    j = nomod_for_each_primer(i);
+    [D_final{i}, D_final_err{i}] = subtract_data( D_correct{i}, D_correct{j}, D_correct_err{i}, D_correct_err{j} );
+  end
+end
+
 
 figure_ysize = min( N_RNA*150, 800);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %  Make 1D plots of most common sequences
 FigHandle = figure(2);
 set(FigHandle, 'Position', [150,150,600,figure_ysize]);
-make_stair_plots( D, most_common_sequences, RNA_info, primer_info, colorcode );
-print( '-depsc2',[output_tag,'Figure2.eps'] )
+%make_stair_plots( D, most_common_sequences, RNA_info, primer_info, colorcode );
+if PRINT_STUFF; print( '-depsc2',[output_tag,'Figure2.eps'] ); end;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %  Make 1D plots of most common sequences, apply correction
 FigHandle = figure(3);
 set(FigHandle, 'Position', [200,200,600,figure_ysize]);
-make_stair_plots( D_correct, most_common_sequences, RNA_info, primer_info, colorcode, D_correct_err );
-print( '-depsc2',[output_tag,'Figure3.eps'] )
+%make_stair_plots( D_correct, most_common_sequences, RNA_info, primer_info, colorcode, D_correct_err );
+if PRINT_STUFF; print( '-depsc2',[output_tag,'Figure3.eps'] ); end;
 
 %pause;
 
@@ -180,7 +228,7 @@ FigHandle = figure(4);
 set(FigHandle, 'Position', [250,250,600,figure_ysize]);
 clf;
 make_image_plot( D, RNA_info, primer_info, most_common_sequences , 'raw counts');
-print( '-depsc2',[output_tag,'Figure4.eps'] )
+if PRINT_STUFF; print( '-depsc2',[output_tag,'Figure4.eps'] ); end;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Make 2D gray of all reactivies, corrected
@@ -188,7 +236,28 @@ FigHandle = figure(5);
 set(FigHandle, 'Position', [300,300,600,figure_ysize]);
 clf;
 make_image_plot( D_correct, RNA_info, primer_info, most_common_sequences, 'correct', 1000 );
-print( '-depsc2',[output_tag,'Figure5.eps'] )
+if PRINT_STUFF; print( '-depsc2',[output_tag,'Figure5.eps'] ); end;
+
+final_image_scalefactor = 1000;
+if REFERENCE_INCLUDED
+  [D_final, D_final_err] = apply_reference_normalization( D_final, D_final_err, ref_idx, ref_segment, RNA_info );
+  final_image_scalefactor = 20;
+end
+
+if BACKGD_SUB
+  FigHandle = figure(6);
+  set(FigHandle, 'Position', [350,350,600,figure_ysize]);
+  clf;
+  make_image_plot( D_final, RNA_info, primer_info, most_common_sequences, 'final', final_image_scalefactor );
+  if PRINT_STUFF; print( '-depsc2',[output_tag,'Figure6.eps'] ); end;
+end
+
+fprintf('\n')
+if BACKGD_SUB;  fprintf( 'Applied background subtraction.\n');
+else fprintf( 'Did NOT apply background subtraction.\n'); end;
+if REFERENCE_INCLUDED;  fprintf( 'Normalized based on reference.\n');
+else fprintf( 'Did not normalize based on reference -- absolute reactivities outputted.\n'); end;
+if AUTOFIT_ATTENUATION;  fprintf( 'Autofitted ligation bias for attenuation correction.\n'); end;
 
 return;
 
@@ -222,18 +291,25 @@ N_RNA = size( D{1}, 1 );
 N_res = size( D{1}, 2 ); % this is actually the number of residues + 1 (first value is at zero).
 N_primers = length( primer_info );
 
+% if there are lots of sequences with one length, and one with a longer length, ignore the latter.
+sequence_lengths = [];
+for k = 1:N_RNA;  sequence_lengths(k) = length( RNA_info(k).Sequence ); end;
+sequence_lengths = sort( sequence_lengths );
+L = sequence_lengths( round( 0.9*N_RNA ) );
+
 STRUCTURES_DEFINED = ( length( RNA_info(1).Structure ) > 0 );
 N_plots = N_primers + STRUCTURES_DEFINED;
 
-imagex = zeros( N_RNA, (N_res * N_plots) );
+imagex = zeros( N_RNA, (L * N_plots) );
 plot_titles = {};
 xticks = [];
 xticklabels = [];
 
 subplot(1,1,1);
 % just use lower half if there aren't that many RNAs..
-if (N_RNA < 20); subplot(2,2,4); end;
+%if (N_RNA < 20); subplot(2,2,4); end;
 
+boundaries = [];
 if STRUCTURES_DEFINED
 
   scalefactor_structure = 40;
@@ -247,15 +323,15 @@ if STRUCTURES_DEFINED
   if exist( 'title_tag' ); plot_title = sprintf('%s\n%s',plot_title,title_tag ); end;
 
   plot_titles = [ plot_titles, plot_title ];
-  xticks      = [ xticks,      [0:20:N_res-20] ];
-  xticklabels = [ xticklabels, [0:20:N_res-20] ];  
+  xticks      = [ xticks,      [0:20:L-20] ];
+  xticklabels = [ xticklabels, [0:20:L-20] ];  
 end
 
 for i = 1:N_primers
 
-  offset = (i+STRUCTURES_DEFINED-1)*N_res;
+  offset = (i+STRUCTURES_DEFINED-1)*L;
   minresidx = 1 + offset; 
-  maxresidx = N_res + offset;
+  maxresidx = L + offset;
   Dplot = D{i};
   if ~exist( 'scalefactor' )
     meanval = mean(mean(Dplot(:,2:end-1)));
@@ -267,24 +343,26 @@ for i = 1:N_primers
   else
     scalefactor_to_use = scalefactor;
   end
-  imagex( :, [minresidx:maxresidx] ) = Dplot * scalefactor_to_use;
+  imagex( :, [minresidx:maxresidx] ) = Dplot(:, 1:L) * scalefactor_to_use;
 
   plot_title = regexprep(primer_info(i).Header,'\t','\n');
   if exist( 'title_tag' ); plot_title = sprintf('%s\n%s',plot_title,title_tag ); end;
   plot_titles = [ plot_titles, plot_title ];
 
-  xticks      = [ xticks,      [0:20:N_res-20] + offset];
-  xticklabels = [ xticklabels, [0:20:N_res-20] ];
-
+  xticks      = [ xticks,      [0:20:L-20] + offset];
+  xticklabels = [ xticklabels, [0:20:L-20] ];
+  
+  boundaries = [boundaries, maxresidx ];
+  
 end
-
-image( [0:(N_res*N_plots)-1], [1:N_RNA], imagex );
+image( [0:(L*N_plots)-1], [1:N_RNA], imagex );
 set( gca,'tickdir','out','xtick',xticks,'xticklabel',xticklabels,'fontw','bold','fonts',6);
+make_lines( boundaries, 'b', 0.25 );
 
 for i = 1:N_plots
   hold on; 
   %plot( (i*N_res - 1 + 0.5) * [1 1], [0 N_RNA+0.5], 'k','linew',2);
-  h = text( (i - 1) * N_res, 0.5, plot_titles{i} );
+  h = text( (i - 1) * L, 0.5, plot_titles{i} );
   set(h,'fontw','bold','fontsize',9,'interpreter','none','verticalalign','bottom','horizontalalign','left');
 end
 hold off
@@ -299,7 +377,7 @@ N_display = length( most_common_sequences );
 for j = 1:N_display
   idx = most_common_sequences(j);
   hold on
-  plot( N_res*N_plots - 20, idx, 'ro','markersize',5,'markerfacecolor','r','clipping','off');
+  plot( L*N_plots - 20, idx, 'ro','markersize',5,'markerfacecolor','r','clipping','off');
   %h = text( N_res*N_plots - 15, idx,  regexprep( RNA_info( idx ).Header, '\t','\n' ) );
   %set(h,'clipping','off','verticalalign','middle','fontweight','bold','fontsize',7,'interpreter','none');
 end
@@ -310,3 +388,136 @@ set(gcf, 'PaperPositionMode','auto','color','white');
 xlabel( basename(pwd),'interpreter','none' );
 %print( '-dpdf',sprintf( 'EteRNA_PlayerProjects_RawData%02d.pdf',j) );
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function make_lines( line_pos, colorcode, linewidth );
+
+ylim = get(gca,'ylim');
+hold on
+for i = 1:length( line_pos );
+  hold on
+  plot( 0.5+line_pos(i)*[1 1], [ylim(1) ylim(2)],'-','color',colorcode,'linewidth',linewidth); 
+end
+hold off
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [ref_idx,ref_segment] = get_reference_construct_index( RNA_info );
+
+N_RNA = length( RNA_info );
+ref_idx = 0;
+ref_segment = ''; % must be repeated exactly twice in sequence!
+for i = 1:N_RNA; 
+  if ~isempty( strfind( RNA_info(i).Header, 'REFERENCE' ) )
+    ref_idx = i;
+    cols = split_string( RNA_info(i).Header, sprintf('\t') );
+    for m = 1:length( cols )
+      if length( strfind( RNA_info(i).Sequence, cols{m} ) ) == 2; 
+	ref_segment = cols{m};
+	break;    
+      end
+    end
+    if length( ref_segment ) == 0; 
+      fprintf( 'Found REFERENCE tag in RNA sequences, but could not find a sequence segment like GAGUA that is then repeated exactly twice in the sequence!!\n');
+      error(  'Found REFERENCE tag in RNA sequences, but could not find a sequence segment like GAGUA that is then repeated exactly twice in the sequence!!\n')
+    end
+  end
+end
+
+if ref_idx > 0; return; end;
+
+P4P6_double_ref_sequence = 'GGCCAAAGGCGUCGAGUAGACGCCAACAACGGAAUUGCGGGAAAGGGGUCAACAGCCGUUCAGUACCAAGUCUCAGGGGAAACUUUGAGAUGGCCUUGCAAAGGGUAUGGUAAUAAGCUGACGGACAUGGUCCUAACCACGCAGCCAAGUCCUAAGUCAACAGAUCUUCUGUUGAUAUGGAUGCAGUUCAAAACCAAACCGUCAGCGAGUAGCUGACAAAAAGAAACAACAACAACAAC';
+for i = 1:N_RNA;
+  if strcmp( RNA_info(i).Sequence, P4P6_double_ref_sequence ) 
+    ref_idx = i;
+    ref_segment = 'GAGUA';
+    break;
+  end
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function nomod_for_each_primer = figure_out_nomod_for_each_primer( primer_info );
+
+N_primer = length( primer_info );
+nomod_for_each_primer = zeros( N_primer, 1 );
+
+nomod_primers = [];
+nomod_primer_tags = {};
+fprintf('\n')
+for i = 1:N_primer
+  if ~isempty( strfind( lower(primer_info(i).Header), 'no mod' ) );
+    nomod_primers = [ nomod_primers, i ];
+    nomod_primer_tags = [nomod_primer_tags, primer_info(i).Header ];
+    fprintf( 'Found background measurement (''no mod'') in primer %d [%s]\n',i, primer_info(i).Header);
+  end
+end
+
+if length( nomod_primers) == 0; return; end; % no backgrounds found!
+
+for i = 1:N_primer
+  similar_fields = [];
+  primer_tag = primer_info(i).Header;
+  for m = 1:length( nomod_primer_tags );
+    similar_fields( m ) = find_tag_similarity( primer_tag, nomod_primer_tags{m} );
+  end
+  [dummy, idx] = max( similar_fields );
+  nomod_for_each_primer(i) = nomod_primers( idx );
+  fprintf( 'No mod for primer %d [%30s] is primer %d [%30s]\n', i,  ...
+	   strrep(primer_tag,'\t',' '), ...
+	   nomod_for_each_primer(i), ...
+	   strrep(nomod_primer_tags{idx},'\t',' ') );
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function s = find_tag_similarity( tag1, tag2 )
+
+% split at spaces and tabs:
+cols1 = split_string( strrep( tag1, sprintf('\t'),' ') );
+cols2 = split_string( strrep( tag2, sprintf('\t'),' ') );
+
+s = 0;
+for i = 1:length( cols1 )
+  s = s + sum( strcmp( cols1{i}, cols2 ) );
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function  full_length_correction_factor = full_length_correction_factor_from_each_primer( D, nomod_for_each_primer, ref_segment, ref_idx, RNA_info, primer_info );
+
+N_primer = length( primer_info );
+all_factors = NaN * ones( N_primer, 1 );
+
+fprintf( '\n' );
+for i = 1:N_primer
+  j = nomod_for_each_primer(i);
+  if ( j > 0 &  i ~= j )
+    all_factors(i) = estimate_full_length_correction_factor( D{i}(ref_idx,:), D{j}(ref_idx,:), RNA_info(ref_idx).Sequence, ref_segment);
+    fprintf( 'Estimated full length correction factor from primer %d: %8.3f   [%30s]\n', i, all_factors(i), strrep( primer_info(i).Header, '\t',' ') );
+  end  
+end
+
+gp = find( ~isnan( all_factors ) );
+full_length_correction_factor = mean( all_factors(gp) );
+
+fprintf( 'Estimated full length correction factor [AVERAGE]: %8.3f\n', full_length_correction_factor );
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function  [D_norm, D_norm_err] = apply_reference_normalization( D, D_err, ref_idx, ref_segment, RNA_info );
+
+sequence = RNA_info(ref_idx).Sequence;
+gp = strfind( sequence, ref_segment ); % double reference
+
+D_norm = D;
+D_norm_err = D_err;
+
+fprintf( '\n' );
+for i = 1:length( D )
+  D_ref = D{i}(ref_idx,:)'; 
+  D_ref_err = D_err{i}(ref_idx,:)'; 
+
+  ref_pos =  [ gp(1) + [1:length(ref_segment)], gp(2) + [1:length(ref_segment)] ];
+  scalefactor = mean( D_ref( ref_pos ) );
+  if scalefactor > 0
+    fprintf( 'Mean reactivity at reference positions for primer %d: %8.4f\n', i,  scalefactor );
+    D_norm{i} = D{i} / scalefactor;
+    D_norm_err{i} = D_err{i} / scalefactor;
+  end
+end
