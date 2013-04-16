@@ -1,6 +1,6 @@
 function [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_ref ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, combine_mode_RNA, combine_mode_primer );
 %
-% [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_ref ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, combine_mode_RNA, combine_mode_primer] );
+% [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_ref ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, combine_mode_RNA, combine_mode_primer );
 %
 %     Reads in MAPseeker output and prints useful graphs & results for your
 %      notebook.
@@ -30,7 +30,7 @@ function [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_re
 %     =  amount by which value of counts at site 0 is underestimated. Correction for 
 %        empirically observed ~50% ssDNA ligation efficiency by circLigase
 %        to 'full-length' complementary DNA created by SSIII.
-%        [Default is 1.0]
+%        [Default is 0.5]
 % combine_mode_RNA = [default 1]. If 0, no combine. If this is 1, combine data for RNAs that have the same 
 %                   names, as specified in the library_file. If this is 2, combine data 
 %                   for RNAs that share any 'tags' (segments of the library_file names, separated by tabs);
@@ -65,6 +65,9 @@ if ~exist( 'library_file') | length( library_file ) == 0;  library_file = 'RNA_s
 if ~exist( library_file );  library_file = 'RNA_sequences.fasta'; end    
 if ~exist( 'primer_file') | length( primer_file ) == 0; primer_file = 'primers.fasta';end;
 if ~exist( 'inpath') | length( inpath ) == 0; inpath = './';end;
+if ~exist( 'full_length_correction_factor') | length( full_length_correction_factor ) == 0;  % if not inputted, try this.
+  full_length_correction_factor = 0.5; % default. 
+end;
 if ~exist( 'combine_mode_RNA' ) combine_mode_RNA = 1; end;
 if ~exist( 'combine_mode_primer' ) combine_mode_primer = 1; end;
 PRINT_STUFF = 1;
@@ -101,7 +104,7 @@ end
 N_res  = size( D_raw{1}, 1);
 N_RNA  = size( D_raw{1}, 2);
 N_primers = length( primer_info );
-print_it( fid, sprintf(  '\n' ) );
+print_it( fid, '\n' );
 if N_RNA  ~= length( RNA_info );
   print_it( fid, sprintf(  ['Number of lines in data files ',num2str(N_RNA),' does not match number of sequences in library ', library_file,' ', num2str(length(RNA_info)), '!\n'] ) ); 
   return;
@@ -199,13 +202,10 @@ REFERENCE_INCLUDED = (ref_idx > 0 );
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % apply attenuation correction...
 AUTOFIT_ATTENUATION = 0;
-if ~exist( 'full_length_correction_factor') | length( full_length_correction_factor ) == 0;  % if not inputted, try this.
-  full_length_correction_factor = 1.0; % default. 
-  if REFERENCE_INCLUDED
-    full_length_correction_factor = full_length_correction_factor_from_each_primer( D_raw, nomod_for_each_primer, ref_segment, ref_idx, RNA_info, primer_info, fid );
-    AUTOFIT_ATTENUATION = 1;
-  end
-end;
+if REFERENCE_INCLUDED
+  full_length_correction_factor = full_length_correction_factor_from_each_primer( D_raw, nomod_for_each_primer, ref_segment, ref_idx, RNA_info, primer_info, fid );
+  AUTOFIT_ATTENUATION = 1;
+end
 
 [ D_correct, D_correct_err ] = determine_corrected_reactivity( D_raw, full_length_correction_factor );
 
@@ -315,13 +315,14 @@ end
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-print_it( fid, sprintf( '\n') );
+print_it( fid, '\n' );
 if BACKGD_SUB;  print_it( fid, sprintf(  'Applied background subtraction.\n') );
 else print_it( fid, sprintf(  'Did NOT apply background subtraction.\n') ); end;
 if REFERENCE_INCLUDED;  print_it( fid, sprintf(  'Normalized based on reference.\n') );
 else print_it( fid, sprintf(  'Did not normalize based on reference -- absolute reactivities outputted.\n') ); end;
 if AUTOFIT_ATTENUATION;  print_it( fid, sprintf(  'Autofitted ligation bias for attenuation correction.\n') ); end;
 
+print_it( fid, '\n' );
 if PRINT_STUFF; 
   for k = 1:5;    print_fig( k, output_tag, fid ); end;
   if  BACKGD_SUB; print_fig( 6, output_tag, fid ); end;
@@ -517,7 +518,7 @@ nomod_for_each_primer = zeros( N_primer, 1 );
 
 nomod_primers = [];
 nomod_primer_tags = {};
-print_it( fid, sprintf( '\n') );
+print_it( fid, '\n' );
 for i = 1:N_primer
   if ~isempty( strfind( lower(primer_info(i).Header), 'no mod' ) );
     nomod_primers = [ nomod_primers, i ];
@@ -566,7 +567,7 @@ set(gcf, 'PaperPositionMode','auto','color','white');
 N_primer = length( primer_info );
 all_factors = NaN * ones( N_primer, 1 );
 
-print_it( fid, sprintf(  '\n' ) );
+print_it( fid, '\n' );
 for i = 1:N_primer
   j = nomod_for_each_primer(i);
   if ( i ~= j )
@@ -596,7 +597,7 @@ gp = strfind( sequence, ref_segment ); % double reference
 D_norm = D;
 D_norm_err = D_err;
 
-print_it( fid, sprintf(  '\n' ) );
+print_it( fid, '\n' );
 for i = 1:length( D )
   D_ref = D{i}(:, ref_idx)'; 
   D_ref_err = D_err{i}(:, ref_idx)'; 

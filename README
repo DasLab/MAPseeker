@@ -8,14 +8,12 @@ E-mail: rhiju [at] stanford.edu.
 Multiplexed Accessibility Probing read out through next 
 generation Sequencing (MAP-seq) leverages multiple chemical 
 modification strategies to give information-rich structural 
-data on pools of RNAs. A stable version of the experimental 
-protocol is being described in a chapter for an upcoming 
-volume of Methods in Molecular Biology, and a preprint will 
-be made available at www.arxiv.org.
+data on pools of RNAs. 
 
-This repository contains the MAPseeker project, which 
-collects and aims to share software from the Das lab for 
-the robust analysis of MAP-seq data:
+A stable version of the experimental 
+protocol is being described in a chapter for an upcoming 
+volume of Methods in Molecular Biology, and a preprint 
+is available at: http://arxiv.org/abs/1304.1072
 
 (1) The MAPseeker executable.  
   Takes as input your FASTQ files from an Illumina run, 
@@ -38,6 +36,9 @@ and BWA.
   In MATLAB, for converting counts to chemical reactivities, 
   subtracting backgrounds, outputting to RDAT text formats 
   for sharing.
+
+(4) RDATkit
+  Scripts needed to read/write in RDAT format.
 
 ###############
 How to install
@@ -75,13 +76,23 @@ There are four files:
    The headers describe the conditions used in the experiments
    probed by each primer (the first two use the 1M7 
    2'-OH acylating reagent, three used a mock treatment.) 
-   Two in vitro transcribed RNA libraries were tested (one 
-   that involved a PAGE  purification at an early DNA 
-   preparation step, and one that did not.)
+
+   Primers that are 'mock' or control measurements should
+   include a tab-delimited field 'no mod', which will
+   allow their recognition by scripts below.
+
+   In this example, two in vitro transcribed RNA libraries 
+   were tested (one that involved a PAGE purification 
+   at an early DNA preparation step, and one that did not.)
 
  RNA_sequences.fasta
    Two of the ~4000 sequences tested in this run. 
    In FASTA format.
+ 
+   If you have included a sequence with
+   reference segments as an 'internal standard',
+   that is wonderful and can really help the
+   analysis. See below ('Referencing').
 
 Run the command:
 
@@ -106,6 +117,8 @@ The loss of signal in the last step is due to the fact that only
 about 10% of the library are the two doped in sequences specified in 
 RNA_sequences.fasta. [We could get most of the rest of the reads 
 if we specify the other sequences, which we're not doing here for simplicity.]
+This example run should take less than 1 second; for a real data 
+set, this can take minutes or longer.
 
 There are five outputted text files, stats_ID1.txt through stats_ID5.txt. 
 
@@ -121,20 +134,39 @@ in the longest RNA probed.
 
 
 #################################################
-2. Visualizing the run.
+2. Visualizing & processing the run.
 
 To view these files, you can use any plotting program (MATLAB, 
 gnuplot, matplotlib in python). 
 
-We use a MATLAB script, available in src/matlab/. Include 
-this in your MATLAB path, and run from within MATLAB:
+We use MATLAB scripts, available in 
 
-quick_look_MAPseeker( 'RNA_sequences.fasta','primers.fasta','./')
+src/matlab/ 
+
+Include this in your MATLAB path. And if you don't already
+have the RDATkit scripts installed, its bundled with map_seeker, 
+so you just need to also add to your MATLAB path :
+
+xternal/rdatkit/matlab_scripts/
+
+Now run from within MATLAB:
+
+full_length_correction_factor = 0.5;
+quick_look_MAPseeker( 'RNA_sequences.fasta','primers.fasta','./',full_length_correction_factor)
 
 If you don't specify the arguments, that will actually work here, 
 as the script will assume that the RNA library file, primer 
 FASTA file, and working directory with stats_ID1.txt, etc. 
 are the ones used above.
+
+The 'full_length_correction_factor' provides a global estimate of
+ligation bias for the fully extended cDNA compared to partially extended
+cDNAs. In our hands, circLigase gives a bias of ~0.5 even with
+optimized solution conditions (e.g., PEG). If you included
+an internal standard RNA in your run (see below 'Referencing'),
+then don't specify full_length_correction_factor  and it will
+automatically be figured out. That's the best practice here.
+Otherwise, the factor will be assumed to be ~0.5.
 
 This gives a histogram of counts per primer, and counts per 
 RNA (Figure 1); visualization of the counts (with estimated errors) 
@@ -145,69 +177,73 @@ attenuation as follows:
   R(site i) = F(site i)/[F(site 0) + F(site 1) + ... + F(site i) ]
 
 Both 1D profiles are shown (Figures 2 and 3), as well 
-as 2D representation of the entire data set (Figures 4 
-and 5). All figures are also automatically saved to disk as EPS files.
+as 2D representations of the entire data set (Figures 4 
+and 5). 
+
+If at least one of the primers corresponds to 
+a control reaction without modification ('no mod'), 
+background subtraction will also be carried out
+automatically (Figure 6), and the 'no mod' data will be 0.
+
+All figures are also automatically saved to disk as EPS files,
+which you can print for your notebook.
+
+The text output is also saved to disk as MAPseeker_results.txt, which
+you keep in your notebook as a record of the run statistics, 
+background subtraction, etc.
+
+Finally, the data will be available in RDAT format (here, 'example.rdat'),
+which is a compact human-readable format for sharing
+your information (see below, 'What to do next'). It includes
+information on signal-to-noise ('weak' in this case since
+we used a subset of the data), data processing steps 
+(overmodificationCorrectionExact),
+estimated errors, etc.
 
 
 #################################################
-3. Background subtracting and outputting the data
+3. Referencing
 
-To further process these data for useful output, you 
-can take the output of quick_look_MAPseeker with 
-the following command:
+We typically include, in all our runs, the following sequence, which
+is the P4-P6 domain of the Tetrahymena ribozyme with a GAGUA-capped hairpin 
+prepended and appended in flanking sequences:
 
- [D, RNA_info, primer_info, D_correct, D_correct_err ] = quick_look_MAPseeker( 'RNA_sequences.fasta','primers.fasta','./')
+> 0	P4P6	REFERENCE	GAGUA
+GGCCAAAGGCGUCGAGUAGACGCCAACAACGGAAUUGCGGGAAAGGGGUCAACAGCCGUUCAGUACCAAGUCUCAGGGGAAACUUUGAGAUGGCCUUGCAAAGGGUAUGGUAAUAAGCUGACGGACAUGGUCCUAACCACGCAGCCAAGUCCUAAGUCAACAGAUCUUCUGUUGAUAUGGAUGCAGUUCAAAACCAAACCGUCAGCGAGUAGCUGACAAAAAGAAACAACAACAACAAC
 
-D_correct and D_correct_err have the reactivities 
-and their estimated errors. They are cells with one 
-matrix for each primer. RNA_info has information on 
-the sequences and descriptions of the RNA library. 
-The error are based on Poisson statistics (note: sites 
-with zero counts are given 'placeholder' errors of +/-1 ).
+This allows 'in situ' determination of any ligation bias 
+('full_length_correction_factor'), by comparison of the
+reactivities of the GAGUA pentaloops at the 5' and 3' ends. 
+If you have more than one modifier in use, the ligation bias 
+will be estimated from each case and averaged.
 
-You can do background subtraction of the data for 
-primer 1 (a 1M7 condition), using the control data 
-for primer 3 (a mock treatment condition) and like this:
+The reactivities will also be normalized to the average
+reactivity in the GAGUA region.
 
- [D_sub, D_sub_err] = subtract_data( D_correct{1}, D_correct{3},D_correct_err{1},  D_correct_err{3} );
+If you have another reference construct, include it
+in your RNA library FASTA, including the fields 'REFERENCE'
+and 'GAGUA' as tab delimited fields.
 
-Here, we have another subset of the data to average 
-with these (based on primers 2 and 4, which probed 
-an alternative library). We can average these in by 
-the following commands:
-
- [D_sub_ALT, D_sub_err_ALT] = subtract_data( D_correct{2}, D_correct{4},D_correct_err{2},  D_correct_err{4} );
-
- [D_sub_FINAL, D_sub_err_FINAL] =  average_data( D_sub, D_sub_ALT, D_sub_err, D_sub_err_ALT );
-
- You can save these matrices to disk with, for example:
-
-save -ascii D_sub_FINAL.txt D_sub_FINAL
-save -ascii D_sub_err_FINAL.txt D_sub_err_FINAL
-
- Don't forget that the first position corresponds to 'zero' (fully extended reverse transcription product), and the later positions correspond to RT stops. In the RDAT output script (see next), we don't output the value at 'zero'.
-
-#################################################
-4. Sharing the data
-
-To output these data to an RDAT file, you will need 
-the RDATkit (https://simtk.org/home/rdatkit). Then type:
-
- filename = 'Example_output.rdat';
- name = 'Big Library';
- annotations = {'experimentType:StandardState','chemical:Na-HEPES:50mM(pH8.0)','chemical:MgCl:10mM','temperature:24C','processing:overmodificationCorrectionRigorous','processing:backgroundSubtraction','modifier:1M7'};
- comments = {'Test of Miseq data output.', 'Used MAPseeker v1.0'};
- output_MAPseeker_data_to_rdat_file( filename, name, D_sub_FINAL, D_sub_err_FINAL, annotations, comments, RNA_info );
-
+##################################################
+4. What to do next
 Done! You can now share the RDAT file, which is a human-readable text format that
 lets you save and revisit the data and additional information on your experiment.
+
+For example, you can open it in excel (its a tab-delimitted text file). Or you
+can use MATLAB or python scripts in the RDATkit to view.
+
 You can carry out chemical-mapping-guided structure prediction on the on-line server
 
 http://rmdb.stanford.edu/structureserver/
 
-Just upload the file!
+Just upload the file! 
 
-And because your file has estimated errors, it will be useful for the community. 
+We are also creating a set of tools for data exploration, including
+sequence and structure viewing, and 'BLASTing' the sequence and data 
+against the full RMDB, and hope to have 
+those available at the RMDB by 2014.
+
+Because your file has estimated errors, it will be useful for the community. 
 We urge you to share it in the RNA Mapping Database:
 
 http://rmdb.stanford.edu/
@@ -215,6 +251,42 @@ http://rmdb.stanford.edu/
 and an entry will also automatically be generated at the awesome SNRNASM database:
 
 http://snrnasm.bio.unc.edu/
+
+
+#################################################
+5. Further processing (if desired)
+
+To further process these data for useful output, you 
+can take the output of quick_look_MAPseeker with 
+the following command:
+
+ [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_ref ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor );
+
+D and D_err have the reactivities and their estimated errors.
+The errors are based on Poisson statistics (note: sites 
+with zero counts are given 'placeholder' errors of +/-1 ).
+They are cells with one matrix for each primer. 
+
+The first position of these matrices corresponds to site 1, i.e.
+a reverse transcription stop right before full cDNA extension.
+
+If one of the primers was described as 'no mod' then these
+data matrices have been background subtracted. (So
+one of the matrices in each cell will actually be zero.)
+
+RNA_info has information on the sequences and descriptions 
+of the RNA library. 
+
+D_raw contains the raw counts in the stats_ID1.txt, etc. files.
+Note that its first index corresponds to site 0 (full extension),
+unlike D and D_err.
+
+Last, D_ref and D_ref_err contain information on any REFERENCE constructs
+which act as internal standards for MAP-seq ligation bias estimation
+and normalization. 
+
+MATLAB functions subtract_data() and average_data() are provided
+to help compare data sets.
 
 
 
