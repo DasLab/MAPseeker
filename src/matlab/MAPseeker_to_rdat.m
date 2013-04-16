@@ -88,7 +88,7 @@ for j = 1 : size( D{1}, 2 )
       data_annotation  = [data_annotation,  ['sequence:',RNA_info(j).Sequence] ];
       if isfield( RNA_info, 'Structure' ) & length(RNA_info(j).Structure) > 0; data_annotation = [ data_annotation, ['structure:',RNA_info(j).Structure] ];  end;
     end
-    data_annotation = [data_annotation, ['signal_to_noise:',SN_classification] ];
+    data_annotation = [data_annotation, ['signal_to_noise:',SN_classification,':',num2str(SN_ratio(count),'%8.3f') ] ];
     for  k = 1:length( tag_cols ) 
       tag_col = tag_cols{k};
       if isempty( strfind( tag_col, ':' ) )
