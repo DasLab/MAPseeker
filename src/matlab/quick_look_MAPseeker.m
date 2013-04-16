@@ -85,10 +85,17 @@ primer_info = fastaread( primer_file );
 N_primers = length( primer_info );
 
 % load the data
-for i = 1:N_primers;  
+
+% run MAPseeker executable if we can't find the file...
+stats_file = sprintf( '%s/stats_ID%d.txt', inpath,1);
+if ~exist( stats_file, 'file' )
+  run_map_seeker_executable( library_file, primer_file, inpath );
+end
+
+for i = 1:N_primers;    
   stats_file = sprintf( '%s/stats_ID%d.txt', inpath,i);
   print_it( fid,  sprintf('Looking for MAPseeker output file: %s\n', stats_file ) );
-  if ~exist( stats_file );  print_it( fid, sprintf(  ['Could not find ',stats_file,'!\n']) ); return;end;
+  if ~exist( stats_file, 'file' );  print_it( fid, sprintf(  ['Could not find ',stats_file,'!\n']) ); return;end;
 
   % New: transpose D_raw matrix to make CE and Illumina data sets have similar format!
   D_raw{i} = load( stats_file )'; 

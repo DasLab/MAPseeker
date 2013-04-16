@@ -94,6 +94,10 @@ There are four files:
    that is wonderful and can really help the
    analysis. See below ('Referencing').
 
+If you are using MATLAB, you can skip ahead to the next section, and
+the command will be run for you by quick_look_mapseeker() if it sees two FASTQ files
+and no files like stats_ID1.txt.
+
 Run the command:
 
 MAPseeker -1 PhiX_S1_L001_R1_001.first100000.fastq  -2 PhiX_S1_L001_R2_001.first100000.fastq  -l RNA_sequences.fasta  -p primers.fasta  -n 8
