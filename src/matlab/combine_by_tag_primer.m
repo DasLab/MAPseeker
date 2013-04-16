@@ -1,14 +1,17 @@
-function [D_combine, primer_info_combine ] = combine_by_tag_primer( D, primer_info, COMBINE_MODE )
+function [D_combine, primer_info_combine ] = combine_by_tag_primer( D, primer_info, COMBINE_MODE, fid )
 %
 % [D_combine, primer_info_combine ] = combine_by_tag( D, primer_info, COMBINE_MODE )
 %
 % D             = cell of Q arrays with raw sequencing counts, where Q is the number of primers.
 % primer_info   = M structs with fields 'Header' and 'Sequence', as output by fastaread
-% COMBINE_MODE = 1: combine counts for primers with the same Header tag, after the first tab. 
+% COMBINE_MODE  = 1: combine counts for primers with the same Header tag, after the first tab. 
 %
 % (C) R. Das, 2013
 
+if nargin == 0; help( mfilename ); return; end;
+
 if ~exist( 'COMBINE_MODE' ) COMBINE_MODE = 1; end;
+if ~exist( 'fid', 'var' ) fid = 0; end;
 
 if COMBINE_MODE == 0;
   D_combine = D;
@@ -19,13 +22,14 @@ end
 N_primer_in_D = length( D );
 N_primer = length( primer_info );
 if ( N_primer_in_D ~= N_primer ) 
-  fprintf( 'Disagreement between number of primers in primer_info [%d] and in D [%d]\n', N_primer, N_primer_in_D );
+  print_it( fid, sprintf( 'Disagreement between number of primers in primer_info [%d] and in D [%d]\n', N_primer, N_primer_in_D ) );
   return;
 end  
 
 % save mapping.
 tags = {};
 index_for_tag = []; 
+print_it( fid, '\n' );
 for j = 1:N_primer
   
   complete_tag = primer_info(j).Header;
@@ -34,16 +38,17 @@ for j = 1:N_primer
   
   found_tag = 0;
   if length( tag) > 0; % could be that user didn't specify enough info to combine primers. 
-    found_tag = strcmp( tag, tags );
+    found_tag = find( strcmp( tag, tags ) );
   end
   
-  if sum( found_tag ) == 0
+  if isempty( found_tag )
     N_tags_combine = length( tags ) + 1;
     tags{ N_tags_combine } = tag;
     primer_info_combine( N_tags_combine ) = primer_info(j);
     index_for_tag(j) = N_tags_combine;
   else
     index_for_tag(j) = found_tag(1);    
+    print_it( fid, sprintf( 'Combining primer %d with primer %d [ %s ]\n', j, found_tag(1),tags{found_tag(1)} ) );
   end
 
     

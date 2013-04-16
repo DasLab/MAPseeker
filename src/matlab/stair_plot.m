@@ -3,6 +3,9 @@ function stair_plot( D, sequence, structure, colorcode, D_err, tag, seqpos );
 %
 % (C) R. Das, 2012-2013
 
+if nargin==0; help( mfilename ); return; end;
+
+
 if ~iscell( D );  D = { D }; end
 if exist( 'D_err' ) && length( D_err ) > 0 && ~iscell( D_err );  D_err = { D_err }; end
 

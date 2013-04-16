@@ -3,7 +3,6 @@ function alpha = estimate_full_length_correction_factor( signal, background, seq
 % alpha = estimate_full_length_correction_factor( signal, background, sequence, reference_sequence );
 %
 %
-%
 % signal     = raw counts for modification pattern for RNA with reference hairpins. The first position should
 %                correspond to the fully extended primer.
 % background = raw counts for 'no modification' control.
@@ -11,6 +10,8 @@ function alpha = estimate_full_length_correction_factor( signal, background, seq
 % reference_sequence = [optional] sequence of reference segment, which needs to be repeated exactly twice
 %                      in the full RNA sequence. Default is 'GAGUA'.
 %
+
+if nargin==0; help( mfilename ); return; end;
 
 if ~exist( 'reference_sequence', 'var' ) reference_sequence = 'GAGUA'; end
    

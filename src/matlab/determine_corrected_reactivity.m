@@ -22,6 +22,7 @@ function [D_correct, D_correct_err] = determine_corrected_reactivity(  D, full_e
 % (C) R. Das, 2012-2013
 % 
 
+if nargin==0; help( mfilename ); return; end;
 
 if ~exist( 'full_extension_correction_factor' ) full_extension_correction_factor = 0.5; end;
 

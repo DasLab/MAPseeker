@@ -1,4 +1,6 @@
 function make_stair_plot( idx, D, RNA_info, colorcode, D_err );
+% make_stair_plot( idx, D, RNA_info, colorcode, D_err );
+%
 
 if ~exist( 'D_err' ) | length( D_err ) == 0
   N = length( D );

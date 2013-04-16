@@ -4,7 +4,11 @@ function rdat = MAPseeker_to_rdat( filename, name, D, D_err, primer_info, RNA_in
 %
 %  filename  = name of file to output to disk
 %  name      = will show up in NAME field of RDAT -- short description of RNA whos variants are tested.
-%  D = Matrix of data
+%  D     = Matrix of data
+%  D_err = Matrix of data errors
+%  RNA_info = Object with RNA names, sequences, and potentially structures
+%  comments = comments to put in RDAT
+%  annotations = any annotations to include in ANNOTATION.
 %
 % (C) R. Das, 2013
 %
@@ -17,6 +21,7 @@ if ~exist( 'output_workspace_to_rdat_file', 'file' )
   return;
 end
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % reformat data to cell.
 reactivity     = [];
 reactivity_err = [];
@@ -29,6 +34,7 @@ if length( RNA_info )    ~= size( D{1}, 2 );  fprintf( 'RNA_info length does not
 
 JUST_ONE_RNA = (length( RNA_info ) == 1);
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 count = 0;
 for j = 1 : size( D{1}, 2 )
   for i = 1:length(D)
@@ -98,9 +104,8 @@ for j = 1 : size( D{1}, 2 )
 end
 
 
-seqpos = [ 1 : size(reactivity,1) ];
-
-offset = 0; mutpos = [];
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+mutpos = []; % this should be deprecated soon.
 if JUST_ONE_RNA 
   sequence = RNA_info(1).Sequence;
   structure = RNA_info(1).Structure;
@@ -108,6 +113,21 @@ else
   sequence = ''; for k = 1:size(reactivity,1) ; sequence = [sequence,'X']; end;
   structure = strrep( sequence, 'X','.');
 end  
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+seqpos = [ 1 : size(reactivity,1) ];
+offset = 0; 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% special -- P4-P6 has a known conventional numbering...
+P4P6_double_ref_sequence = 'GGCCAAAGGCGUCGAGUAGACGCCAACAACGGAAUUGCGGGAAAGGGGUCAACAGCCGUUCAGUACCAAGUCUCAGGGGAAACUUUGAGAUGGCCUUGCAAAGGGUAUGGUAAUAAGCUGACGGACAUGGUCCUAACCACGCAGCCAAGUCCUAAGUCAACAGAUCUUCUGUUGAUAUGGAUGCAGUUCAAAACCAAACCGUCAGCGAGUAGCUGACAAAAAGAAACAACAACAACAAC';
+if strcmp( sequence, P4P6_double_ref_sequence )
+  fprintf( 'Recognized REFERENCE sequence as P4P6 with two hairpins!\n' );
+  offset = 71;
+  if length( structure ) == 0; structure = '.......((((((.....))))))...........((((((...((((((.....(((.((((.(((..(((((((((....)))))))))..((.......))....)))......)))))))....))))))..)).))))((...((((...(((((((((...)))))))))..))))...)).............((((((.....))))))......................'; end;
+  seqpos = seqpos + offset;
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % if any annotations are shared across all data_annotations, move them up to the level of 'annotations'
@@ -124,9 +144,13 @@ rdat = output_workspace_to_rdat_file( filename, name, sequence, offset, seqpos, 
 
 %rdat = show_rdat( filename );
 
+return;
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function ok = is_ID( tag );
 
+tag = strrep( tag, 'WTF',''); % weird problem in some eterna IDs.
 tag_cols = split_string( tag, '-' );
 tag = tag_cols{1};
 

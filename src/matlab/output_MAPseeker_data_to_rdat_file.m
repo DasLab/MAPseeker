@@ -8,6 +8,9 @@ function rdat = output_MAPseeker_data_to_rdat_file( filename, name, D_average, D
 %
 % (C) R. Das, 2013
 %
+
+if nargin==0; help( mfilename ); return; end;
+
 fprintf( '\nWARNING! WARNING! WARNING! WARNING! \n' )
 fprintf( 'WARNING! WARNING! WARNING! WARNING! \n' )
 fprintf(  [mfilename, '\n is deprecated and will be removed soon\n'] );

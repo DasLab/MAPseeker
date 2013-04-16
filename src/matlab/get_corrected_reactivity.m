@@ -1,6 +1,7 @@
 function [D_correct, D_correct_err] = get_corrected_reactivity(  D, full_extension_correction_factor  );
-
 % [D_correct, D_correct_err] = get_corrected_reactivity(  D, full_extension_correction_factor  );
+
+if nargin==0; help( mfilename ); return; end;
 
 D(1,:) = D(1,:) + 0.0001; % prevent NaN
 D(1,:) = D(1,:) / full_extension_correction_factor;
