@@ -1,0 +1,6 @@
+To do
+create: stats_info.txt which includes the names of RNA_sequences.fasta and primers.fasta -- then read this into MATLAB.
+
+allow processing of multiple fastqs iteratively.
+
+allow recognition of 'nomod' instead of 'no mod'
