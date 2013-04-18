@@ -11,7 +11,7 @@ ninja
 
 If you don't have ninja, you can run: 
 
-cmake
+cmake ./
 make
 
 The application will show up in:
