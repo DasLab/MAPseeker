@@ -179,6 +179,7 @@ int main(int argc, const char *argv[]) {
     // FRAGMENT(read_sequences)
     String<char> seq1,seq1id,seq2,seq_from_library,seq_from_libraryid,seq_expt_id,seq_expt_id_id,qual1,qual2,id1,id2;
     THaystacks haystacks_rna_library, haystacks_expt_ids;
+    std::vector< String<char> > rna_library_vector_RC; //will be used for checking common sequences in the library and seqid_length
     std::vector< String<char> > short_expt_ids;
 
     MultiSeqFile multiSeqFile_library;
@@ -197,6 +198,11 @@ int main(int argc, const char *argv[]) {
 	RNA2DNA( seq_from_library );
         appendValue(haystacks_rna_library, seq_from_library);
 	if ( max_rna_len < length( seq_from_library ) ) max_rna_len = length( seq_from_library );
+	
+	CharString seq_from_library_RC( seq_from_library );
+	reverseComplement( seq_from_library_RC );
+	rna_library_vector_RC.push_back( seq_from_library_RC );
+
     }
     //    Index<THaystacks> index(haystacks_rna_library);
     Finder<Index<THaystacks> > finder_sequence_id( haystacks_rna_library );
@@ -258,7 +264,7 @@ int main(int argc, const char *argv[]) {
 
 
       unsigned match_3prime = get_number_of_matching_residues( seq_primers_RC );
-      std::cout << "Matching from 3' end [showing reverse complement]" << match_3prime << std::endl;
+      std::cout << "Matching from 3' end [showing reverse complement], " << match_3prime << std::endl;
       CharString cseq_inferred =  prefix( seq_primers_RC[0], match_3prime );
       if (length(cseq) > 0 ){
 	if ( cseq != cseq_inferred ){
@@ -308,7 +314,51 @@ int main(int argc, const char *argv[]) {
       return 1;
     }
     unsigned seqCount_expt_id = short_expt_ids.size();
+    
+    //Infer RNA library sequence ID length.  This should have been specified by the -n flag, but this will
+    //throw a warning if an incorrect value is believed to have been specified.
+    //An accurate RNA library sequence ID length should be the shortest sequence from the 3' end that is 
+    //sufficient to distinguish any sequence in the library from any other.
+    unsigned inferred_id_length = 0;
+    bool match_found = true;
+    unsigned cseq_len = length( cseq );
+    std::cout << "Inferring sequence ID length..." << std::endl;
+    for(unsigned i = 1; i < max_rna_len - cseq_len; i++){
+	
+	if(!match_found) break;
+	    
+	inferred_id_length = i;
+	match_found = false;
+	for(unsigned j = 0; j < seqCount_library; j++){
+	    String<char> test_seq = prefix( rna_library_vector_RC[j], i+cseq_len );
+	    for(unsigned k = j+1; k < seqCount_library; k++){
+		String<char> comp_seq = prefix( rna_library_vector_RC[k], i+cseq_len );
+		
+		if(test_seq == comp_seq){
+		    match_found = true;
+		    break;
+		}
+	    }
+	    if(match_found) break;
+	}
+    }
+    std::cout << inferred_id_length << " [inferred sequence ID length]" << std::endl; 
+    if (inferred_id_length >  seqid_length){
 
+	  std::cerr << "WARNING! these do not match: " << std::endl;
+	  std::cerr << seqid_length << " [user input sequence ID length]" << std::endl;
+	  std::cerr << inferred_id_length << " [inferred sequence ID length]" << std::endl;
+	  std::cerr << "Identical regions of user-specified length found in RNA library." << std::endl;
+	  std::cerr << "Proceeding with user-input." << std::endl << std::endl;
+	
+    }
+    
+    if (inferred_id_length >=  max_rna_len - cseq_len-1){
+
+	  std::cerr << "WARNING! Redundant RNA library members detected!" << std::endl;
+	
+    }
+    
     //    Index<THaystacks> index_expt_ids(haystacks_expt_ids);
     Finder<Index<THaystacks> > finder_expt_id(haystacks_expt_ids);
 
@@ -484,6 +534,7 @@ int main(int argc, const char *argv[]) {
 	      }
 	    }
 	  }
+	  //std::cout << "mpos_vector.size(): " << mpos_vector.size() << ", seq2: " << seq2 << std::endl;
 
 	  if ( mpos_vector.size() == 0 ) continue;
 
