@@ -81,7 +81,7 @@ int main(int argc, const char *argv[]) {
     addOption(parser, addArgumentText(CommandLineOption("2", "miseq2", "miseq output [read 2] containing 3' ends",OptionType::String), "<FASTAQ FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("l", "library", "library of sequences to align against", OptionType::String),"<FASTA FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("p", "primers", "fasta file containing experimental primers", OptionType::String,""), "<FASTA FILE>"));
-    addOption(parser, addArgumentText(CommandLineOption("n", "sid_length", "sequence id length (nts 3' of shared primer binding site)", OptionType::Int, 8), "<int>"));
+    addOption(parser, addArgumentText(CommandLineOption("n", "sid_length", "sequence id length (nts 3' of shared primer binding site)", OptionType::Int, 0), "<int>"));
 
     addOption(parser, addArgumentText(CommandLineOption("O", "outpath", "output path for stats files", OptionType::String, ""), "<out path>"));
     addOption(parser, addArgumentText(CommandLineOption("N", "start_at_read","align reads starting at this number, going from 0 (e.g., N = job ID)", OptionType::Int, 0), "<int>"));
@@ -342,12 +342,18 @@ int main(int argc, const char *argv[]) {
 	    if(match_found) break;
 	}
     }
-    std::cout << inferred_id_length << " [inferred sequence ID length]" << std::endl; 
-    if (inferred_id_length >  seqid_length){
+    std::cerr << "Inferred sequence ID length: " << inferred_id_length << std::endl;
+    
+    if (seqid_length < 1){
+	std::cout << "Sequence ID length undefined by user." << std::endl; 
+	std::cout << "Using inferred sequence ID length as sequence ID length." << std::endl; 
+	seqid_length = inferred_id_length;
+    }
+    else if (inferred_id_length >  seqid_length){
 
 	  std::cerr << "WARNING! these do not match: " << std::endl;
 	  std::cerr << seqid_length << " [user input sequence ID length]" << std::endl;
-	  std::cerr << inferred_id_length << " [inferred sequence ID length]" << std::endl;
+	  std::cout << inferred_id_length << " [inferred sequence ID length]" << std::endl; 
 	  std::cerr << "Identical regions of user-specified length found in RNA library." << std::endl;
 	  std::cerr << "Proceeding with user-input." << std::endl << std::endl;
 	
