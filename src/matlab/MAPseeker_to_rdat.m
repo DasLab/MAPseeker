@@ -105,12 +105,11 @@ end
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-mutpos = []; % this should be deprecated soon.
 if JUST_ONE_RNA 
   sequence = RNA_info(1).Sequence;
   structure = RNA_info(1).Structure;
 else
-  sequence = ''; for k = 1:size(reactivity,1) ; sequence = [sequence,'X']; end;
+  sequence = ''; for k = 1:length(RNA_info(1).Sequence) ; sequence = [sequence,'X']; end;
   structure = strrep( sequence, 'X','.');
 end  
 
@@ -135,9 +134,8 @@ end
 if ~exist( 'annotations', 'var') annotations = {}; end;
 [annotations, data_annotations] = find_shared_annotations( annotations, data_annotations );
 
-
 rdat = output_workspace_to_rdat_file( filename, name, sequence, offset, seqpos, reactivity, ...
-				      mutpos, structure, ...
+				      structure, ...
 				      annotations, data_annotations, ...
 				      reactivity_err, ...
 				      [],[],[], comments );

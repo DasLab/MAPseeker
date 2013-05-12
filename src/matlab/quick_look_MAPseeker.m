@@ -290,8 +290,6 @@ if REFERENCE_INCLUDED;
   [D, D_err, D_ref, D_ref_err, RNA_info, RNA_info_ref ] = separate_out_reference( D, D_err, RNA_info, ref_idx );
 end
 
-
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Output signal-to-noise ratio (statistics)
 if REFERENCE_INCLUDED; print_it( fid, sprintf(  '\nFollowing is for reference:\n') ); output_signal_to_noise_ratio( D_ref, D_ref_err , fid); end;
