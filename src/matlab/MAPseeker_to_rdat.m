@@ -36,11 +36,14 @@ JUST_ONE_RNA = (length( RNA_info ) == 1);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 count = 0;
+is_eterna = 0;
+max_seq_len = 0;
 for j = 1 : size( D{1}, 2 )
+
   for i = 1:length(D)
 
-    % don't output nomod [will have counts of exactly zero]
-    if ( sum(D{i}(:,j)) == 0 ); continue; end;
+    % don't output nomod [will have counts of exactly zero] -- just check first row.
+    if ( sum(D{i}(:,1)) == 0 ); continue; end;
     
     count = count + 1;
     reactivity(:,count) = D{i}(:,j);
@@ -63,6 +66,7 @@ for j = 1 : size( D{1}, 2 )
       if ID(1) == ' '; ID = ID(2:end); end; % space in FASTA file.
       design_name = RNA_tag_cols{3};
       project_name = RNA_tag_cols{2};
+      is_eterna = 1;
     else
       tag_cols = [tag_cols, RNA_tag_cols]; % crap, may not work. Anyway...
     end
@@ -78,6 +82,8 @@ for j = 1 : size( D{1}, 2 )
 	tag_cols = [tag_cols, primer_tag_cols{k}];
       end
     end    
+
+    max_seq_len = max( max_seq_len, length( RNA_info(j).Sequence ) );
 
     data_annotation = {};
     if length( modifier    ) > 0;  data_annotation  = [data_annotation,  ['modifier:',modifier] ]; end;
@@ -104,12 +110,14 @@ for j = 1 : size( D{1}, 2 )
 end
 
 
+fprintf( 'Maximum sequence length: %d\n', max_seq_len );
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if JUST_ONE_RNA 
   sequence = RNA_info(1).Sequence;
   structure = RNA_info(1).Structure;
 else
-  sequence = ''; for k = 1:length(RNA_info(1).Sequence) ; sequence = [sequence,'X']; end;
+  sequence = ''; for k = 1:max_seq_len; sequence = [sequence,'X']; end;
   structure = strrep( sequence, 'X','.');
 end  
 
@@ -126,6 +134,9 @@ if strcmp( sequence, P4P6_double_ref_sequence )
   offset = 71;
   if length( structure ) == 0; structure = '.......((((((.....))))))...........((((((...((((((.....(((.((((.(((..(((((((((....)))))))))..((.......))....)))......)))))))....))))))..)).))))((...((((...(((((((((...)))))))))..))))...)).............((((((.....))))))......................'; end;
   seqpos = seqpos + offset;
+elseif is_eterna
+  comments = [comments, ['from data: ',name] ];
+  name = 'EteRNA Cloud Lab';
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -65,9 +65,12 @@ if ~exist( 'library_file') | length( library_file ) == 0;  library_file = 'RNA_s
 if ~exist( library_file );  library_file = 'RNA_sequences.fasta'; end    
 if ~exist( 'primer_file') | length( primer_file ) == 0; primer_file = 'primers.fasta';end;
 if ~exist( 'inpath') | length( inpath ) == 0; inpath = './';end;
+FULL_LENGTH_CORRECTION_FACTOR_SPECIFIED = 0;
 if ~exist( 'full_length_correction_factor') | length( full_length_correction_factor ) == 0;  % if not inputted, try this.
   full_length_correction_factor = 0.5; % default. 
-end;
+else
+  FULL_LENGTH_CORRECTION_FACTOR_SPECIFIED = 1;
+end
 if ~exist( 'combine_mode_RNA' ) combine_mode_RNA = 1; end;
 if ~exist( 'combine_mode_primer' ) combine_mode_primer = 1; end;
 PRINT_STUFF = 1;
@@ -206,10 +209,16 @@ nomod_for_each_primer  = figure_out_nomod_for_each_primer( primer_info, fid );
 % look for a reference construct.
 [ref_idx, ref_segment] = get_reference_construct_index( RNA_info, fid );
 REFERENCE_INCLUDED = (ref_idx > 0 );
+if REFERENCE_INCLUDED & ( sum(num_counts_per_sequence( ref_idx, : )) < 5);
+  REFERENCE_INCLUDED = 0;
+  print_it( fid, 'Not enough counts in reference sequence --> WILL NOT USE!!' ); 
+end
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % apply attenuation correction...
 AUTOFIT_ATTENUATION = 0;
-if REFERENCE_INCLUDED
+if REFERENCE_INCLUDED & ~FULL_LENGTH_CORRECTION_FACTOR_SPECIFIED
   full_length_correction_factor = full_length_correction_factor_from_each_primer( D_raw, nomod_for_each_primer, ref_segment, ref_idx, RNA_info, primer_info, fid );
   AUTOFIT_ATTENUATION = 1;
 end
@@ -246,11 +255,14 @@ set(FigHandle, 'Position', [300,300,600,figure_ysize], 'name', 'Reactivity');
 clf;
 make_image_plot( D_correct, RNA_info, primer_info, most_common_sequences, 'correct', 1000 );
 
-final_image_scalefactor = 1000;
+BOXPLOT_NORMALIZATION = 0;
 if REFERENCE_INCLUDED
   [D_final, D_final_err] = apply_reference_normalization( D_final, D_final_err, ref_idx, ref_segment, RNA_info, fid );
-  final_image_scalefactor = 20;
+else
+  [D_final, D_final_err] = apply_boxplot_normalization( D_final, D_final_err, fid );
+  BOXPLOT_NORMALIZATION = 1;
 end
+final_image_scalefactor = 20;
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -289,6 +301,9 @@ D_ref = {};  D_ref_err = {}; RNA_info_ref = [];
 if REFERENCE_INCLUDED; 
   [D, D_err, D_ref, D_ref_err, RNA_info, RNA_info_ref ] = separate_out_reference( D, D_err, RNA_info, ref_idx );
 end
+[D,D_err]         = truncate_based_on_zeros( D    , D_err);
+[D_ref,D_ref_err] = truncate_based_on_zeros( D_ref, D_ref_err);
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Output signal-to-noise ratio (statistics)
@@ -309,7 +324,9 @@ annotations = {};
 annotations = [annotations, 'processing:overmodificationCorrectionExact'];
 annotations = [annotations, ['processing:ligationBiasCorrection:',num2str(full_length_correction_factor,'%8.3f')] ];
 if BACKGD_SUB; annotations = [annotations, 'processing:backgroundSubtraction']; end;
-if REFERENCE_INCLUDED; annotations = [ annotations, ['processing:normalization:',ref_segment] ]; end;
+if REFERENCE_INCLUDED;    annotations = [ annotations, ['processing:normalization:',ref_segment] ]; 
+elseif BOXPLOT_NORMALIZATION;  annotations = [ annotations, ['processing:normalization:boxplot'] ]; 
+end
 
 MAPseeker_to_rdat( rdat_filename, name, D, D_err, primer_info, RNA_info, comments, annotations );
 if REFERENCE_INCLUDED
@@ -324,7 +341,7 @@ print_it( fid, '\n' );
 if BACKGD_SUB;  print_it( fid, sprintf(  'Applied background subtraction.\n') );
 else print_it( fid, sprintf(  'Did NOT apply background subtraction.\n') ); end;
 if REFERENCE_INCLUDED;  print_it( fid, sprintf(  'Normalized based on reference.\n') );
-else print_it( fid, sprintf(  'Did not normalize based on reference -- absolute reactivities outputted.\n') ); end;
+else print_it( fid, sprintf(  'Did not normalize based on reference -- used boxplot_normalize on each primer.\n') ); end;
 if AUTOFIT_ATTENUATION;  print_it( fid, sprintf(  'Autofitted ligation bias for attenuation correction.\n') ); end;
 
 print_it( fid, '\n' );
@@ -617,6 +634,62 @@ for i = 1:length( D )
 end
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function  [D_norm, D_norm_err] = apply_boxplot_normalization( D, D_err, fid );
+
+D_norm = D;
+D_norm_err = D_err;
+
+for i = 1:length( D )
+  [dummy, scalefactors] = mapseeker_boxplot_normalize( D{i} );
+  scalefactors = scalefactors( find( scalefactors ) > 0 );
+  scalefactor = median( scalefactors  );
+  print_it( fid, sprintf(  'Boxplot-based normalization: following reactivity is rescaled to unity for primer %d: %10.6f\n', i,  scalefactor ) );
+  if ~isnan( scalefactor ) & scalefactor > 0
+    D_norm{i} = D{i} / scalefactor;
+    D_norm_err{i} = D_err{i} / scalefactor;
+  end  
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [d_norm, scalefactor] = mapseeker_boxplot_normalize( d_for_scalefactor );
+% copy of boxplot_normalize from HiTRACE -- included here for completeness
+
+cap_value = 999;
+d_norm = d_for_scalefactor;
+scalefactor = zeros(1, size( d_for_scalefactor,2) );
+for k = 1:size( d_for_scalefactor, 2 )
+  d_OK = d_for_scalefactor(:,k);
+  d_OK = d_OK( find( ~isnan( d_OK ) ) );
+  d_OK = d_OK( find( d_OK ~= 0 ) );
+  dsort = sort( d_OK );
+
+  if ( length( dsort ) < 4 ) continue; end
+  
+  % this attempts to recover the normalization scheme in ShapeFinder, as reported by Deigan et al., 2008.
+  q1 = dsort( round( 0.25*length(dsort) ) );
+  q3 = dsort( round( 0.75*length(dsort) ) );
+  interquartile_range = abs( q3 - q1 );
+  
+  % test -- based on definition of matlab box().
+  outlier_cutoff = min( find( dsort > (q3 + 1.5*interquartile_range ) ) );
+
+  %[outlier_cutoff length( dsort ) ]
+  if ~isempty( outlier_cutoff )
+    actual_cutoff = outlier_cutoff - 1;    
+    % for smaller RNAs, as described in Deigan et al., 2009.
+    if length( dsort ) < 100; actual_cutoff = max( actual_cutoff, round(0.95*length(dsort) ) - 1 ); end;
+    cap_value = dsort( actual_cutoff+1 );
+    dsort = dsort(1: actual_cutoff );
+  end
+  
+  % Take top 10th percentile of values after removing outliers
+  scalefactor(k) = mean(dsort(  round( 0.9 * length(dsort)):end ) );
+
+  d_norm(:,k) = d_for_scalefactor(:,k) / scalefactor(k);
+end
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function print_fig( k, output_tag, fid );
 figure(k);
@@ -639,11 +712,11 @@ end
 RNA_info_ref = RNA_info( ref_idx );
 RNA_info     = RNA_info( no_ref_idx );
 
-[D,D_err]         = truncate_based_on_zeros( D    , D_err);
-[D_ref,D_ref_err] = truncate_based_on_zeros( D_ref, D_ref_err);
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [D,D_err]         = truncate_based_on_zeros( D    , D_err);
+
+if length( D ) == 0; return; end;
+
 maxidx = 1;
 for i = 1:length( D )
   total_reactivity = sum( D{i}, 2 );

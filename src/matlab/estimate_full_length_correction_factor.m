@@ -1,4 +1,4 @@
-function alpha = estimate_full_length_correction_factor( signal, background, sequence, reference_sequence );
+function alpha = estimate_full_length_correction_factor( signal, background, sequence, reference_sequence, CORRECT_BACKGROUND );
 %
 % alpha = estimate_full_length_correction_factor( signal, background, sequence, reference_sequence );
 %
@@ -14,7 +14,8 @@ function alpha = estimate_full_length_correction_factor( signal, background, seq
 if nargin==0; help( mfilename ); return; end;
 
 if ~exist( 'reference_sequence', 'var' ) reference_sequence = 'GAGUA'; end
-   
+if ~exist( 'CORRECT_BACKGROUND', 'var' ) CORRECT_BACKGROUND = 1; end
+
 gp = strfind( sequence, reference_sequence );
 alpha = 0.0;
 if length( gp ) ~= 2; fprintf( 'Did not find exactly two copies of %s in reference sequence!!\n', reference_sequence ); return; end;
@@ -29,16 +30,18 @@ second_reference_bins = gp(2) + [ 1: length( reference_sequence )];
 %end
 %plot( p0, x );
 
-p = fminbnd( 'reference_sequence_deviation', 0, 1.0, [], signal, background, first_reference_bins, second_reference_bins );
+p = fminbnd( 'reference_sequence_deviation', 0, 1.0, [], signal, background, first_reference_bins, second_reference_bins, CORRECT_BACKGROUND );
 alpha = p;
 
-[dev2,d,signal_corrected,background_corrected] = reference_sequence_deviation( alpha, signal, background, first_reference_bins, second_reference_bins );
+[dev2,d,signal_corrected,background_corrected] = reference_sequence_deviation( alpha, signal, background, first_reference_bins, second_reference_bins, CORRECT_BACKGROUND );
 
 subplot(2,1,1);
 plot( 1:length( signal ), signal, 'r', 'linew',2); hold on
 plot( 1:length( signal ), background, 'b', 'linew',2); hold off
 
 ymax = max( [max(signal(2:end)), max(background(2:end))] );
+if ( ymax == 0 | isnan( ymax) );  alpha = nan; return; end;
+  
 set(gca, 'ylim', ymax*[-0.1, 1.1] );
 title( 'Raw counts' );
 
