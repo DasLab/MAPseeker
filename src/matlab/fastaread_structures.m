@@ -25,7 +25,15 @@ while ~feof( fid )
       else
 	if seq_defined & ~struct_defined
 	  L = length( info(count).Sequence );
-	  info( count ).Structure = line(1:L);
+      if length( line ) < L
+        fprintf( '\nLength of structure line (%d) is less than length of sequence line (%d) for the following!\n%s\n%s\n%s\n', ...
+                length(line), length( info(count).Sequence ), info(count).Header, info(count).Sequence,line );
+        structure = '';
+        for i = 1:length(L); structure = [structure,'.']; end;
+        info(count).Structure = structure;
+      else
+        info( count ).Structure = line(1:L);
+      end
 	  struct_defined = 1;
 	end
       end
