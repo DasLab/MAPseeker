@@ -44,6 +44,11 @@ for j = 1 : size( D{1}, 2 )
 
     % don't output nomod [will have counts of exactly zero] -- just check first row.
     if ( sum(D{i}(:,1)) == 0 ); continue; end;
+
+    % parse primer tag -- look for information on modifier.
+    primer_tag = primer_info(i).Header;
+    primer_tag_cols = split_string( primer_tag, '\t' );
+    if ~isempty(find( strcmp('NO_OUTPUT', primer_tag_cols) ) ) continue; end;
     
     count = count + 1;
     reactivity(:,count) = D{i}(:,j);
@@ -71,9 +76,6 @@ for j = 1 : size( D{1}, 2 )
       tag_cols = [tag_cols, RNA_tag_cols]; % crap, may not work. Anyway...
     end
 
-    % parse primer tag -- look for information on modifier.
-    primer_tag = primer_info(i).Header;
-    primer_tag_cols = split_string( primer_tag, '\t' );
     for k = 1:length( primer_tag_cols )
       find_it = find( strcmp( primer_tag_cols{k}, modifier_list ) );
       if ~isempty( find_it )

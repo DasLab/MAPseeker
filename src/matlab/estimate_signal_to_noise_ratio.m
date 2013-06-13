@@ -9,5 +9,4 @@ for i = 1:size( signal, 2 )
   N = mean( noise( 2:end-1,i) );
   if ( N > 0 ) all_ratio(i) = S/N; end;
 end
-
 SN_ratio = mean( all_ratio );
