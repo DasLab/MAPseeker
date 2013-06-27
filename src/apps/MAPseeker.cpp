@@ -198,7 +198,7 @@ int main(int argc, const char *argv[]) {
 	RNA2DNA( seq_from_library );
         appendValue(haystacks_rna_library, seq_from_library);
 	if ( max_rna_len < length( seq_from_library ) ) max_rna_len = length( seq_from_library );
-	
+
 	CharString seq_from_library_RC( seq_from_library );
 	reverseComplement( seq_from_library_RC );
 	rna_library_vector_RC.push_back( seq_from_library_RC );
@@ -314,26 +314,26 @@ int main(int argc, const char *argv[]) {
       return 1;
     }
     unsigned seqCount_expt_id = short_expt_ids.size();
-    
+
     //Infer RNA library sequence ID length.  This should have been specified by the -n flag, but this will
     //throw a warning if an incorrect value is believed to have been specified.
-    //An accurate RNA library sequence ID length should be the shortest sequence from the 3' end that is 
+    //An accurate RNA library sequence ID length should be the shortest sequence from the 3' end that is
     //sufficient to distinguish any sequence in the library from any other.
     unsigned inferred_id_length = 0;
     bool match_found = true;
     unsigned cseq_len = length( cseq );
     std::cout << "Inferring sequence ID length..." << std::endl;
     for(unsigned i = 1; i < max_rna_len - cseq_len; i++){
-	
+
 	if(!match_found) break;
-	    
+
 	inferred_id_length = i;
 	match_found = false;
 	for(unsigned j = 0; j < seqCount_library; j++){
 	    String<char> test_seq = prefix( rna_library_vector_RC[j], i+cseq_len );
 	    for(unsigned k = j+1; k < seqCount_library; k++){
 		String<char> comp_seq = prefix( rna_library_vector_RC[k], i+cseq_len );
-		
+
 		if(test_seq == comp_seq){
 		    match_found = true;
 		    break;
@@ -343,28 +343,28 @@ int main(int argc, const char *argv[]) {
 	}
     }
     std::cerr << "Inferred sequence ID length: " << inferred_id_length << std::endl;
-    
+
     if (seqid_length < 1){
-	std::cout << "Sequence ID length undefined by user." << std::endl; 
-	std::cout << "Using inferred sequence ID length as sequence ID length." << std::endl; 
+	std::cout << "Sequence ID length undefined by user." << std::endl;
+	std::cout << "Using inferred sequence ID length as sequence ID length." << std::endl;
 	seqid_length = inferred_id_length;
     }
     else if (inferred_id_length >  seqid_length){
 
 	  std::cerr << "WARNING! these do not match: " << std::endl;
 	  std::cerr << seqid_length << " [user input sequence ID length]" << std::endl;
-	  std::cout << inferred_id_length << " [inferred sequence ID length]" << std::endl; 
+	  std::cout << inferred_id_length << " [inferred sequence ID length]" << std::endl;
 	  std::cerr << "Identical regions of user-specified length found in RNA library." << std::endl;
 	  std::cerr << "Proceeding with user-input." << std::endl << std::endl;
-	
+
     }
-    
+
     if (inferred_id_length >=  max_rna_len - cseq_len-1){
 
 	  std::cerr << "WARNING! Redundant RNA library members detected!" << std::endl;
-	
+
     }
-    
+
     //    Index<THaystacks> index_expt_ids(haystacks_expt_ids);
     Finder<Index<THaystacks> > finder_expt_id(haystacks_expt_ids);
 
@@ -430,7 +430,9 @@ int main(int argc, const char *argv[]) {
       //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
       // first look for exact match -- should be super-fast, as using index.
       String<char> expt_id_in_read1 = suffix(seq1,(pos1+1));
-      if ( find( finder_expt_id, expt_id_in_read1 ) )	expt_idx = beginPosition(finder_expt_id).i1;
+      if ( find( finder_expt_id, expt_id_in_read1 ) )	{
+	expt_idx = beginPosition(finder_expt_id).i1;
+      }
       clear( finder_expt_id );
 
       if ( expt_idx < 0) expt_idx = try_DP_match_expt_ids( short_expt_ids, expt_id_in_read1 );
@@ -447,7 +449,7 @@ int main(int argc, const char *argv[]) {
       // seqid is the (minimum) length of the barcode...
       ////////////////////////////////////////////////////////////////////////////////////////
       int min_pos = constant_sequence_begin_pos - seqid_length + 1;
-      if (min_pos < 0)	 min_pos=0;
+      if (min_pos < 0)	 min_pos = 0;
       String<char> sequence_id_region_in_sequence1=infixWithLength(seq1,min_pos,seqid_length);
       // We append the primer binding site to make sure that the search will be over actual barcode regions (adjoining the constant sequence) from the RNA library.
       append(sequence_id_region_in_sequence1,cseq);
@@ -460,18 +462,18 @@ int main(int argc, const char *argv[]) {
       CharString sequence_id_region_variant( sequence_id_region_in_sequence1 );
 
       while ( !found_match_in_read2 && get_next_variant( sequence_id_region_in_sequence1, sequence_id_region_variant, variant_counter, seqid_length ) ){
-	//std::cout << "Looking for: " << sequence_id_region_variant << " " << variant_counter << std::endl;
-	if ( !match_single_nt_variants && variant_counter > 1 ) break;
 
-	if (!found_match_in_read1){
-	  record_counter( "found match in RNA sequence (read 1)", counter_idx, counter_counts, counter_tags );
-	  found_match_in_read1 = true;
-	}
+	if ( !match_single_nt_variants && variant_counter > 1 ) break;
 
 	Pattern<CharString> pattern_sequence_id_in_read1(sequence_id_region_variant); // this is now the 'needle' -- look for this sequence in the haystack of potential sequence IDs
 
 	clear( finder_sequence_id ); //reset.
 	if( find(finder_sequence_id, pattern_sequence_id_in_read1)) { // wait, shouldn't we try *all* possibilities?
+
+	  if (!found_match_in_read1){
+	    record_counter( "found match in RNA sequence (read 1)", counter_idx, counter_counts, counter_tags );
+	    found_match_in_read1 = true;
+	  }
 
 	  // seq_from_library contains the RNA library sequences
 	  int sid_idx = beginPosition(finder_sequence_id).i1;
@@ -495,7 +497,7 @@ int main(int argc, const char *argv[]) {
 	  if ( mpos_max < 0 ) mpos_max = length( seq_from_library );  //to catch boundary cases -- no match to constant sequence.
 
 	  if ( match_DP ){
-	    //Set options for gap, mismatch, deletion. Again, should make these variables.
+	    //Set options for match, mismatch, gap. Again, should make these variables.
 	    Pattern<String<char>, DPSearch<SimpleScore> >  pattern_in_specific_sequence (seq2,SimpleScore(0, -2, -1));
 	    int EDIT_DISTANCE_SCORE_CUTOFF( -4 );
 	    setScoreLimit(pattern_in_specific_sequence, EDIT_DISTANCE_SCORE_CUTOFF);
@@ -518,7 +520,7 @@ int main(int argc, const char *argv[]) {
 	  } else {  // default -- use fast MyersUkkonen, which does not allow in/dels
 
 	    // following copies code from DP block. Can't figure out how to avoid this -- Pattern is not sub-classed,
-	    // so Pattern< MyersUkkonen> cannot be interchanced with Pattern< DPsearch >. --Rhiju
+	    // so Pattern< MyersUkkonen> cannot be interchanged with Pattern< DPsearch >. --Rhiju
 
 	    // Alternative to DP -- edit distance, used by JP
 	    Pattern<String<char>, MyersUkkonen> pattern_in_specific_sequence(seq2);
@@ -691,8 +693,8 @@ try_DP_match( CharString & seq1, CharString & cseq, unsigned & perfect ){
   // Find best match in case there are several.
   while( find(finder_constant_sequence, pattern_constant_sequence_DP, score_cutoff)) {
     if(getScore(pattern_constant_sequence_DP) > best_score) {
-      best_score=getScore(pattern_constant_sequence_DP);
-      pos1=position(finder_constant_sequence);
+      best_score = getScore(pattern_constant_sequence_DP);
+      pos1 = position(finder_constant_sequence);
 
       if ( best_score == 0 ) break; // early exit if we have an exact match already.
       // go to beginning of primer binding site
@@ -713,16 +715,19 @@ int
 try_DP_match_expt_ids( std::vector< CharString > & short_expt_ids, CharString & expt_id_in_read1 ){
 
   // use DP to allow mismatches
-  int score_cutoff( -2 ), best_score( score_cutoff-1 ), expt_idx( -1 );
+  int score_cutoff( -2 ), best_score( score_cutoff - 1 ), expt_idx( -1 );
+
   for ( unsigned n = 0; n < short_expt_ids.size(); n++ ){
 
     Finder<String<char> > finder_one_expt_id( expt_id_in_read1 );
 
     // could we save some time by preconstructing patterns?
     String<char> & ndl = short_expt_ids[n]; // this is the needle. const doesn't seem to work.
-    //Set options for gap, mismatch, deletion. Again, should make these variables.
+    //Set options for match, mismatch, gap. Again, should make these variables.
     // penalize gaps to take into account length mismatches!
-    Pattern<String<char>, DPSearch<SimpleScore> > pattern_expt_id(ndl,SimpleScore(-1, -2, -1));
+
+    //    Pattern<String<char>, DPSearch<SimpleScore> > pattern_expt_id(ndl,SimpleScore(-1, -2, -1));
+    Pattern<String<char>, DPSearch<SimpleScore> > pattern_expt_id(ndl,SimpleScore(0, -1, -1));
 
     best_score = score_cutoff - 1;
 
@@ -739,6 +744,7 @@ try_DP_match_expt_ids( std::vector< CharString > & short_expt_ids, CharString & 
       }
       if ( score == 0 ) break; // best possible score.
     }
+
   }
 
   return expt_idx;
