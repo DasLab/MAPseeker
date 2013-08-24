@@ -328,13 +328,29 @@ if REFERENCE_INCLUDED;    annotations = [ annotations, ['processing:normalizatio
 elseif BOXPLOT_NORMALIZATION;  annotations = [ annotations, ['processing:normalization:boxplot'] ]; 
 end
 
-MAPseeker_to_rdat( rdat_filename, name, D, D_err, primer_info, RNA_info, comments, annotations );
+r = MAPseeker_to_rdat( rdat_filename, name, D, D_err, primer_info, RNA_info, comments, annotations );
 if REFERENCE_INCLUDED
-  rdat_filename = [ dirname, '_REFERENCE.rdat' ];
+  rdat_filename_reference = [ dirname, '_REFERENCE.rdat' ];
   name = RNA_info_ref(1).Header;
-  MAPseeker_to_rdat( rdat_filename, name, D_ref, D_ref_err, primer_info, RNA_info_ref, comments, annotations );
+  MAPseeker_to_rdat( rdat_filename_reference, name, D_ref, D_ref_err, primer_info, RNA_info_ref, comments, annotations );
 end
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if (exist( 'put_SHAPEscore_into_RDAT') == 2) & ( size( D{1},2) > 500 )
+  print_it( fid, 'Found put_SHAPEscore_into_RDAT, and this looks like a cloud lab run.\n' );
+  rdat_filename_with_scores =  strrep( rdat_filename, '.rdat','_WITH_SCORES.rdat' );
+  print_it( fid, sprintf('Creating: %s\n', rdat_filename_with_scores) );
+  figure(7);
+  put_SHAPEscore_into_RDAT( r, rdat_filename_with_scores );
+end
+
+r
+
+if exist( 'print_out_rdat') == 2
+  figure(8);
+  print_it( fid, 'Found print_out_rdat ... creating postscript files.\n' );
+  print_out_rdat( r );
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 print_it( fid, '\n' );
