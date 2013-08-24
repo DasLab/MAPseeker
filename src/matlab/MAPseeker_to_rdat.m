@@ -38,17 +38,16 @@ JUST_ONE_RNA = (length( RNA_info ) == 1);
 count = 0;
 is_eterna = 0;
 max_seq_len = 0;
+
 for j = 1 : size( D{1}, 2 )
-
   for i = 1:length(D)
-
-    % don't output nomod [will have counts of exactly zero] -- just check first row.
-    if ( sum(D{i}(:,1)) == 0 ); continue; end;
 
     % parse primer tag -- look for information on modifier.
     primer_tag = primer_info(i).Header;
     primer_tag_cols = split_string( primer_tag, '\t' );
     if ~isempty(find( strcmp('NO_OUTPUT', primer_tag_cols) ) ) continue; end;
+    % don't output nomod [will have counts of exactly zero] -- just check first row.
+    if ( sum(D{i}(:,1)) == 0 & ~isempty(find( strcmp('no mod', primer_tag_cols) ) ) ); continue; end;
     
     count = count + 1;
     reactivity(:,count) = D{i}(:,j);

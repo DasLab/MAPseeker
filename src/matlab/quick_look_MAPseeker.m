@@ -60,7 +60,6 @@ function [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_re
 VERSION_NUM_STRING = '1.2';
 
 %if nargin < 1; help( mfilename ); return; end;
-
 if ~exist( 'library_file') | length( library_file ) == 0;  library_file = 'RNA_structures.fasta'; end;
 if ~exist( library_file );  library_file = 'RNA_sequences.fasta'; end    
 if ~exist( 'primer_file') | length( primer_file ) == 0; primer_file = 'primers.fasta';end;
@@ -362,7 +361,17 @@ if AUTOFIT_ATTENUATION;  print_it( fid, sprintf(  'Autofitted ligation bias for 
 
 print_it( fid, '\n' );
 if PRINT_STUFF; 
-  for k = 1:5;    print_fig( k, output_tag, fid ); end;
+  for k = 1:5;
+    if exist( 'print_save_figure' ) == 2 % this is in hitrace.
+      print_save_figure(figure(1), ['Figure1_CountSummary'], '', 1);
+      print_save_figure(figure(2), ['Figure2_StairCounts'], '', 1);
+      print_save_figure(figure(3), ['Figure3_StairReactivity'], '', 1);
+      print_save_figure(figure(4), ['Figure4_2DCounts'], '', 1);
+      print_save_figure(figure(5), ['Figure5_2DReactivity'], '', 1);
+    else
+      print_fig( k, output_tag, fid );
+    end
+  end;
   if  BACKGD_SUB; print_fig( 6, output_tag, fid ); end;
 end
 print_it( fid, sprintf('\nCreated: %s\n\n', output_text_file_name) );

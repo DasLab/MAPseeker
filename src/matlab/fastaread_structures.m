@@ -2,7 +2,6 @@ function info = fastaread_structures( filename );
 
 fid = fopen( filename );
 count = 0;
-
 info.Header = '';
 info.Sequence = '';
 info.Structure = '';
