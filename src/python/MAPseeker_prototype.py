@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+from sys import argv
 from optparse import OptionParser
 from sequence_util import reverse_complement, reverse_complements, read_fasta, RNA2DNA, get_max_length, read_fastq
 
@@ -23,6 +24,7 @@ MAX_READS = options.MAX_READS
 # this is confusing -- this is the 'internal barcode' at the 3' end of the RNA.
 # last block should specify primer site (will act as filter sequence!)
 barcode_lengths = [7,4,8,20]
+barcode_lengths = [7,4,8,17]
 
 ######################################
 # read in RNA sequences
@@ -34,7 +36,6 @@ L = get_max_length( RNAs )
 # Need to know adapter sequence, since it will get ligated right before ID code in RTB000, etc.
 (tags,seqs) = read_fasta( AdapterSequenceFile )
 AdapterSequence = seqs[0]
-
 
 # Read in primer sequences
 (tags_primer, primers ) = read_fasta( primer_fasta_file )
@@ -48,12 +49,16 @@ for n in range( 1,len( AdapterSequence )):
     for primer in primers:
         if len(primer_nt) == 0:  primer_nt = primer[ -n ]
         if primer[ -n ] != primer_nt:
+            print primer, n, primer[ -n ]
             found_distinct = 1
             break
     if found_distinct: break
 assert( found_distinct )
 n = n-1 # it was the previous one that was the last shared site
 print 'Shared primer site is this many nucleotides: ', n
+if ( n != barcode_lengths[-1] ):
+    print 'mismatch -- need to set barcode lengths correctly in '+ argv[0]
+    exit()
 
 IDs = []
 for primer in primers:
@@ -75,7 +80,6 @@ print 'ID_length: ',  ID_length
 # go ahead and use the reverse complement, since that's
 # what comes out of current MAP-seq protocol
 #
-
 offset = 1
 
 # at each position 'block', make list of unique sequences
@@ -238,10 +242,13 @@ for m in range( len( fastq1) ):
     # Again, this could be far more robust, allowing for at least one
     #  mismatch, for example.
     ( idx, possible_sequences, seqblock ) = get_barcode_idx( seq1, 1, ID_length )
+
     ( idx_alt, possible_sequences_alt, seqblock_alt ) = get_barcode_idx( seq1, 3, ID_length )
     possible_sequences = possible_sequences + possible_sequences_alt
 
-    if len( possible_sequences ) == 0:  continue
+    if len( possible_sequences ) == 0:
+        #print 'Seq:%3d Primer ID:%2d DNAblock: %s RNA: %s' % (m, ID_idx, seqblock, reverse_complement( seq1[ ID_length+barcode_starts[1] -1 :] ).replace( 'T','U' ) )
+        continue
     counter = record_count( counter, num_sequences, 'RNA barcode match')
 
     #possible_sequences = set( possible_sequences ) # just keep unique ones.

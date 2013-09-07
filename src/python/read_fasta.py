@@ -11,7 +11,7 @@ def read_fasta( fasta_file ):
             tags.append( line[1:] )
             continue
         if len( line ) > 1:
-            seq = line[:-1]
+            seq = line.replace('\n','')
             seqs.append( seq )
             seq_RC = reverse_complement( seq )
             seq_RCs.append( seq_RC )
