@@ -15,6 +15,11 @@ function [D_combine, RNA_info_combine ] = combine_by_tag( D, RNA_info, COMBINE_M
 if nargin == 0; help( mfilename ); return; end;
 
 if ~exist( 'COMBINE_MODE' ) COMBINE_MODE = 1; end;
+if COMBINE_MODE == 0
+ D_combine = D;
+ RNA_info_combine = RNA_info;
+ return;
+end
 
 WEIGHT_BY_ERRORS = 0; % put this in later.
 

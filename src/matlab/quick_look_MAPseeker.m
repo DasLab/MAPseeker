@@ -31,7 +31,7 @@ function [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_re
 %        empirically observed ~50% ssDNA ligation efficiency by circLigase
 %        to 'full-length' complementary DNA created by SSIII.
 %        [Default is 0.5]
-% combine_mode_RNA = [default 1]. If 0, no combine. If this is 1, combine data for RNAs that have the same 
+% combine_mode_RNA = [default 0]. If 0, no combine. If this is 1, combine data for RNAs that have the same 
 %                   names, as specified in the library_file. If this is 2, combine data 
 %                   for RNAs that share any 'tags' (segments of the library_file names, separated by tabs);
 %                   this is useful if, for example, RNAs are double mutants and you want to project
@@ -70,7 +70,7 @@ if ~exist( 'full_length_correction_factor') | length( full_length_correction_fac
 else
   FULL_LENGTH_CORRECTION_FACTOR_SPECIFIED = 1;
 end
-if ~exist( 'combine_mode_RNA' ) combine_mode_RNA = 1; end;
+if ~exist( 'combine_mode_RNA' ) combine_mode_RNA = 0; end;
 if ~exist( 'combine_mode_primer' ) combine_mode_primer = 1; end;
 PRINT_STUFF = 1;
 
@@ -103,7 +103,6 @@ for i = 1:N_primers;
   D_raw{i} = load( stats_file )'; 
 end
 Nidx = size( D_raw{1}, 2 );
-
 if ( combine_mode_RNA > 0 | combine_mode_primer > 0 )
   [D_raw, primer_info] = combine_by_tag_primer( D_raw, primer_info, combine_mode_primer, fid );
   [D_raw, RNA_info]    = combine_by_tag(        D_raw, RNA_info,    combine_mode_RNA );
@@ -285,6 +284,7 @@ FigHandle = figure(3);
 set(FigHandle, 'Position', [200,200,600,figure_ysize],'name','Reactivity [Most Common RNAs]');
 make_stair_plots( D_correct, most_common_sequences, RNA_info, primer_info, colorcode, D_correct_err );
 figure(4); figure(5); if BACKGD_SUB; figure(6);end;
+figure(4); axis image; figure(5); axis image;
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -343,13 +343,13 @@ if (exist( 'put_SHAPEscore_into_RDAT') == 2) & ( size( D{1},2) > 500 )
   put_SHAPEscore_into_RDAT( r, rdat_filename_with_scores );
 end
 
-r
+%r
 
-if exist( 'print_out_rdat') == 2
-  figure(8);
-  print_it( fid, 'Found print_out_rdat ... creating postscript files.\n' );
-  print_out_rdat( r );
-end
+% if exist( 'print_out_rdat') == 2
+%   figure(8);
+%   print_it( fid, 'Found print_out_rdat ... creating postscript files.\n' );
+%   print_out_rdat( r );
+% end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 print_it( fid, '\n' );
@@ -368,6 +368,7 @@ if PRINT_STUFF;
       print_save_figure(figure(3), ['Figure3_StairReactivity'], '', 1);
       print_save_figure(figure(4), ['Figure4_2DCounts'], '', 1);
       print_save_figure(figure(5), ['Figure5_2DReactivity'], '', 1);
+      break;
     else
       print_fig( k, output_tag, fid );
     end
