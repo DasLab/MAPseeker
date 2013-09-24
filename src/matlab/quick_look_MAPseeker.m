@@ -1,4 +1,4 @@
-function [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_ref ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, combine_mode_RNA, combine_mode_primer );
+function [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_ref ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, more_options );
 %
 % [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_ref ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, combine_mode_RNA, combine_mode_primer );
 %
@@ -31,15 +31,19 @@ function [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_re
 %        empirically observed ~50% ssDNA ligation efficiency by circLigase
 %        to 'full-length' complementary DNA created by SSIII.
 %        [Default is 0.5]
-% combine_mode_RNA = [default 0]. If 0, no combine. If this is 1, combine data for RNAs that have the same 
-%                   names, as specified in the library_file. If this is 2, combine data 
+% more_options 
+%     = {'combine_RNA_by_tag','no_combine_primer', ...}  
+%          'combine_RNA_by_tag' =  If specified, combine data 
 %                   for RNAs that share any 'tags' (segments of the library_file names, separated by tabs);
 %                   this is useful if, for example, RNAs are double mutants and you want to project
 %                   to single mutants.
-% combine_mode_primer = [default 1]. If 0, no combine If this is 1, combine data for primers that have the same 
+%          'combine_RNA_by_name' = Combine data for RNAs that have the same 
+%                   names, as specified in the library_file.
+%          'no_combine_primer' = Turn off default behavior to combine data for primers that have the same 
 %                   names, as specified in the primer_file. In the primer name, the text before the
 %                   first tab is ignored; the text after that is assumed to be a description of the library
 %                   probed or modifier and is used to determine which primers should be combined.
+%          'noSHAPEscores' =  turn off output of SHAPE scores into RDAT.
 %
 % Outputs:
 %
@@ -70,8 +74,7 @@ if ~exist( 'full_length_correction_factor') | length( full_length_correction_fac
 else
   FULL_LENGTH_CORRECTION_FACTOR_SPECIFIED = 1;
 end
-if ~exist( 'combine_mode_RNA' ) combine_mode_RNA = 0; end;
-if ~exist( 'combine_mode_primer' ) combine_mode_primer = 1; end;
+if ~exist( 'more_options' ) more_options = {}; end;
 PRINT_STUFF = 1;
 
 output_text_file_name = 'MAPseeker_results.txt';
@@ -103,6 +106,15 @@ for i = 1:N_primers;
   D_raw{i} = load( stats_file )'; 
 end
 Nidx = size( D_raw{1}, 2 );
+
+
+combine_mode_RNA = 0; 
+if ~isempty( find( strcmp( more_options, 'no_combine_primer' ) ) )   combine_mode_primer = 1; end
+
+combine_mode_primer = 1;
+if ~isempty( find( strcmp( more_options, 'combine_RNA_by_tag' ) ) )  combine_mode_RNA = 1; end
+if ~isempty( find( strcmp( more_options, 'combine_RNA_by_name' ) ) ) combine_mode_RNA = 2; end
+
 if ( combine_mode_RNA > 0 | combine_mode_primer > 0 )
   [D_raw, primer_info] = combine_by_tag_primer( D_raw, primer_info, combine_mode_primer, fid );
   [D_raw, RNA_info]    = combine_by_tag(        D_raw, RNA_info,    combine_mode_RNA );
@@ -327,7 +339,10 @@ if REFERENCE_INCLUDED;    annotations = [ annotations, ['processing:normalizatio
 elseif BOXPLOT_NORMALIZATION;  annotations = [ annotations, ['processing:normalization:boxplot'] ]; 
 end
 
+rdat_raw_filename = [ dirname, '.RAW.rdat' ];
+r_raw  = MAPseeker_to_rdat( rdat_raw_filename, name, D_raw, cell_sqrt( D_raw ), primer_info, RNA_info, comments, annotations, 1 );
 r = MAPseeker_to_rdat( rdat_filename, name, D, D_err, primer_info, RNA_info, comments, annotations );
+
 if REFERENCE_INCLUDED
   rdat_filename_reference = [ dirname, '_REFERENCE.rdat' ];
   name = RNA_info_ref(1).Header;
@@ -335,7 +350,8 @@ if REFERENCE_INCLUDED
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if (exist( 'put_SHAPEscore_into_RDAT') == 2) & ( size( D{1},2) > 500 )
+putSHAPEscores = isempty( find( strcmp( more_options, 'noSHAPEscores' ) ) );
+if (exist( 'put_SHAPEscore_into_RDAT') == 2) & ( size( D{1},2) > 500 ) && putSHAPEscores
   print_it( fid, 'Found put_SHAPEscore_into_RDAT, and this looks like a cloud lab run.\n' );
   rdat_filename_with_scores =  strrep( rdat_filename, '.rdat','_WITH_SCORES.rdat' );
   print_it( fid, sprintf('Creating: %s\n', rdat_filename_with_scores) );
@@ -482,7 +498,9 @@ for i = 1:N_primers
 end
 image( [0:(L*N_plots)-1], [1:N_RNA], imagex );
 set( gca,'tickdir','out','xtick',xticks,'xticklabel',xticklabels,'fontw','bold','fonts',6);
+boundaries = boundaries( 1:end-1);
 make_lines( boundaries, 'b', 0.25 );
+make_lines( boundaries-1, 'b', 0.25 );
 
 for i = 1:N_plots
   hold on; 
@@ -763,3 +781,8 @@ for i = 1:length(D)
   print_it( fid, sprintf(  'Signal-to-noise ratio for primer %d:  %8.3f [%s]\n', i, SN_ratio, classify_signal_to_noise_ratio( SN_ratio ) ) );
 end
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function sqrtD = cell_sqrt( D );
+for i = 1:length( D ) 
+  sqrtD{i} = sqrt( D{i} );
+end

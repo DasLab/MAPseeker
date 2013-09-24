@@ -1,4 +1,4 @@
-function rdat = MAPseeker_to_rdat( filename, name, D, D_err, primer_info, RNA_info, comments, annotations );
+function rdat = MAPseeker_to_rdat( filename, name, D, D_err, primer_info, RNA_info, comments, annotations, INCLUDE_ZERO_IN_SEQPOS );
 %
 % rdat = output_MAPseeker_data_to_rdat_file( filename, name, D, D_err, primer_info, RNA_info, comments );
 %
@@ -14,6 +14,7 @@ function rdat = MAPseeker_to_rdat( filename, name, D, D_err, primer_info, RNA_in
 %
 
 if nargin == 0; help( mfilename ); return; end;
+if ~exist( 'INCLUDE_ZERO_IN_SEQPOS' ) INCLUDE_ZERO_IN_SEQPOS = 0; end;
 
 if ~exist( 'output_workspace_to_rdat_file', 'file' )
   fprintf( '\nCannot find function output_workspace_to_rdat_file() ...\nWill not output RDAT: %s.\n', filename );
@@ -39,15 +40,16 @@ count = 0;
 is_eterna = 0;
 max_seq_len = 0;
 
-for j = 1 : size( D{1}, 2 )
-  for i = 1:length(D)
-
+for i = 1:length(D)
     % parse primer tag -- look for information on modifier.
     primer_tag = primer_info(i).Header;
     primer_tag_cols = split_string( primer_tag, '\t' );
     if ~isempty(find( strcmp('NO_OUTPUT', primer_tag_cols) ) ) continue; end;
     % don't output nomod [will have counts of exactly zero] -- just check first row.
     if ( sum(D{i}(:,1)) == 0 & ~isempty(find( strcmp('no mod', primer_tag_cols) ) ) ); continue; end;
+
+    for j = 1 : size( D{i}, 2 )
+
     
     count = count + 1;
     reactivity(:,count) = D{i}(:,j);
@@ -126,6 +128,13 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 seqpos = [ 1 : size(reactivity,1) ];
 offset = 0; 
+
+if INCLUDE_ZERO_IN_SEQPOS; 
+  seqpos    = seqpos - 1; 
+  sequence  = [ 'X', sequence ];
+  structure = [ 'X', sequence ];
+  offset = -1;
+end;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % special -- P4-P6 has a known conventional numbering...

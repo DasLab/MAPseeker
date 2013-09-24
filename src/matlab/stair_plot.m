@@ -42,7 +42,7 @@ plot( [min(seqpos)-0.5 max(seqpos)+0.5],  [0 0], 'k' ); hold on;
 
 if exist( 'tag' ) 
 %  ylabel( tag );
-  title( tag );
+   h = title( tag ); set( h,'interpreter','none' );
 else
   ylabel(  [ , '   Counts: ',num2str(total_count)] );
 end
