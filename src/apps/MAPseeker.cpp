@@ -205,7 +205,6 @@ int main(int argc, const char *argv[]) {
 	CharString seq_from_library_RC( seq_from_library );
 	reverseComplement( seq_from_library_RC );
 	rna_library_vector_RC.push_back( seq_from_library_RC );
-
     }
     //    Index<THaystacks> index(haystacks_rna_library);
     Finder<Index<THaystacks> > finder_sequence_id( haystacks_rna_library );
@@ -329,45 +328,38 @@ int main(int argc, const char *argv[]) {
     unsigned cseq_len = length( cseq );
     std::cout << "Inferring sequence ID length..." << std::endl;
     for(unsigned i = 1; i < max_rna_len - cseq_len; i++){
-
-	if(!match_found) break;
-
-	inferred_id_length = i;
-	match_found = false;
-	for(unsigned j = 0; j < seqCount_library; j++){
-	    String<char> test_seq = prefix( rna_library_vector_RC[j], i+cseq_len );
-	    for(unsigned k = j+1; k < seqCount_library; k++){
-		String<char> comp_seq = prefix( rna_library_vector_RC[k], i+cseq_len );
-
-		if(test_seq == comp_seq){
-		    match_found = true;
-		    break;
-		}
-	    }
-	    if(match_found) break;
+      if(!match_found) break;
+      inferred_id_length = i;
+      match_found = false;
+      for(unsigned j = 0; j < seqCount_library; j++){
+	String<char> test_seq = prefix( rna_library_vector_RC[j], i+cseq_len );
+	for(unsigned k = j+1; k < seqCount_library; k++){
+	  String<char> comp_seq = prefix( rna_library_vector_RC[k], i+cseq_len );
+	  if(test_seq == comp_seq){
+	    match_found = true;
+	    break;
+	  }
 	}
+	if(match_found) break;
+      }
     }
     std::cerr << "Inferred sequence ID length: " << inferred_id_length << std::endl;
 
     if (seqid_length < 1){
-	std::cout << "Sequence ID length undefined by user." << std::endl;
-	std::cout << "Using inferred sequence ID length as sequence ID length." << std::endl;
-	seqid_length = inferred_id_length;
+      std::cout << "Sequence ID length undefined by user." << std::endl;
+      std::cout << "Using inferred sequence ID length as sequence ID length." << std::endl;
+      seqid_length = inferred_id_length;
     }
     else if (inferred_id_length >  seqid_length){
-
-	  std::cerr << "WARNING! these do not match: " << std::endl;
-	  std::cerr << seqid_length << " [user input sequence ID length]" << std::endl;
-	  std::cout << inferred_id_length << " [inferred sequence ID length]" << std::endl;
-	  std::cerr << "Identical regions of user-specified length found in RNA library." << std::endl;
-	  std::cerr << "Proceeding with user-input." << std::endl << std::endl;
-
+      std::cerr << "WARNING! these do not match: " << std::endl;
+      std::cerr << seqid_length << " [user input sequence ID length]" << std::endl;
+      std::cout << inferred_id_length << " [inferred sequence ID length]" << std::endl;
+      std::cerr << "Identical regions of user-specified length found in RNA library." << std::endl;
+      std::cerr << "Proceeding with user-input." << std::endl << std::endl;
     }
 
     if (inferred_id_length >=  max_rna_len - cseq_len-1){
-
-	  std::cerr << "WARNING! Redundant RNA library members detected!" << std::endl;
-
+      std::cerr << "WARNING! Redundant RNA library members detected!" << std::endl;
     }
 
     //    Index<THaystacks> index_expt_ids(haystacks_expt_ids);
@@ -473,6 +465,7 @@ int main(int argc, const char *argv[]) {
 	possible_begpos.push_back( beginPosition(finder_sequence_id).i2 );
       }
 
+      // ambiguous assignments. [should not occur if n (seqid_length) is set large enough.]
       if ( possible_sids.size() > 1 ){
 	int max_match = 0;
 	std::vector< unsigned int > possible_sids_new;
@@ -495,9 +488,51 @@ int main(int argc, const char *argv[]) {
 	possible_sids = possible_sids_new;
       }
 
+      // this might be a really short read -- can check this by looking for the appearance of the other
+      // Illumina adapter sequence which should be ligated onto the 3' end.
+      bool verbose( false );
+      if ( possible_sids.size() == 0 ){
+	CharString adapter_sequence2_pattern = adapterSequence2;
+	int length_of_adapter_sequence2( constant_sequence_begin_pos - seqid_length );
+	static int const min_length_of_adapter_sequence2( 8 );
+	if ( length_of_adapter_sequence2 < min_length_of_adapter_sequence2 ) length_of_adapter_sequence2 = min_length_of_adapter_sequence2;
+	if ( length_of_adapter_sequence2 < length( adapterSequence2 ) ){
+	  adapter_sequence2_pattern = infixWithLength( adapterSequence2, 0, length_of_adapter_sequence2 );
+	}
+	reverseComplement( adapter_sequence2_pattern );
+	Pattern<String<char>, DPSearch<SimpleScore> > pattern_constant_sequence_DP( adapter_sequence2_pattern, SimpleScore(0, -2, -2));
+	Finder<String<char> > finder_in_seq1(seq1);
+	int adapter_sequence2_pos( 0 );
+	CharString fragment;
+
+	if ( find( finder_in_seq1, pattern_constant_sequence_DP, -1 /*score cutoff*/ ) ){
+	  adapter_sequence2_pos = beginPosition( finder_in_seq1 );
+	  if ( constant_sequence_begin_pos >= adapter_sequence2_pos  ){
+	    fragment = infixWithLength( seq1, adapter_sequence2_pos, constant_sequence_begin_pos - adapter_sequence2_pos + 1);
+	    CharString sequence_id_in_read1 = fragment;
+	    append( sequence_id_in_read1, cseq );
+	    std::vector< unsigned int > mpos_vector, sid_vector;
+	    Pattern<CharString> pattern_sequence_id_in_read1( sequence_id_in_read1 ); // this is now the 'needle' -- look for this sequence in the haystack of potential sequence IDs
+	    clear( finder_sequence_id );
+	    while( find(finder_sequence_id, pattern_sequence_id_in_read1)) { // let's try *all* possibilities
+	      int sid = beginPosition(finder_sequence_id).i1;
+	      possible_sids.push_back( sid );
+	      //sid_vector.push_back( sid );
+	      int mpos = beginPosition(finder_sequence_id).i2;
+	      //mpos_vector.push_back( mpos );
+	      //if (!verbose) std::cout << seq1 << " " << seq2 << std::endl;
+	      //std::cout << "READ1 " << mpos << " " << sid << " " << length( fragment ) << std::endl;
+	      //	      verbose = true;
+	    }
+
+	  }
+	}
+      }
+
       // there was originally a different logic for this, where MAPseeker had a while loop that went through
       // every single nt variant until finding a hit. The following is slower, testing every variant -- might
-      // still be useful for testing. Currently match_single_nt_variants is not in use by default.
+      // still be useful for testing and is less biased. Anyway, currently match_single_nt_variants
+      // is not in use by default.
       if ( possible_sids.size() == 0 && match_single_nt_variants ){
 	CharString sequence_id_region_variant( sequence_id_region_in_sequence1 );
 	unsigned variant_counter( 1 );
@@ -513,12 +548,18 @@ int main(int argc, const char *argv[]) {
 	}
       }
 
+      //      bool extra_junk_mode( false );
+      //      if ( possible_sids.size() == 0 ){
+	// check for junk.
+      //      }
+
       if ( possible_sids.size() > 0 ){
 
 	record_counter( "found match in RNA sequence (read 1)", counter_idx, counter_counts, counter_tags );
 	found_match_in_read1 = true;
 
 	std::vector< unsigned int > mpos_vector, sid_vector;
+	int mscr( 0 );
 
 	for ( unsigned int s = 0; s < possible_sids.size(); s++ ){
 
@@ -526,7 +567,11 @@ int main(int argc, const char *argv[]) {
 	  int sid_idx = possible_sids[ s ];
 
 	  // what is the DNA?
+	  //	  if ( extra_junk_mode ){
+	  //	    seq_from_library = special_sequence_with_extra_junk[ s ];
+	  //	  } else {
 	  assignSeq(seq_from_library, multiSeqFile_library[sid_idx], format_library); // read sequence of the RNA
+	  //	  }
 	  append( seq_from_library, short_expt_ids[ expt_idx ] ); // experimental ID, added in MAP-seq protocol as part of reverse transcription primer
 	  append( seq_from_library, adapterSequence ); // piece of illumina DNA, added in MAP-seq protocol as part of reverse transcription primer
 
@@ -539,7 +584,8 @@ int main(int argc, const char *argv[]) {
 	  Finder<String<char> > finder_in_specific_sequence(seq_from_library);
 
 	  //reads beyond sequence ID are nonsense -- sequence ID better be there based on match to read1 above.
-	  int mpos_max = try_exact_match( seq_from_library, cseq ) - seqid_length;
+	  int mpos_max = try_exact_match( seq_from_library, cseq ) - 1;
+	  //	  int mpos_max = try_exact_match( seq_from_library, cseq ) - seqid_length;
 	  if ( mpos_max < 0 ) mpos_max = length( seq_from_library );  //to catch boundary cases -- no match to constant sequence.
 
 	  if ( match_DP ){
@@ -548,7 +594,7 @@ int main(int argc, const char *argv[]) {
 	    int EDIT_DISTANCE_SCORE_CUTOFF( -4 );
 	    setScoreLimit(pattern_in_specific_sequence, EDIT_DISTANCE_SCORE_CUTOFF);
 
-	    int mscr( EDIT_DISTANCE_SCORE_CUTOFF - 1 );
+	    if ( mpos_vector.size() == 0 ) mscr = EDIT_DISTANCE_SCORE_CUTOFF - 1;
 	    // Here, looking for best score -- but assuming that we've nailed the right RNA sequence (which may not be the case).
 	    while (find(finder_in_specific_sequence, pattern_in_specific_sequence)) {
 	      int cscr = getScore(pattern_in_specific_sequence);
@@ -560,6 +606,7 @@ int main(int argc, const char *argv[]) {
 	      if ( cscr == mscr ){ // in case of ties, keep track of all hits
 		findBegin( finder_in_specific_sequence, pattern_in_specific_sequence, mscr ); // the proper thing to do if DP is used.
 		int mpos = beginPosition( finder_in_specific_sequence );
+		//std::cout << "FOUND IT " << cscr << " " << mscr << " " << mpos << " " << mpos_max << std::endl;
 		if ( mpos <= mpos_max ) {
 		  mpos_vector.push_back( mpos );
 		  sid_vector.push_back( sid_idx );
@@ -577,7 +624,7 @@ int main(int argc, const char *argv[]) {
 	    int EDIT_DISTANCE_SCORE_CUTOFF( -2 );
 	    setScoreLimit(pattern_in_specific_sequence, EDIT_DISTANCE_SCORE_CUTOFF);//Edit Distance used to be -10! not very stringent.
 
-	    int  mscr( EDIT_DISTANCE_SCORE_CUTOFF - 1 );
+	    if ( mpos_vector.size() == 0 ) mscr = EDIT_DISTANCE_SCORE_CUTOFF - 1;
 	    // Here, looking for best score -- but assuming that we've nailed the right RNA sequence (which may not be the case).
 	    while (find(finder_in_specific_sequence, pattern_in_specific_sequence)) {
 	      int cscr = getScore(pattern_in_specific_sequence);
@@ -596,6 +643,8 @@ int main(int argc, const char *argv[]) {
 	      }
 	    }
 	  }
+	  //	  if ( verbose ) std::cout << "pattern: " << seq2 << " vs finder " << seq_from_library << std::endl;
+	  if (verbose )  std::cout << "in read 2, checking " << sid_idx << ": " << sid_vector.size() << std::endl;
 	  //std::cout << "mpos_vector.size(): " << mpos_vector.size() << ", seq2: " << seq2 << std::endl;
 	}
 	if ( mpos_vector.size() == 0 ) continue;
@@ -607,64 +656,14 @@ int main(int argc, const char *argv[]) {
 	for (unsigned q = 0; q < mpos_vector.size(); q++ ){
 	  int sid_idx = sid_vector[q];
 	  int mpos    = mpos_vector[q];
+	  if ( verbose ) std::cout << "READ2 " << mpos << " " << sid_idx << std::endl;
 	  if ( mpos < 0 ) mpos = 0;
 	  all_count[ expt_idx ][ sid_idx ][ mpos ] += weight;
 	}
-
-      }
-
-
-      if ( !found_match_in_read2 ){
-
-	// this might be a really short read -- can check this by looking for the appearance of the other
-	// Illumina adapter sequence which should be ligated onto the 3' end.
-	CharString adapter_sequence2_pattern = adapterSequence2;
-	int length_of_adapter_sequence2( constant_sequence_begin_pos - seqid_length );
-	static int const min_length_of_adapter_sequence2( 8 );
-	if ( length_of_adapter_sequence2 < min_length_of_adapter_sequence2 ) length_of_adapter_sequence2 = min_length_of_adapter_sequence2;
-	if ( length_of_adapter_sequence2 < length( adapterSequence2 ) ){
-	  adapter_sequence2_pattern = infixWithLength( adapterSequence2, 0, length_of_adapter_sequence2 );
-	}
-	reverseComplement( adapter_sequence2_pattern );
-	Pattern<String<char>, DPSearch<SimpleScore> > pattern_constant_sequence_DP( adapter_sequence2_pattern, SimpleScore(0, -2, -2));
-	Finder<String<char> > finder_in_seq1(seq1);
-	int adapter_sequence2_pos( 0 );
-	CharString fragment;
-	if ( find( finder_in_seq1, pattern_constant_sequence_DP, -1 /*score cutoff*/ ) ){
-	  adapter_sequence2_pos = beginPosition( finder_in_seq1 );
-	  if (!found_match_in_read1) record_counter( "found match in RNA sequence (read 1)", counter_idx, counter_counts, counter_tags );
-
-	  if ( constant_sequence_begin_pos >= adapter_sequence2_pos  ){
-	    fragment = infixWithLength( seq1, adapter_sequence2_pos, constant_sequence_begin_pos - adapter_sequence2_pos + 1);
-	    CharString sequence_id_in_read1 = fragment;
-	    append( sequence_id_in_read1, cseq );
-	    std::vector< unsigned int > mpos_vector, sid_vector;
-	    Pattern<CharString> pattern_sequence_id_in_read1( sequence_id_in_read1 ); // this is now the 'needle' -- look for this sequence in the haystack of potential sequence IDs
-	    clear( finder_sequence_id );
-	    while( find(finder_sequence_id, pattern_sequence_id_in_read1)) { // let's try *all* possibilities
-	      int sid = beginPosition(finder_sequence_id).i1;
-	      sid_vector.push_back( sid );
-	      int mpos = beginPosition(finder_sequence_id).i2;
-	      mpos_vector.push_back( mpos );
-	    }
-
-	    if ( sid_vector.size() > 0 ){
-	      record_counter( "found match in RNA sequence (read 2)", counter_idx, counter_counts, counter_tags );
-	      float const weight = 1.0 / sid_vector.size();
-	      for (unsigned q = 0; q < sid_vector.size(); q++ ){
-		int const & sid = sid_vector[ q ];
-		int const & mpos = mpos_vector[ q ];
-		all_count[ expt_idx ][ sid ][ mpos ] += weight;
-		//std::cout << "CHECK IT " << mpos << " " << sid << " " << length( fragment ) << std::endl;
-	      }
-	    }
-	  }
-	}
-	//	  std::cout << "FIND ANYTHING? " << adapter_sequence2_pattern << " " << seq1 << ": " <<
-	//	    adapter_sequence2_pos << " " << constant_sequence_begin_pos << " " << " " << fragment  << std::endl;
       }
 
     }
+
 
     std::cout << "Aligning " << seqCount1 << " sequences took " << SEQAN_PROTIMEDIFF(alignTime) << std::endl;
     std::cout << "Perfect constant sequence matches: " << perfect << std::endl;
