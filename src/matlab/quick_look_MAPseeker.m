@@ -259,7 +259,7 @@ clf;
 make_image_plot( D_raw, RNA_info, primer_info, most_common_sequences , 'raw counts');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Make 2D gray of all reactivies, corrected
+% Make 2D gray of all reactivities, corrected
 FigHandle = figure(5);
 set(FigHandle, 'Position', [300,300,600,figure_ysize], 'name', 'Reactivity');
 clf;
@@ -276,7 +276,7 @@ final_image_scalefactor = 20;
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Make 2D gray of all reactivies, background subtracted
+% Make 2D gray of all reactivities, background subtracted
 if BACKGD_SUB
   FigHandle = figure(6);
   set(FigHandle, 'Position', [350,350,600,figure_ysize],'name','Final');

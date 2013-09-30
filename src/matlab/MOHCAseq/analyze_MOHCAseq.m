@@ -38,6 +38,8 @@ function [Zscores_mask, Zscores_mask_err, D_sim, pdbstruct, D_combine, Zscores, 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% 1. Get Z-scores w/propagated errors of unnormalized reactivities
 
+fprintf('\nGenerating Z-scores...\n\n');
+
 Zscores = cell(1,length(D));
 Zscores_err = cell(1,length(D_err));
 
@@ -60,13 +62,14 @@ end
 
 set(gcf,'pointer','fullcross');
 
+fprintf('Plotting Z-score and summary figures...\n\n');
 
 for n = 1:length(D)
 
-    figure(n); clf reset;
+    figure(n); %clf reset;
     fig_MOHCAseq( Zscores{1,n},      50, 1-gray(100), plot_heads(n), '2D Z-scores; mask reactivities',             offset, tail_length, seqstart, 2, 2, 1, 1 );
     fig_MOHCAseq( Zscores_err{1,n},  25, jet,         plot_heads(n), '2D errors of Z-scores; mask reactivities',   offset, tail_length, seqstart, 2, 2, 3, 1 );
-    fig_MOHCAseq( D_raw{1,n},        50, 1-gray(100), plot_heads(n), '2D raw counts',                              offset, tail_length, seqstart, 2, 2, 2, 1 );
+    fig_MOHCAseq( D_raw{1,n},         5, 1-gray(100), plot_heads(n), '2D raw counts',                              offset, tail_length, seqstart, 2, 2, 2, 1 );
     fig_MOHCAseq( D{1,n},            50, 1-gray(100), plot_heads(n), '2D reactivities',                            offset, tail_length, seqstart, 2, 2, 4, 1 );
     
     fignum = length(D)+n;
@@ -91,8 +94,12 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% 3. Optional: Simulate MOHCA-Seq data from PDB file
 
+
+
 if ~exist('pdb')
+    fprintf('No PDB file or structure array detected...\n\n');
 else
+    fprintf('PDB file or structure array detected... Generating simulated and overlaid contact maps...\n\n');
     fignum_start = 2*length(D)+1;
     pdbname = inputname(8);
     [D_sim, pdbstruct, D_combine] = sim_MOHCAseq( pdb, pdbname, offset, tail_length, fignum_start, plot_heads, Zscores_mask, 1 );
@@ -179,18 +186,18 @@ image(transpose(D)*scale);
 axis image; colormap(colmap);
 title([head, head2]);
 
-make_lines(offset + 1,'m',0.5);                                   % Offset is the number of nucleotides in the probed sequence before the first nucleotide in the xtal structure
-make_lines_horizontal(offset + 1,'m',0.5);                        % Add 1 to offset because unligated DNA tail sequence appears in the fragment library submitted to MAPseeker
-make_lines(length(D) - tail_length,'g',0.5);
-make_lines_horizontal(length(D) - tail_length,'g',0.5);
-
 set(gca,'Xtick',0:10:length(D));
 set(gca,'Ytick',0:10:length(D));
 set(gca,'Xticklabel',{seqstart - (offset+2) : 10 : seqstart + length(D) - (offset+2)});
-set(gca,'Yticklabel',{seqstart - (offset+2) : 10 : seqstart + length(D) - (offset+2)});
+set(gca,'Yticklabel',{seqstart - (offset+2) + 1 : 10 : seqstart + length(D) - (offset+2) + 1});     % Add 1 to y-axis (hit position) tick labels b/c hit position detected is 1 nt 5' of actual hit position (hit causes loss of the nt at the true hit position)
 xlabel('Radical source position');
 ylabel('Pairwise hit position');
 xticklabel_rotate; freezeColors;
+
+make_lines(offset + 1,'m',0.5);                                   % Offset is the number of nucleotides in the probed sequence before the first nucleotide in the xtal structure
+make_lines_horizontal(offset,'m',0.5);                            % Don't add 1 to offset because detected hit position is 1 nt 5' of true hit position
+make_lines(length(D) - tail_length,'g',0.5);
+make_lines_horizontal(length(D) - (tail_length + 1),'g',0.5);       % Add an extra 1 to tail_length because detected hit position is 1 nt 5' of true hit position
 
 if shiftx == 1
     get(get(gca,'Xlabel'),'Position');

@@ -61,29 +61,51 @@ D_sim = [];
 rad_pos = 1;
 hit_pos = 1;
 
+
+for i = 1:20
+    if strcmp(pdbstruct.Model.Atom(1,i).AtomName, 'O2''')
+        atomname = 1;
+    elseif strcmp(pdbstruct.Model.Atom(1,i).AtomName, 'O2*')
+        atomname = 2;
+    end
+end
+
+if atomname == 1;
+    rad_atom = 'O2''';
+    hit_atom = 'C4''';
+    fprintf('2''-OH atom name: %s\n\n', 'O2''');
+elseif atomname == 2;
+    rad_atom = 'O2*';
+    hit_atom = 'C4*';
+    fprintf('2''-OH atom name: %s\n\n', 'O2*');
+end
+
+if ~exist('atomname')
+    fprintf('Warning! Unable to detect a 2''-OH atom name...\n\n');
+    return
+end
+
 % for n = 1:length(D)
     for i = 1:length(pdbstruct.Model.Atom)
-        if strcmp(pdbstruct.Model.Atom(1,i).AtomName, 'O2''')
+        if strcmp(pdbstruct.Model.Atom(1,i).AtomName, rad_atom)
     %         pdbstruct.Model.Atom(1,i).resSeq;
             xi = pdbstruct.Model.Atom(1,i).X;
             yi = pdbstruct.Model.Atom(1,i).Y;
             zi = pdbstruct.Model.Atom(1,i).Z;
             for j = 1:length(pdbstruct.Model.Atom)
-                if strcmp(pdbstruct.Model.Atom(1,j).AtomName, 'C4''')
-    %                 hit_pos = pdbstruct.Model.Atom(1,j).resSeq;
+                if strcmp(pdbstruct.Model.Atom(1,j).AtomName, hit_atom)
+                    rad_pos(i,j) = pdbstruct.Model.Atom(1,i).resSeq - seqstart + 1;    % radical location is the nucleotide position of the 2'-OH; adjust the numbering to start at 1
+                    hit_pos(i,j) = pdbstruct.Model.Atom(1,j).resSeq - seqstart + 1;    % hit location is 1 nt 3' of the nt position of the C4' (will offset by 1 later); adjust the numbering to start at 1
                     xj = pdbstruct.Model.Atom(1,j).X;
                     yj = pdbstruct.Model.Atom(1,j).Y;
                     zj = pdbstruct.Model.Atom(1,j).Z;
                     dist = sqrt( (xj-xi)^2 + (yj-yi)^2 + (zj-zi)^2 );
-                    D_sim_a(rad_pos, hit_pos) = 1/dist^2;       %{1,n}
-                    hit_pos = hit_pos+1;
+                    D_sim_a(rad_pos(i,j), hit_pos(i,j)) = 1/dist^2;       %{1,n}
                 else
                 end
             end
-            rad_pos = rad_pos+1;
         else
         end
-        hit_pos = 1;
     end
 % end
 
@@ -99,7 +121,7 @@ D_sim = D_sim_a;
 % for n = 1:length(D_sim_a)
     [x, y] = size(D_sim_a);
     D_sim = [zeros(x, offset+1) D_sim zeros(x, tail_length)];
-    D_sim = [zeros(offset+1, tot_length); D_sim; zeros(tail_length, tot_length)];  
+    D_sim = [zeros(offset, tot_length); D_sim; zeros(tail_length+1, tot_length)];   %shifts padded D_sim map 'up' by one nt relative to experimental data, b/c axes adjusted to denote true hit positions for experimental data
 % end
 
 fprintf('Dimensions of simulated dataset expanded to size of experimental data: %s\n\n', num2str(size(D_sim)));
@@ -169,7 +191,7 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% 5. If printfig specified, save figures
 
-if ~exist( 'printfig' ); printfig = 1; end
+if ~exist( 'printfig' ); printfig = 0; end
 if printfig == 1
     tag = pwd;
     if tag(end) == '/'; tag = tag(1:end-1); end; % get rid of final slash
@@ -177,10 +199,10 @@ if printfig == 1
     tags = split_string( tag, '/' );
     tag = tags{ end };
     
-    print_save_figure(figure(fignum_start), [tag,'_SimulatedMap'], 'Figures_Sim', 1);
+    print_save_figure(figure(fignum_start-1), [tag,'_SimulatedMap'], 'Figures_Sim', 1);
     for n = 1:length(fignum)
         print_save_figure(figure(fignum(n)), [tag,'_',num2str(n),'_AllMaps'], 'Figures_Sim', 1);
-        print_save_figure(figure(fignum(n)), [tag,'_',num2str(n),'_OverlayMap'], 'Figures_Sim', 1);
+        print_save_figure(figure(figcomb(n)), [tag,'_',num2str(n),'_OverlayMap'], 'Figures_Sim', 1);
     end
 else
 end
@@ -202,17 +224,18 @@ end
 axis image; colormap(colmap);
 title({head; head2});
 
-make_lines(offset + 1,'m',0.5);                                   % Offset is the number of nucleotides in the probed sequence before the first nucleotide in the xtal structure
-make_lines_horizontal(offset + 1,'m',0.5);                        % Add 1 to offset because unligated DNA tail sequence appears in the fragment library submitted to MAPseeker
-make_lines(length(D) - tail_length,'g',0.5);
-make_lines_horizontal(length(D) - tail_length,'g',0.5);
-
 set(gca,'Xtick',0:10:length(D));
 set(gca,'Ytick',0:10:length(D));
 set(gca,'Xticklabel',{seqstart - (offset+2) : 10 : seqstart + length(D) - (offset+2)});
-set(gca,'Yticklabel',{seqstart - (offset+2) : 10 : seqstart + length(D) - (offset+2)});
+set(gca,'Yticklabel',{seqstart - (offset+2) + 1 : 10 : seqstart + length(D) - (offset+2) + 1});     % Add 1 to y-axis (hit position) tick labels b/c hit position detected is 1 nt 5' of actual hit position (hit causes loss of the nt at the true hit position)
 xlabel('Radical source position');
 ylabel('Pairwise hit position');
+
+make_lines(offset + 1,'m',0.5);                                   % Offset is the number of nucleotides in the probed sequence before the first nucleotide in the xtal structure
+make_lines_horizontal(offset,'m',0.5);                            % Don't add 1 to offset because detected hit position is 1 nt 5' of true hit position
+make_lines(length(D) - tail_length,'g',0.5);
+make_lines_horizontal(length(D) - (tail_length + 1),'g',0.5);       % Add an extra 1 to tail_length because detected hit position is 1 nt 5' of true hit position
+
 xticklabel_rotate; freezeColors;
 
 % set(get(gca,'Xlabel'),'Position',get(get(gca,'Xlabel'),'Position'));

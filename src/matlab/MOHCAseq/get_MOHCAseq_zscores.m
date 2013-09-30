@@ -17,7 +17,7 @@ function [zscores, zscores_err, zscores_mask, zscores_mask_err] = get_MOHCAseq_z
 %%% (C) Clarence Cheng, 2013
 
 
-if ~exist(thresh);
+if ~exist('thresh');
     thresh = 1;
 end
 
