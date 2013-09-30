@@ -34,7 +34,6 @@ void record_counter( std::string const tag,
 int try_exact_match( CharString & seq1, CharString & cseq, unsigned & perfect );
 int try_exact_match( CharString & seq1, CharString & cseq );
 int try_DP_match( CharString & seq1, CharString & cseq, unsigned & perfect );
-
 int try_DP_match_expt_ids( std::vector< CharString > & short_expt_ids, CharString & expt_id_in_read1 );
 
 bool
@@ -55,7 +54,8 @@ _addVersion(CommandLineParser& parser) {
 }
 
 int main(int argc, const char *argv[]) {
-//All command line arguments are parsed using SeqAn's command line parser
+
+  //All command line arguments are parsed using SeqAn's command line parser
     CommandLineParser parser;
     _addVersion(parser);
 
@@ -75,7 +75,8 @@ int main(int argc, const char *argv[]) {
     //in the Das lab this is the tail2 sequence AAAGAAACAACAACAACAAC
     std::string const daslab_tail2_sequence("AAAGAAACAACAACAACAAC");
     // a.k.a. TruSeq Universal Adapter -- gets added to one end of many illumina preps. Should be shared 5' end of all primers.
-    std::string const universal_adapter_sequence("AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGATCT");
+    std::string const universal_adapter_sequence( "AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGATCT");
+    std::string const universal_adapter_sequence2("AGATCGGAAGAGC"); // reverse complement of AadaptBp or truseq 'adapter' sequence
 
     addOption(parser, addArgumentText(CommandLineOption("1", "miseq1", "miseq output [read 1] containing primer ids",OptionType::String), "<FASTAQ FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("2", "miseq2", "miseq output [read 2] containing 3' ends",OptionType::String), "<FASTAQ FILE>"));
@@ -92,6 +93,7 @@ int main(int argc, const char *argv[]) {
     addOption(parser, addArgumentText(CommandLineOption("x", "match_single_nt_variants", "check off-by-one to match sequence ID in read 1", OptionType::Bool, false), ""));
     addOption(parser, addArgumentText(CommandLineOption("D", "match_DP", "use dynamic programming to match sequence ID in read 2 (allow in/del)", OptionType::Bool, false), ""));
     addOption(parser, addArgumentText(CommandLineOption("a", "adapter", "Illumina Adapter sequence = 5' DNA sequence shared by all primers", OptionType::String,""), "<DNA sequence>"));
+    addOption(parser, addArgumentText(CommandLineOption("z", "adapter2", "Illumina Adapter sequence = 3' DNA sequence shared by all fragments, introduced by ligation", OptionType::String,""), "<DNA sequence>"));
 
 
     if (argc == 1) {
@@ -106,9 +108,10 @@ int main(int argc, const char *argv[]) {
     SEQAN_PROTIMESTART(loadTime);
     unsigned seqid_length( 0 ), increment_between_reads( 0 ), start_at_read( 0 );
     std::string file1,file2,file_library,file_expt_id,file_primers,outfile,outpath;
-    String<char> cseq,adapterSequence;
+    String<char> cseq,adapterSequence,adapterSequence2;
     getOptionValueLong(parser, "cseq",cseq);
     getOptionValueLong(parser, "adapter",adapterSequence);
+    getOptionValueLong(parser, "adapter2",adapterSequence2);
     getOptionValueLong(parser, "miseq1",file1);
     getOptionValueLong(parser, "miseq2",file2);
     getOptionValueLong(parser, "library",file_library);
@@ -315,6 +318,8 @@ int main(int argc, const char *argv[]) {
     }
     unsigned seqCount_expt_id = short_expt_ids.size();
 
+    if ( length( adapterSequence2 ) == 0 ) adapterSequence2 = universal_adapter_sequence2;
+
     //Infer RNA library sequence ID length.  This should have been specified by the -n flag, but this will
     //throw a warning if an incorrect value is believed to have been specified.
     //An accurate RNA library sequence ID length should be the shortest sequence from the 3' end that is
@@ -404,7 +409,6 @@ int main(int argc, const char *argv[]) {
       // if (readRecord(id1, seq1, reader1, format1) != 0) return 1;
       // if (readRecord(id2, seq2, reader2, format2) != 0) return 1;
 
-
       reverseComplement(seq1);
 
       unsigned counter_idx( 0 ); // will keep track of which filter we pass.
@@ -461,14 +465,17 @@ int main(int argc, const char *argv[]) {
       unsigned variant_counter( 0 );
       CharString sequence_id_region_variant( sequence_id_region_in_sequence1 );
 
-      while ( !found_match_in_read2 && get_next_variant( sequence_id_region_in_sequence1, sequence_id_region_variant, variant_counter, seqid_length ) ){
+      while ( !found_match_in_read2 &&
+	      get_next_variant( sequence_id_region_in_sequence1, sequence_id_region_variant, variant_counter, seqid_length ) ){
 
 	if ( !match_single_nt_variants && variant_counter > 1 ) break;
 
 	Pattern<CharString> pattern_sequence_id_in_read1(sequence_id_region_variant); // this is now the 'needle' -- look for this sequence in the haystack of potential sequence IDs
-
 	clear( finder_sequence_id ); //reset.
-	if( find(finder_sequence_id, pattern_sequence_id_in_read1)) { // wait, shouldn't we try *all* possibilities?
+
+	// wait, shouldn't we try *all* possibilities? Yes, but assuming that seqid_length is long enough that
+	// only one RNA corresponds to that ID. For MOHCA-seq, should generalize.
+	if( find(finder_sequence_id, pattern_sequence_id_in_read1)) {
 
 	  if (!found_match_in_read1){
 	    record_counter( "found match in RNA sequence (read 1)", counter_idx, counter_counts, counter_tags );
@@ -480,7 +487,7 @@ int main(int argc, const char *argv[]) {
 
 	  // what is the DNA?
 	  assignSeq(seq_from_library, multiSeqFile_library[sid_idx], format_library); // read sequence of the RNA
-	  append( seq_from_library, short_expt_ids[ expt_idx ] ); // experimental ID, added  in MAP-seq protocol as part of reverse transcription primer
+	  append( seq_from_library, short_expt_ids[ expt_idx ] ); // experimental ID, added in MAP-seq protocol as part of reverse transcription primer
 	  append( seq_from_library, adapterSequence ); // piece of illumina DNA, added in MAP-seq protocol as part of reverse transcription primer
 
 	  //	assignSeqId(seq_from_libraryid,multiSeqFile_library[sid_idx], format_library); // read the ID of the RNA -- is this used anymore?
@@ -560,9 +567,60 @@ int main(int argc, const char *argv[]) {
 	  }
 
 	}
-
       }
+
+      // This is currently an alternative branch. But ideally should be integrated with above...
+      if ( !found_match_in_read1 ){
+	// this might be a really short read -- can check this by looking for the appearance of the other
+	// Illumina adapter sequence which should be ligated onto the 3' end.
+	CharString adapter_sequence2_pattern = adapterSequence2;
+	int min_length_of_adapter_sequence2( seqid_length ); // = constant_sequence_begin_pos - seqid_length;
+	if ( min_length_of_adapter_sequence2 < length( adapterSequence2 ) ){
+	  adapter_sequence2_pattern = infixWithLength( adapterSequence2, 0, min_length_of_adapter_sequence2 );
+	}
+	reverseComplement( adapter_sequence2_pattern );
+	Pattern<String<char>, DPSearch<SimpleScore> > pattern_constant_sequence_DP( adapter_sequence2_pattern, SimpleScore(0, -2, -1));
+	Finder<String<char> > finder_in_seq1(seq1);
+	int adapter_sequence2_pos( 0 );
+	CharString fragment;
+	if ( find( finder_in_seq1, pattern_constant_sequence_DP ) ){
+	  adapter_sequence2_pos = beginPosition( finder_in_seq1 );
+	  record_counter( "found match in RNA sequence (read 1)", counter_idx, counter_counts, counter_tags );
+
+	  if ( constant_sequence_begin_pos >= adapter_sequence2_pos  ){
+	    fragment = infixWithLength( seq1, adapter_sequence2_pos, constant_sequence_begin_pos - adapter_sequence2_pos + 1);
+	    CharString sequence_id_in_read1 = fragment;
+	    append( sequence_id_in_read1, cseq );
+	    clear( finder_sequence_id );
+	    Pattern<CharString> pattern_sequence_id_in_read1( sequence_id_in_read1 ); // this is now the 'needle' -- look for this sequence in the haystack of potential sequence IDs
+	    std::vector< int > sid_idx_vector, mpos_vector;
+
+	    while( find(finder_sequence_id, pattern_sequence_id_in_read1)) { // let's try *all* possibilities
+	      int sid_idx = beginPosition(finder_sequence_id).i1;
+	      sid_idx_vector.push_back( sid_idx );
+	      int mpos = beginPosition(finder_sequence_id).i2;
+	      mpos_vector.push_back( mpos );
+	    }
+
+	    if ( sid_idx_vector.size() > 0 ){
+	      record_counter( "found match in RNA sequence (read 2)", counter_idx, counter_counts, counter_tags );
+	      float const weight = 1.0 / sid_idx_vector.size();
+	      for (unsigned q = 0; q < sid_idx_vector.size(); q++ ){
+		int const & sid_idx = sid_idx_vector[ q ];
+		int const & mpos = mpos_vector[ q ];
+		all_count[ expt_idx ][ sid_idx ][ mpos ] += weight;
+		//std::cout << "CHECK IT " << mpos << " " << sid_idx << " " << length( fragment ) << std::endl;
+	      }
+	    }
+	  }
+	}
+	  std::cout << "FIND ANYTHING? " << adapter_sequence2_pattern << " " << seq1 << ": " <<
+	    adapter_sequence2_pos << " " << constant_sequence_begin_pos << " " << " " << fragment  << std::endl;
+      }
+
     }
+
+
     std::cout << "Aligning " << seqCount1 << " sequences took " << SEQAN_PROTIMEDIFF(alignTime) << std::endl;
     std::cout << "Perfect constant sequence matches: " << perfect << std::endl;
 
@@ -725,7 +783,6 @@ try_DP_match_expt_ids( std::vector< CharString > & short_expt_ids, CharString & 
     String<char> & ndl = short_expt_ids[n]; // this is the needle. const doesn't seem to work.
     //Set options for match, mismatch, gap. Again, should make these variables.
     // penalize gaps to take into account length mismatches!
-
     //    Pattern<String<char>, DPSearch<SimpleScore> > pattern_expt_id(ndl,SimpleScore(-1, -2, -1));
     Pattern<String<char>, DPSearch<SimpleScore> > pattern_expt_id(ndl,SimpleScore(0, -1, -1));
 
