@@ -74,6 +74,7 @@ check_for_short_insert( CharString const & adapterSequence2,
 			CharString & seq1,
 			Finder<Index<THaystacks> > & finder_sequence_id,
 			std::vector< unsigned > & possible_sids,
+			bool const & align_null,
 			bool & verbose,
 			unsigned & nullLigation );
 
@@ -94,3 +95,7 @@ check_for_extra_junk_using_star_sequences(
 					  std::vector< CharString > const & sequences_before_star,
 					  std::vector< CharString > const & sequences_after_star,
 					  std::vector< unsigned > const & star_sequence_ids );
+
+void
+output_stats_files( std::vector< std::vector< std::vector < double > > > const & all_count,
+		    std::string const & outpath);

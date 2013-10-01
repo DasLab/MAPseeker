@@ -58,6 +58,7 @@ int main(int argc, const char *argv[]) {
     addOption(parser, addArgumentText(CommandLineOption("x", "match_single_nt_variants", "check off-by-one to match sequence ID in read 1", OptionType::Bool, false), ""));
     addOption(parser, addArgumentText(CommandLineOption("D", "match_DP", "use dynamic programming to match sequence ID in read 2 (allow in/del)", OptionType::Bool, false), ""));
     addOption(parser, addArgumentText(CommandLineOption("A", "align_all", "try to align short reads, even if ambiguous [useful for MOHCA]", OptionType::Bool, false), ""));
+    addOption(parser, addArgumentText(CommandLineOption("0", "align_null","go ahead and align null ligations too!", OptionType::Bool, false), ""));
     addOption(parser, addArgumentText(CommandLineOption("a", "adapter", "Illumina Adapter sequence = 5' DNA sequence shared by all primers", OptionType::String,""), "<DNA sequence>"));
     addOption(parser, addArgumentText(CommandLineOption("z", "adapter2", "Illumina Adapter sequence = 3' DNA sequence shared by all fragments, introduced by ligation", OptionType::String,""), "<DNA sequence>"));
 
@@ -87,6 +88,8 @@ int main(int argc, const char *argv[]) {
     bool match_single_nt_variants = isSetLong( parser, "match_single_nt_variants" );
     bool match_DP = isSetLong( parser, "match_DP" );
     bool align_all = isSetLong( parser, "align_all" );
+    bool align_null = isSetLong( parser, "align_null" );
+    if ( align_null && !align_all ) { std::cout << "WARNING: Setting align_all to be true since align_null is true." << std::endl; align_all = true; }
     getOptionValueLong(parser,"sid_length",seqid_length);
     getOptionValueLong(parser,"increment_between_reads", increment_between_reads); // for job splitting
     getOptionValueLong(parser,"start_at_read",start_at_read); // for job splitting
@@ -269,7 +272,7 @@ int main(int argc, const char *argv[]) {
       // Illumina adapter sequence which should be ligated onto the 3' end.
       bool verbose( false );
       if ( align_all && possible_sids.size() == 0 )  check_for_short_insert( adapterSequence2, cseq, constant_sequence_begin_pos, seqid_length,
-									     seq1, finder_sequence_id, possible_sids, verbose, nullLigation );
+									     seq1, finder_sequence_id, possible_sids, align_null, verbose, nullLigation );
 
 
       // there was originally a different logic for this, where MAPseeker had a while loop that went through
@@ -292,6 +295,12 @@ int main(int argc, const char *argv[]) {
       if ( possible_sids.size() == 0 )  check_for_extra_junk_using_star_sequences( possible_sids, sequences_with_extra_junk, extra_junk_mode,
 										   finder_sequence_id, seq1, constant_sequence_begin_pos,
 										   sequences_before_star, sequences_after_star, star_sequence_ids );
+
+      // "hail mary"
+      if ( align_all && possible_sids.size() == 0 )  {
+	for ( unsigned s = 0; s < star_sequence_ids.size(); s++ ) possible_sids.push_back( star_sequence_ids[ s ] );
+      }
+
 
       if ( possible_sids.size() > 0 ){
 
@@ -322,7 +331,8 @@ int main(int argc, const char *argv[]) {
 
 	  //reads beyond sequence ID are nonsense -- sequence ID better be there based on match to read1 above.
 	  int mpos_max = try_exact_match( seq_from_library, cseq ) - seqid_length;
-	  if ( align_all ) mpos_max = try_exact_match( seq_from_library, cseq ) - 1;
+	  if ( align_all  ) mpos_max = try_exact_match( seq_from_library, cseq ) - 1;
+	  if ( align_null ) mpos_max = try_exact_match( seq_from_library, cseq ) - 1;  	  // allows for null ligations!
 	  if ( mpos_max < 0 ) mpos_max = length( seq_from_library );  //to catch boundary cases -- no match to constant sequence.
 
 	  if ( match_DP ){
@@ -403,8 +413,6 @@ int main(int argc, const char *argv[]) {
 
 
     std::cout << "Aligning " << seqCount1 << " sequences took " << SEQAN_PROTIMEDIFF(alignTime) << " seconds " << std::endl;
-    std::cout << "Perfect constant sequence: " << perfect << std::endl;
-    std::cout << "Null ligations           : " << nullLigation << std::endl;
 
     std::cout << std::endl;
     std::cout << "Purification table" << std::endl;
@@ -413,26 +421,10 @@ int main(int argc, const char *argv[]) {
     }
     std::cout << std::endl;
 
-    //////////////////////////////////////////////////////
-    //  output matrices with stored counts.
-    //////////////////////////////////////////////////////
-    for ( unsigned i = 0; i < seqCount_expt_id; i++ ){
-      char stats_outFileName[ 100 ];
-      sprintf( stats_outFileName, "%sstats_ID%d.txt", outpath.c_str(), i+1 ); // index by 1.
-      std::cout << "Outputting counts to: " << stats_outFileName << std::endl;
-      FILE * stats_oFile;
-      stats_oFile = fopen( stats_outFileName,"w");
-      for ( unsigned j = 0; j < seqCount_library; j++ ){
-	double total_for_RNA( 0.0 );
-    	for ( unsigned k = 0; k < max_rna_len+1; k++ ){
-    	  fprintf( stats_oFile, " %11.3f", all_count[i][j][k] );
-	  total_for_RNA += all_count[i][j][k];
-    	}
-	// std::cout << total_for_RNA << std::endl; // was used to check if total was integer.
-    	fprintf( stats_oFile, "\n");
-      }
-      fclose( stats_oFile );
-    }
+    std::cout << "Perfect constant sequence: " << perfect << std::endl;
+    if ( align_all ) std::cout << "Null ligations           : " << nullLigation << std::endl;
+
+    output_stats_files( all_count, outpath );
 
     return 1;
 }
@@ -652,13 +644,18 @@ check_for_star_sequence( CharString & seq_from_library,
   if ( star_pos > -1 ){
     CharString sequence_before_star = prefix(seq_from_library,star_pos  );
     CharString sequence_after_star  = suffix(seq_from_library,star_pos+1);
+
+    // following removes star from sequence stored in main library.
+    // But later decided to keep the '*' in to prevent alignment
+    //  using 'standard' protocol in main loop.
     CharString seq_from_library_new = sequence_before_star;
     append( seq_from_library_new, sequence_after_star );
     if ( findchar( seq_from_library_new, '*' ) > -1 ) {
       std::cerr << "Too many *'s in sequence: " << seq_from_library << std::endl;
       exit( 0 );
     }
-    seq_from_library = seq_from_library_new;
+    //    seq_from_library = seq_from_library_new;
+
     star_sequence_ids.push_back( j );
     sequences_before_star.push_back( sequence_before_star );
     sequences_after_star.push_back( sequence_after_star );
@@ -716,8 +713,8 @@ figure_out_expt_IDs( std::string const & file_primers,
       CharString adapterSequence_inferred = prefix( seq_primers[0], match_5prime );
       if (length(adapterSequence) > 0 ){
 	if ( adapterSequence != adapterSequence_inferred ){
-	  std::cerr << "WARNING! these do not match: " << std::endl;
-	  std::cerr << adapterSequence << " [user input adapterSequence]" << std::endl;
+	  std::cerr << "These do not match: " << std::endl;
+	  std::cerr << adapterSequence << " [user input adapterSequence]; ";
 	  std::cerr << adapterSequence_inferred << " [inferred adapterSequence]" << std::endl;
 	  std::cerr << "over-riding with user-input." << std::endl << std::endl;
 	}
@@ -812,7 +809,6 @@ check_unique_id(  std::vector< String<char> > const & rna_library_vector_RC,
     unsigned inferred_id_length = 0;
     bool match_found = true;
     unsigned cseq_len = length( cseq );
-    std::cout << "Inferring sequence ID length..." << std::endl;
     for(unsigned i = 1; i < max_rna_len - cseq_len; i++){
       if(!match_found) break;
       inferred_id_length = i;
@@ -830,19 +826,17 @@ check_unique_id(  std::vector< String<char> > const & rna_library_vector_RC,
 	if(match_found) break;
       }
     }
-    std::cerr << "Inferred sequence ID length: " << inferred_id_length << std::endl;
+    std::cerr << "Inferred sequence ID length to ensure disambiguation: " << inferred_id_length << std::endl;
 
     if (seqid_length < 1){
-      std::cout << "Sequence ID length undefined by user." << std::endl;
-      std::cout << "Using inferred sequence ID length as sequence ID length." << std::endl;
+      std::cout << "Sequence ID length undefined by user. Using inferred sequence ID length as sequence ID length." << std::endl;
       seqid_length = inferred_id_length;
     }
     else if (inferred_id_length >  seqid_length){
-      std::cerr << "WARNING! these do not match: " << std::endl;
-      std::cerr << seqid_length << " [user input sequence ID length]" << std::endl;
+      std::cerr << "These do not match: ";
+      std::cerr << seqid_length << " [user input sequence ID length] and ";
       std::cout << inferred_id_length << " [inferred sequence ID length]" << std::endl;
-      std::cerr << "Identical regions of user-specified length found in RNA library." << std::endl;
-      std::cerr << "Proceeding with user-input." << std::endl << std::endl;
+      std::cerr << "Identical regions of user-specified length found in RNA library, and will try to disambiguate." << std::endl;
     }
 
     if (inferred_id_length >=  max_rna_len - cseq_len-1){
@@ -881,6 +875,7 @@ disambiguate_possible_sids( std::vector< unsigned > & possible_sids,
 
 
 /////////////////////////////////////////////////////
+// should only be called with --align_all or -A option.
 void
 check_for_short_insert( CharString const & adapterSequence2,
 			CharString const & cseq,
@@ -889,6 +884,7 @@ check_for_short_insert( CharString const & adapterSequence2,
 			CharString & seq1,
 			Finder<Index<THaystacks> > & finder_sequence_id,
 			std::vector< unsigned > & possible_sids,
+			bool const & align_null,
 			bool & verbose,
 			unsigned & nullLigation ){
 
@@ -907,21 +903,23 @@ check_for_short_insert( CharString const & adapterSequence2,
 
   if ( find( finder_in_seq1, pattern_constant_sequence_DP, -1 /*score cutoff*/ ) ){
     adapter_sequence2_pos = beginPosition( finder_in_seq1 );
-    if ( constant_sequence_begin_pos >= adapter_sequence2_pos  ){
-      fragment = infixWithLength( seq1, adapter_sequence2_pos, constant_sequence_begin_pos - adapter_sequence2_pos + 1);
-      CharString sequence_id_in_read1 = fragment;
-      append( sequence_id_in_read1, cseq );
-      std::vector< unsigned > mpos_vector, sid_vector;
-      Pattern<CharString> pattern_sequence_id_in_read1( sequence_id_in_read1 ); // this is now the 'needle' -- look for this sequence in the haystack of potential sequence IDs
-      clear( finder_sequence_id );
-      while( find(finder_sequence_id, pattern_sequence_id_in_read1)) { // let's try *all* possibilities
-	int sid = beginPosition(finder_sequence_id).i1;
-	possible_sids.push_back( sid );
-	// note that this is a totally valid guess for mpos -- but we'll still check read2
-	int mpos = beginPosition(finder_sequence_id).i2;
-	//if (!verbose) std::cout << seq1 << " " << seq2 << std::endl;
-	//std::cout << "READ1 " << mpos << " " << sid << " " << length( fragment ) << std::endl;
-	//	      verbose = true;
+    if ( constant_sequence_begin_pos >= adapter_sequence2_pos - 1  ){
+      if ( align_null || constant_sequence_begin_pos >= adapter_sequence2_pos )  {
+	fragment = infixWithLength( seq1, adapter_sequence2_pos, constant_sequence_begin_pos - adapter_sequence2_pos + 1);
+	CharString sequence_id_in_read1 = fragment;
+	append( sequence_id_in_read1, cseq );
+	std::vector< unsigned > mpos_vector, sid_vector;
+	Pattern<CharString> pattern_sequence_id_in_read1( sequence_id_in_read1 ); // this is now the 'needle' -- look for this sequence in the haystack of potential sequence IDs
+	clear( finder_sequence_id );
+	while( find(finder_sequence_id, pattern_sequence_id_in_read1)) { // let's try *all* possibilities
+	  int sid = beginPosition(finder_sequence_id).i1;
+	  possible_sids.push_back( sid );
+	  // note that this is a totally valid guess for mpos -- but we'll still check read2
+	  int mpos = beginPosition(finder_sequence_id).i2;
+	  //if (!verbose) std::cout << seq1 << " " << seq2 << std::endl;
+	  //std::cout << "READ1 " << mpos << " " << sid << " " << length( fragment ) << std::endl;
+	  //	      verbose = true;
+	}
       }
     }
     if ( constant_sequence_begin_pos == adapter_sequence2_pos-1 ) nullLigation += 1;
@@ -970,8 +968,8 @@ check_for_extra_junk_using_star_sequences(
     Pattern<String<char>, Horspool > pattern_constant_sequence( search_suffix );
     while( find(finder_constant_sequence, pattern_constant_sequence) ){
       int const finder_end_pos =  position( finder_constant_sequence )  + length( search_suffix );
-      //if ( finder_end_pos < constant_sequence_begin_pos + 1 ) star_pos = finder_end_pos;
-      if ( finder_end_pos < constant_sequence_begin_pos ) star_pos = finder_end_pos;
+      if ( finder_end_pos < constant_sequence_begin_pos + 1 ) star_pos = finder_end_pos;
+      //if ( finder_end_pos < constant_sequence_begin_pos ) star_pos = finder_end_pos;
       else break;
     }
     if (star_pos > -1 ){
@@ -995,6 +993,40 @@ check_for_extra_junk_using_star_sequences(
       }
 
     }
-    //std::cout << "MYSTERY " << seq1 << " look for "  << search_suffix << " " << star_pos << " " << extra_junk << "  seq2 " << seq2 << std::endl;
+    //std::cout << "MYSTERY " << seq1 << " look for "  << search_suffix << " " << star_pos << " " << extra_junk << std::endl;
+  }
+}
+
+//////////////////////////////////////
+void
+output_stats_files( std::vector< std::vector< std::vector < double > > > const & all_count,
+		    std::string const & outpath )
+{
+
+  unsigned const seqCount_expt_id = all_count.size();
+
+  //////////////////////////////////////////////////////
+  //  output matrices with stored counts.
+  //////////////////////////////////////////////////////
+  for ( unsigned i = 0; i < seqCount_expt_id; i++ ){
+    char stats_outFileName[ 100 ];
+    sprintf( stats_outFileName, "%sstats_ID%d.txt", outpath.c_str(), i+1 ); // index by 1.
+    std::cout << "Outputting counts to: " << stats_outFileName << std::endl;
+    FILE * stats_oFile;
+    stats_oFile = fopen( stats_outFileName,"w");
+
+    unsigned const seqCount_library = all_count[i].size();
+    for ( unsigned j = 0; j < seqCount_library; j++ ){
+      double total_for_RNA( 0.0 );
+
+    unsigned const max_rna_len = all_count[i][j].size() - 1;
+      for ( unsigned k = 0; k < max_rna_len+1; k++ ){
+	fprintf( stats_oFile, " %11.3f", all_count[i][j][k] );
+	total_for_RNA += all_count[i][j][k];
+      }
+      // std::cout << total_for_RNA << std::endl; // was used to check if total was integer.
+      fprintf( stats_oFile, "\n");
+    }
+    fclose( stats_oFile );
   }
 }
