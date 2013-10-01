@@ -186,6 +186,8 @@ int main(int argc, const char *argv[]) {
     std::vector< std::vector< double > > bunch_of_sequence_counts( seqCount_library, sequence_counts);
     std::vector< std::vector< std::vector < double > > > all_count( seqCount_expt_id, bunch_of_sequence_counts);
 
+    std::vector< std::vector< std::vector < double > > > all_count_mutation = all_count;
+
     // keep track of how many sequences pass through each filter
     std::vector< unsigned > counter_counts;
     std::vector< std::string > counter_tags;
@@ -368,7 +370,7 @@ int main(int argc, const char *argv[]) {
 	    }
 	  }
 
-	} else {  // default -- use fast MyersUkkonen, which does not allow in/dels
+	} else {  // default -- use fast MyersUkkonen [approximate search]
 	  // following copies code from DP block. Can't figure out how to avoid this -- Pattern is not sub-classed,
 	  // so Pattern< MyersUkkonen> cannot be interchanged with Pattern< DPsearch >. --Rhiju
 	  // Alternative to DP -- edit distance, used by JP
@@ -385,18 +387,20 @@ int main(int argc, const char *argv[]) {
 	    if ( cscr >= mscr ){ // in case of ties, keep track of all hits
 	      findBegin( finder_in_specific_sequence, pattern_in_specific_sequence, mscr );
 	      int mpos = beginPosition( finder_in_specific_sequence );
-	      //	      if ( sid_idx == 67 && mpos == 18 ) { std::cout << std::endl; verbose = true;}
-	      //	      if ( verbose ) std::cout << "check: " << mpos << " == " << mpos2 << " gives score " << cscr << std::endl;
+	      //	      if ( sid_idx >= 200 && mpos > 180 ) { if (!verbose) { std::cout << std::endl; verbose = true;} }
+	      //	      if ( verbose ) std::cout << "check: " << mpos << " gives score " << cscr << std::endl;
 	      // watch out ... this can't go beyond the "sequence id"!?
 	      //std::cout << mpos << " " << mpos_max << std::endl;
-	      if ( mpos <= mpos_max && !already_saved( mpos_vector, sid_vector, mpos, sid_idx ) ) {
+	      if ( mpos <= mpos_max ) {
 		if(cscr > mscr){
 		  mscr=cscr;
 		  mpos_vector.clear();
 		  sid_vector.clear();
 		}
-		mpos_vector.push_back( mpos );
-		sid_vector.push_back( sid_idx );
+		if ( !already_saved( mpos_vector, sid_vector, mpos, sid_idx ) ){
+		  mpos_vector.push_back( mpos );
+		  sid_vector.push_back( sid_idx );
+		}
 	      }
 	    }
 	  }
@@ -405,6 +409,7 @@ int main(int argc, const char *argv[]) {
 	if (verbose )  std::cout << "in read 2, checking " << sid_idx << ": " << sid_vector.size() << " " << seq1 << " " << seq2 << " [ score: " << mscr << " ] " << std::endl;
 	//std::cout << "mpos_vector.size(): " << mpos_vector.size() << ", seq2: " << seq2 << std::endl;
       }
+
       if ( mpos_vector.size() == 0 ) continue;
 
       found_match_in_read2 = true;
@@ -417,6 +422,9 @@ int main(int argc, const char *argv[]) {
 	if ( verbose ) std::cout << "READ2 " << mpos << " " << sid_idx << std::endl;
 	if ( mpos < 0 ) mpos = 0;
 	all_count[ expt_idx ][ sid_idx ][ mpos ] += weight;
+
+	// mscr is edit distance. If *not* 0, keep track of this.
+	if ( mscr < 0 ) all_count_mutation[ expt_idx ][ sid_idx ][ mpos ] += weight;
       }
     }
 
@@ -433,7 +441,9 @@ int main(int argc, const char *argv[]) {
     std::cout << "Perfect constant sequence: " << perfect << std::endl;
     if ( align_all ) std::cout << "Null ligations           : " << nullLigation << std::endl;
 
-    output_stats_files( all_count, outpath );
+    output_stats_files( all_count, outpath, "stats" );
+
+    output_stats_files( all_count_mutation, outpath, "mut_stats" );
 
     return 1;
 }
@@ -1011,7 +1021,8 @@ check_for_extra_junk_using_star_sequences(
 //////////////////////////////////////
 void
 output_stats_files( std::vector< std::vector< std::vector < double > > > const & all_count,
-		    std::string const & outpath )
+		    std::string const & outpath,
+		    std::string const file_prefix )
 {
 
   unsigned const seqCount_expt_id = all_count.size();
@@ -1021,7 +1032,7 @@ output_stats_files( std::vector< std::vector< std::vector < double > > > const &
   //////////////////////////////////////////////////////
   for ( unsigned i = 0; i < seqCount_expt_id; i++ ){
     char stats_outFileName[ 100 ];
-    sprintf( stats_outFileName, "%sstats_ID%d.txt", outpath.c_str(), i+1 ); // index by 1.
+    sprintf( stats_outFileName, "%s%s_ID%d.txt", outpath.c_str(), file_prefix.c_str(), i+1 ); // index by 1.
     std::cout << "Outputting counts to: " << stats_outFileName << std::endl;
     FILE * stats_oFile;
     stats_oFile = fopen( stats_outFileName,"w");
