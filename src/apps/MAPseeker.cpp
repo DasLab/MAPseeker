@@ -58,6 +58,7 @@ int main(int argc, const char *argv[]) {
     addOption(parser, addArgumentText(CommandLineOption("x", "match_single_nt_variants", "check off-by-one to match sequence ID in read 1", OptionType::Bool, false), ""));
     addOption(parser, addArgumentText(CommandLineOption("D", "match_DP", "use dynamic programming to match sequence ID in read 2 (allow in/del)", OptionType::Bool, false), ""));
     addOption(parser, addArgumentText(CommandLineOption("A", "align_all", "try to align short reads, even if ambiguous [useful for MOHCA]", OptionType::Bool, false), ""));
+    addOption(parser, addArgumentText(CommandLineOption("s", "strict", "Enforce read 2 to have zero mismatches (default: up to 2 mismatches)", OptionType::Bool, false), ""));
     addOption(parser, addArgumentText(CommandLineOption("0", "align_null","go ahead and align null ligations too!", OptionType::Bool, false), ""));
     addOption(parser, addArgumentText(CommandLineOption("a", "adapter", "Illumina Adapter sequence = 5' DNA sequence shared by all primers", OptionType::String,""), "<DNA sequence>"));
     addOption(parser, addArgumentText(CommandLineOption("z", "adapter2", "Illumina Adapter sequence = 3' DNA sequence shared by all fragments, introduced by ligation", OptionType::String,""), "<DNA sequence>"));
@@ -89,6 +90,7 @@ int main(int argc, const char *argv[]) {
     bool match_DP = isSetLong( parser, "match_DP" );
     bool align_all = isSetLong( parser, "align_all" );
     bool align_null = isSetLong( parser, "align_null" );
+    bool strict = isSetLong( parser, "strict" );
     if ( align_null && !align_all ) { std::cout << "WARNING: Setting align_all to be true since align_null is true." << std::endl; align_all = true; }
     getOptionValueLong(parser,"sid_length",seqid_length);
     getOptionValueLong(parser,"increment_between_reads", increment_between_reads); // for job splitting
@@ -189,14 +191,19 @@ int main(int argc, const char *argv[]) {
     std::vector< std::string > counter_tags;
     unsigned perfect( 0 ), nullLigation( 0 );
 
-    ////////////////////////////////////////////////////////////////
-    // MAIN LOOP!
-    ////////////////////////////////////////////////////////////////
 
     std::cout << "Running alignment" << std::endl;
     SEQAN_PROTIMESTART(alignTime); // reset counter.
 
+    ////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////
+    //                       MAIN LOOP!                           //
+    ////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////
     //    while (!atEnd(reader1) && !atEnd(reader2)){
+
     for (unsigned i = start_at_read; i < seqCount1; i += increment_between_reads) {
 
       // Get the next forward and reverse read...
@@ -302,113 +309,115 @@ int main(int argc, const char *argv[]) {
       }
 
 
-      if ( possible_sids.size() > 0 ){
+      if ( possible_sids.size() == 0 ) continue;
 
-	record_counter( "found match in RNA sequence (read 1)", counter_idx, counter_counts, counter_tags );
-	found_match_in_read1 = true;
+      record_counter( "found match in RNA sequence (read 1)", counter_idx, counter_counts, counter_tags );
+      found_match_in_read1 = true;
 
-	std::vector< unsigned > mpos_vector, sid_vector;
-	int mscr( 0 );
+      std::vector< unsigned > mpos_vector, sid_vector;
+      int mscr( 0 );
 
-	for ( unsigned s = 0; s < possible_sids.size(); s++ ){
+      for ( unsigned s = 0; s < possible_sids.size(); s++ ){
 
-	  // seq_from_library contains the RNA library sequences
-	  int sid_idx = possible_sids[ s ];
+	// seq_from_library contains the RNA library sequences
+	unsigned sid_idx = possible_sids[ s ];
 
-	  // what is the DNA?
-	  if ( !extra_junk_mode ){
-	    seq_from_library = RNA_sequences[ sid_idx ];
-	  } else {
-	    seq_from_library = sequences_with_extra_junk[ s ];
-	  }
-	  append( seq_from_library, short_expt_ids[ expt_idx ] ); // experimental ID, added in MAP-seq protocol as part of reverse transcription primer
-	  append( seq_from_library, adapterSequence ); // piece of illumina DNA, added in MAP-seq protocol as part of reverse transcription primer
+	// what is the DNA?
+	if ( !extra_junk_mode ){
+	  seq_from_library = RNA_sequences[ sid_idx ];
+	} else {
+	  seq_from_library = sequences_with_extra_junk[ s ];
+	}
+	append( seq_from_library, short_expt_ids[ expt_idx ] ); // experimental ID, added in MAP-seq protocol as part of reverse transcription primer
+	append( seq_from_library, adapterSequence ); // piece of illumina DNA, added in MAP-seq protocol as part of reverse transcription primer
 
-	  ////////////////////////////////////////////////////////////////////////////////////////
-	  // Look for the second read to determine where the reverse transcription stop is.
-	  ////////////////////////////////////////////////////////////////////////////////////////
-	  Finder<String<char> > finder_in_specific_sequence(seq_from_library);
+	////////////////////////////////////////////////////////////////////////////////////////
+	// Look for the second read to determine where the reverse transcription stop is.
+	////////////////////////////////////////////////////////////////////////////////////////
+	Finder<String<char> > finder_in_specific_sequence(seq_from_library);
 
-	  //reads beyond sequence ID are nonsense -- sequence ID better be there based on match to read1 above.
-	  int mpos_max = try_exact_match( seq_from_library, cseq ) - seqid_length;
-	  if ( align_all  ) mpos_max = try_exact_match( seq_from_library, cseq ) - 1;
-	  if ( align_null ) mpos_max = try_exact_match( seq_from_library, cseq ) - 1;  	  // allows for null ligations!
-	  if ( mpos_max < 0 ) mpos_max = length( seq_from_library );  //to catch boundary cases -- no match to constant sequence.
+	//reads beyond sequence ID are nonsense -- sequence ID better be there based on match to read1 above.
+	int mpos_max = try_exact_match( seq_from_library, cseq ) - seqid_length;
+	if ( align_all  ) mpos_max = try_exact_match( seq_from_library, cseq ) - 1;
+	if ( align_null ) mpos_max = try_exact_match( seq_from_library, cseq ) - 1;  	  // allows for null ligations!
+	if ( mpos_max < 0 ) mpos_max = length( seq_from_library );  //to catch boundary cases -- no match to constant sequence.
 
-	  if ( match_DP ){
-	    //Set options for match, mismatch, gap. Again, should make these variables.
-	    Pattern<String<char>, DPSearch<SimpleScore> >  pattern_in_specific_sequence (seq2,SimpleScore(0, -2, -1));
-	    int EDIT_DISTANCE_SCORE_CUTOFF( -4 );
-	    setScoreLimit(pattern_in_specific_sequence, EDIT_DISTANCE_SCORE_CUTOFF);
+	if ( match_DP ){
+	  //Set options for match, mismatch, gap. Again, should make these variables.
+	  Pattern<String<char>, DPSearch<SimpleScore> >  pattern_in_specific_sequence (seq2,SimpleScore(0, -2, -1));
+	  int EDIT_DISTANCE_SCORE_CUTOFF( -4 );
+	  setScoreLimit(pattern_in_specific_sequence, EDIT_DISTANCE_SCORE_CUTOFF);
 
-	    if ( mpos_vector.size() == 0 ) mscr = EDIT_DISTANCE_SCORE_CUTOFF - 1;
-	    // Here, looking for best score -- but assuming that we've nailed the right RNA sequence (which may not be the case).
-	    while (find(finder_in_specific_sequence, pattern_in_specific_sequence)) {
-	      int cscr = getScore(pattern_in_specific_sequence);
-	      if(cscr > mscr) {
-		mscr=cscr;
-		mpos_vector.clear();
-		sid_vector.clear();
-	      }
-	      if ( cscr == mscr ){ // in case of ties, keep track of all hits
-		findBegin( finder_in_specific_sequence, pattern_in_specific_sequence, mscr ); // the proper thing to do if DP is used.
-		int mpos = beginPosition( finder_in_specific_sequence );
-		//std::cout << "FOUND IT " << cscr << " " << mscr << " " << mpos << " " << mpos_max << std::endl;
-		if ( mpos <= mpos_max ) {
-		  mpos_vector.push_back( mpos );
-		  sid_vector.push_back( sid_idx );
-		}
-	      }
+	  if ( mpos_vector.size() == 0 ) mscr = EDIT_DISTANCE_SCORE_CUTOFF - 1;
+	  // Here, looking for best score -- but assuming that we've nailed the right RNA sequence (which may not be the case).
+	  while (find(finder_in_specific_sequence, pattern_in_specific_sequence)) {
+	    int cscr = getScore(pattern_in_specific_sequence);
+	    if(cscr > mscr) {
+	      mscr=cscr;
+	      mpos_vector.clear();
+	      sid_vector.clear();
 	    }
-
-	  } else {  // default -- use fast MyersUkkonen, which does not allow in/dels
-
-	    // following copies code from DP block. Can't figure out how to avoid this -- Pattern is not sub-classed,
-	    // so Pattern< MyersUkkonen> cannot be interchanged with Pattern< DPsearch >. --Rhiju
-
-	    // Alternative to DP -- edit distance, used by JP
-	    Pattern<String<char>, MyersUkkonen> pattern_in_specific_sequence(seq2);
-	    int EDIT_DISTANCE_SCORE_CUTOFF( -2 );
-	    setScoreLimit(pattern_in_specific_sequence, EDIT_DISTANCE_SCORE_CUTOFF);//Edit Distance used to be -10! not very stringent.
-
-	    if ( mpos_vector.size() == 0 ) mscr = EDIT_DISTANCE_SCORE_CUTOFF - 1;
-	    // Here, looking for best score -- but assuming that we've nailed the right RNA sequence (which may not be the case).
-	    while (find(finder_in_specific_sequence, pattern_in_specific_sequence)) {
-	      int cscr = getScore(pattern_in_specific_sequence);
-	      if(cscr > mscr) {
-		mscr=cscr;
-		mpos_vector.clear();
-		sid_vector.clear();
-	      }
-	      if ( cscr == mscr ){ // in case of ties, keep track of all hits
-		int mpos = position( finder_in_specific_sequence ) - length(seq2) + 1;// get from end to position just before beginning of the read
-		// watch out ... this can't go beyond the "sequence id"!?
-		if ( mpos <= mpos_max ) {
-		  mpos_vector.push_back( mpos );
-		  sid_vector.push_back( sid_idx );
-		}
+	    if ( cscr == mscr ){ // in case of ties, keep track of all hits
+	      findBegin( finder_in_specific_sequence, pattern_in_specific_sequence, mscr ); // the proper thing to do if DP is used.
+	      unsigned mpos = beginPosition( finder_in_specific_sequence );
+	      //std::cout << "FOUND IT " << cscr << " " << mscr << " " << mpos << " " << mpos_max << std::endl;
+	      if ( mpos <= unsigned( mpos_max ) ) {
+		mpos_vector.push_back( mpos );
+		sid_vector.push_back( sid_idx );
 	      }
 	    }
 	  }
-	  //	  if ( verbose ) std::cout << "pattern: " << seq2 << " vs finder " << seq_from_library << std::endl;
-	  if (verbose )  std::cout << "in read 2, checking " << sid_idx << ": " << sid_vector.size() << std::endl;
-	  //std::cout << "mpos_vector.size(): " << mpos_vector.size() << ", seq2: " << seq2 << std::endl;
-	}
-	if ( mpos_vector.size() == 0 ) continue;
 
-	found_match_in_read2 = true;
-	record_counter( "found match in RNA sequence (read 2)", counter_idx, counter_counts, counter_tags );
+	} else {  // default -- use fast MyersUkkonen, which does not allow in/dels
+	  // following copies code from DP block. Can't figure out how to avoid this -- Pattern is not sub-classed,
+	  // so Pattern< MyersUkkonen> cannot be interchanged with Pattern< DPsearch >. --Rhiju
+	  // Alternative to DP -- edit distance, used by JP
+	  //	  Pattern<String<char>, Myers<  AlignTextBanded< FindInfix, NMatchesN_, NMatchesN_> > > pattern_in_specific_sequence(seq2);
+	  Pattern<String<char>, Myers< FindInfix > > pattern_in_specific_sequence(seq2);
+	  int EDIT_DISTANCE_SCORE_CUTOFF( strict ? 0 : -2 );
+	  setScoreLimit(pattern_in_specific_sequence, EDIT_DISTANCE_SCORE_CUTOFF);//Edit Distance used to be -10! not very stringent.
 
-	float const weight = 1.0 / mpos_vector.size();
-	for (unsigned q = 0; q < mpos_vector.size(); q++ ){
-	  int sid_idx = sid_vector[q];
-	  int mpos    = mpos_vector[q];
-	  if ( verbose ) std::cout << "READ2 " << mpos << " " << sid_idx << std::endl;
-	  if ( mpos < 0 ) mpos = 0;
-	  all_count[ expt_idx ][ sid_idx ][ mpos ] += weight;
+	  if ( mpos_vector.size() == 0 ) mscr = EDIT_DISTANCE_SCORE_CUTOFF - 1;
+
+	  // Here, looking for best score -- but assuming that we've nailed the right RNA sequence (which may not be the case).
+	  while (find(finder_in_specific_sequence, pattern_in_specific_sequence)) {
+	    int cscr = getScore(pattern_in_specific_sequence);
+	    if ( cscr >= mscr ){ // in case of ties, keep track of all hits
+	      findBegin( finder_in_specific_sequence, pattern_in_specific_sequence, mscr );
+	      int mpos = beginPosition( finder_in_specific_sequence );
+	      //	      if ( sid_idx == 67 && mpos == 18 ) { std::cout << std::endl; verbose = true;}
+	      //	      if ( verbose ) std::cout << "check: " << mpos << " == " << mpos2 << " gives score " << cscr << std::endl;
+	      // watch out ... this can't go beyond the "sequence id"!?
+	      //std::cout << mpos << " " << mpos_max << std::endl;
+	      if ( mpos <= mpos_max && !already_saved( mpos_vector, sid_vector, mpos, sid_idx ) ) {
+		if(cscr > mscr){
+		  mscr=cscr;
+		  mpos_vector.clear();
+		  sid_vector.clear();
+		}
+		mpos_vector.push_back( mpos );
+		sid_vector.push_back( sid_idx );
+	      }
+	    }
+	  }
 	}
+	//	  if ( verbose ) std::cout << "pattern: " << seq2 << " vs finder " << seq_from_library << std::endl;
+	if (verbose )  std::cout << "in read 2, checking " << sid_idx << ": " << sid_vector.size() << " " << seq1 << " " << seq2 << " [ score: " << mscr << " ] " << std::endl;
+	//std::cout << "mpos_vector.size(): " << mpos_vector.size() << ", seq2: " << seq2 << std::endl;
       }
+      if ( mpos_vector.size() == 0 ) continue;
 
+      found_match_in_read2 = true;
+      record_counter( "found match in RNA sequence (read 2)", counter_idx, counter_counts, counter_tags );
+
+      float const weight = 1.0 / mpos_vector.size();
+      for (unsigned q = 0; q < mpos_vector.size(); q++ ){
+	int sid_idx = sid_vector[q];
+	int mpos    = mpos_vector[q];
+	if ( verbose ) std::cout << "READ2 " << mpos << " " << sid_idx << std::endl;
+	if ( mpos < 0 ) mpos = 0;
+	all_count[ expt_idx ][ sid_idx ][ mpos ] += weight;
+      }
     }
 
 
@@ -784,6 +793,8 @@ read_in_fastq( MultiSeqFile & multiSeqFile1,
 	       std::string const & file1,
 	       unsigned & seqCount1 ){
 
+  std::cout << "Reading file: " << file1 << std::endl;
+
   if (!open(multiSeqFile1.concat, file1.c_str(), OPEN_RDONLY) ) { std::cerr << "Problem reading file "+file1 << std::endl; exit( 0 );}
 
   //The SeqAn library has a built in file parser that can guess the file format
@@ -826,7 +837,7 @@ check_unique_id(  std::vector< String<char> > const & rna_library_vector_RC,
 	if(match_found) break;
       }
     }
-    std::cerr << "Inferred sequence ID length to ensure disambiguation: " << inferred_id_length << std::endl;
+    std::cerr << "Inferred sequence ID length needed to ensure disambiguation: " << inferred_id_length << std::endl;
 
     if (seqid_length < 1){
       std::cout << "Sequence ID length undefined by user. Using inferred sequence ID length as sequence ID length." << std::endl;
@@ -889,8 +900,8 @@ check_for_short_insert( CharString const & adapterSequence2,
 			unsigned & nullLigation ){
 
   CharString adapter_sequence2_pattern = adapterSequence2;
-  int length_of_adapter_sequence2( constant_sequence_begin_pos - seqid_length );
-  static int const min_length_of_adapter_sequence2( 8 );
+  int length_of_adapter_sequence2( constant_sequence_begin_pos - seqid_length - 1 );
+  static int const min_length_of_adapter_sequence2( 7 );
   if ( length_of_adapter_sequence2 < min_length_of_adapter_sequence2 ) length_of_adapter_sequence2 = min_length_of_adapter_sequence2;
   if ( length_of_adapter_sequence2 < length( adapterSequence2 ) ){
     adapter_sequence2_pattern = infixWithLength( adapterSequence2, 0, length_of_adapter_sequence2 );
@@ -917,8 +928,8 @@ check_for_short_insert( CharString const & adapterSequence2,
 	  // note that this is a totally valid guess for mpos -- but we'll still check read2
 	  int mpos = beginPosition(finder_sequence_id).i2;
 	  //if (!verbose) std::cout << seq1 << " " << seq2 << std::endl;
-	  //std::cout << "READ1 " << mpos << " " << sid << " " << length( fragment ) << std::endl;
-	  //	      verbose = true;
+	  //	  if ( sid == 180 && length( fragment ) >= 10 ) verbose = true;
+	  if ( verbose ) std::cout << "READ1 " << mpos << " " << sid << " " << seq1 << " " << length( fragment ) << " " << fragment << std::endl;
 	}
       }
     }
@@ -1030,3 +1041,24 @@ output_stats_files( std::vector< std::vector< std::vector < double > > > const &
     fclose( stats_oFile );
   }
 }
+
+
+bool
+already_saved( std::vector< unsigned > const & mpos_vector,
+	       std::vector< unsigned > const & sid_vector,
+	       unsigned const & mpos,
+	       unsigned const & sid ){
+
+  for ( std::vector< unsigned >::const_iterator miter = mpos_vector.begin(),
+	  siter = sid_vector.begin();
+	miter != mpos_vector.end() && siter != sid_vector.end();
+	miter++, siter++ ){
+    if ( *miter == mpos &&
+	 *siter == sid ) {
+      //      std::cout << "ALREADY THERE " << mpos << " " <<  sid << std::endl;
+      return true;
+    }
+  }
+  return false;
+}
+

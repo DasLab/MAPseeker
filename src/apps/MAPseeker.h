@@ -99,3 +99,9 @@ check_for_extra_junk_using_star_sequences(
 void
 output_stats_files( std::vector< std::vector< std::vector < double > > > const & all_count,
 		    std::string const & outpath);
+
+bool
+already_saved( std::vector< unsigned > const & mpos_vector,
+	       std::vector< unsigned > const & sid_vector,
+	       unsigned const & mpos,
+	       unsigned const & sid );
