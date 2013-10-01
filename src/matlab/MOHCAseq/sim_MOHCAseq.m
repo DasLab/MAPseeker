@@ -100,7 +100,7 @@ end
                     yj = pdbstruct.Model.Atom(1,j).Y;
                     zj = pdbstruct.Model.Atom(1,j).Z;
                     dist = sqrt( (xj-xi)^2 + (yj-yi)^2 + (zj-zi)^2 );
-                    D_sim_a(rad_pos(i,j), hit_pos(i,j)) = 1/dist^2;       %{1,n}
+                    D_sim_a(rad_pos(i,j), hit_pos(i,j)) = 1/dist;       %{1,n}
                 else
                 end
             end
@@ -127,7 +127,7 @@ D_sim = D_sim_a;
 fprintf('Dimensions of simulated dataset expanded to size of experimental data: %s\n\n', num2str(size(D_sim)));
 
 % for n = 1:length(D_sim)
-figure(fignum_start); clf reset; fig_MOHCAseq( D_sim, 1, 10000, 1-gray(100), pdbname, 'Simulated data', offset, tail_length, seqstart, 1, 1, 1);
+figure(fignum_start); clf reset; fig_MOHCAseq( D_sim, 1, 1000, 1-gray(100), pdbname, 'Simulated data', offset, tail_length, seqstart, 1, 1, 1);
 % end
 fignum_start = fignum_start + 1;
 
@@ -142,12 +142,12 @@ if exist('D');
     D_combine = {};
     
     for n = 1:length(D)
-        D_combine{1,n} = transpose(D{1,n})*100;
+        D_combine{1,n} = transpose(D{1,n})*50;
 
         for i = 1:length(D_sim)
             for j = 1:length(D_sim)
                 if i <= j
-                    D_combine{1,n}(i,j) = D_sim(i,j)*10000;
+                    D_combine{1,n}(i,j) = D_sim(i,j)*1000;
                 else
                 end
             end
@@ -155,8 +155,8 @@ if exist('D');
         
         fignum(n)  = fignum_start + 2*(n-1);
         figure(fignum(n)); clf reset;
-        fig_MOHCAseq( D_sim,          1, 10000, 1-gray(100), pdbname,       'Simulated data',                          offset, tail_length, seqstart, 1, 3, 1);
-        fig_MOHCAseq( D{1,n},         1, 100,   1-gray(100), plot_heads{n}, 'Experimental data',                       offset, tail_length, seqstart, 1, 3, 2);
+        fig_MOHCAseq( D_sim,          1, 1000, 1-gray(100), pdbname,       'Simulated data',                          offset, tail_length, seqstart, 1, 3, 1);
+        fig_MOHCAseq( D{1,n},         1, 50,   1-gray(100), plot_heads{n}, 'Experimental data',                       offset, tail_length, seqstart, 1, 3, 2);
         fig_MOHCAseq( D_combine{1,n}, 0, 1,     1-gray(100), plot_heads{n}, 'Overlay simulated and experimental data', offset, tail_length, seqstart, 1, 3, 3);
         figure(fignum(n)); subplot(1,3,3); hold on;
             xn = 1:length(D_combine{1,n});

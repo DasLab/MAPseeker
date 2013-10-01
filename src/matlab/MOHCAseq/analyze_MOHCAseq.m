@@ -67,14 +67,14 @@ fprintf('Plotting Z-score and summary figures...\n\n');
 for n = 1:length(D)
 
     figure(n); %clf reset;
-    fig_MOHCAseq( Zscores{1,n},      50, 1-gray(100), plot_heads(n), '2D Z-scores; mask reactivities',             offset, tail_length, seqstart, 2, 2, 1, 1 );
-    fig_MOHCAseq( Zscores_err{1,n},  25, jet,         plot_heads(n), '2D errors of Z-scores; mask reactivities',   offset, tail_length, seqstart, 2, 2, 3, 1 );
+    fig_MOHCAseq( Zscores_mask{1,n},      50, 1-gray(100), plot_heads(n), '2D Z-scores; mask reactivities',             offset, tail_length, seqstart, 2, 2, 1, 1 );
+    fig_MOHCAseq( Zscores_mask_err{1,n},  25, jet,         plot_heads(n), '2D errors of Z-scores; mask reactivities',   offset, tail_length, seqstart, 2, 2, 3, 1 );
     fig_MOHCAseq( D_raw{1,n},         5, 1-gray(100), plot_heads(n), '2D raw counts',                              offset, tail_length, seqstart, 2, 2, 2, 1 );
     fig_MOHCAseq( D{1,n},            50, 1-gray(100), plot_heads(n), '2D reactivities',                            offset, tail_length, seqstart, 2, 2, 4, 1 );
     
     fignum = length(D)+n;
     figure(fignum); clf reset;
-    fig_MOHCAseq( Zscores{1,n}, 50, 1-gray(100), plot_heads(n), '2D Z-scores; mask reactivities', offset, tail_length, seqstart, 1, 1, 1, 0 );
+    fig_MOHCAseq( Zscores_mask{1,n}, 50, 1-gray(100), plot_heads(n), '2D Z-scores; mask reactivities', offset, tail_length, seqstart, 1, 1, 1, 0 );
     
 end
 
