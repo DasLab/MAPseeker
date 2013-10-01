@@ -1,51 +1,28 @@
 #define SEQAN_PROFILE // enable time measurements
+#include <apps/MAPseeker.h>
 #include <seqan/misc/misc_cmdparser.h>
 #include <tr1/unordered_map>
 #include <seqan/file.h>
 #include <iostream>
-#include <seqan/find.h>
-#include <seqan/index.h>
-#include <seqan/store.h>
-#include <seqan/basic.h>
 #include <sstream>
 #include <string>
 #include <stdio.h>
 
-using namespace seqan;
 
-int
-get_number_of_matching_residues( std::vector< CharString > const & seq_primers );
 
-// could put following in util file?
-void RNA2DNA( String<char> & seq );
-int findchar( String<char> & seq, char c );
+//cseq is the constant region between the experimental id and the sequence id
+//in the Das lab this is the tail2 sequence AAAGAAACAACAACAACAAC
+std::string const daslab_tail2_sequence("AAAGAAACAACAACAACAAC");
+// a.k.a. TruSeq Universal Adapter -- gets added to one end of many illumina preps. Should be shared 5' end of all primers.
+std::string const universal_adapter_sequence( "AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGATCT");
+std::string const universal_adapter_sequence2("AGATCGGAAGAGC"); // reverse complement of AadaptBp or truseq 'adapter' sequence
 
-// could package into a little class:
-void record_counter( std::string const tag,
-		     unsigned & counter_idx,
-		     std::vector< unsigned > & counter_counts,
-		     std::vector< std::string > & counter_tags );
-
-int try_exact_match( CharString & seq1, CharString & cseq, unsigned & perfect );
-int try_exact_match( CharString & seq1, CharString & cseq );
-int try_DP_match( CharString & seq1, CharString & cseq, unsigned & perfect );
-int try_DP_match_expt_ids( std::vector< CharString > & short_expt_ids, CharString & expt_id_in_read1 );
-
-bool
-get_next_variant( CharString const & seq, CharString & seq_var, unsigned & variant_counter, unsigned const & seqid_length );
-
-//The known library of sequences is stored as a StringSet called THaystacks
-//We will generate an index against this file to make the search faster
-typedef StringSet<CharString> THaystacks;
-
-//A hashmap is used to map the experimental ids to the descriptive labels
-typedef std::tr1::unordered_map<std::string, std::string> hashmap;
 
 //Versioning information
 inline void
 _addVersion(CommandLineParser& parser) {
-    ::std::string rev = "$Revision: 0001 $";
-    addVersionLine(parser, "Version 1.1 (27 December 2012) Revision: " + rev.substr(11, 4) + "");
+    ::std::string rev = "$Revision: 0075 $";
+    addVersionLine(parser, "Version 1.2 (30 September 2013) Revision: " + rev.substr(11, 4) + "");
 }
 
 int main(int argc, const char *argv[]) {
@@ -66,13 +43,6 @@ int main(int argc, const char *argv[]) {
 
     addSection(parser, "Main Options:");
 
-    //cseq is the constant region between the experimental id and the sequence id
-    //in the Das lab this is the tail2 sequence AAAGAAACAACAACAACAAC
-    std::string const daslab_tail2_sequence("AAAGAAACAACAACAACAAC");
-    // a.k.a. TruSeq Universal Adapter -- gets added to one end of many illumina preps. Should be shared 5' end of all primers.
-    std::string const universal_adapter_sequence( "AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGATCT");
-    std::string const universal_adapter_sequence2("AGATCGGAAGAGC"); // reverse complement of AadaptBp or truseq 'adapter' sequence
-
     addOption(parser, addArgumentText(CommandLineOption("1", "miseq1", "miseq output [read 1] containing primer ids",OptionType::String), "<FASTAQ FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("2", "miseq2", "miseq output [read 2] containing 3' ends",OptionType::String), "<FASTAQ FILE>"));
     addOption(parser, addArgumentText(CommandLineOption("l", "library", "library of sequences to align against", OptionType::String),"<FASTA FILE>"));
@@ -91,16 +61,15 @@ int main(int argc, const char *argv[]) {
     addOption(parser, addArgumentText(CommandLineOption("a", "adapter", "Illumina Adapter sequence = 5' DNA sequence shared by all primers", OptionType::String,""), "<DNA sequence>"));
     addOption(parser, addArgumentText(CommandLineOption("z", "adapter2", "Illumina Adapter sequence = 3' DNA sequence shared by all fragments, introduced by ligation", OptionType::String,""), "<DNA sequence>"));
 
-
     if (argc == 1) {
       shortHelp(parser, std::cerr);	// print short help and exit
       return 0;
     }
 
-    if (!parse(parser, argc, argv, std::cerr)) return 1;
+    if (!parse(parser, argc, argv, std::cerr)) exit( 0 );
     if (isSetLong(parser, "help") || isSetLong(parser, "version")) return 0;	// print help or version and exit
 
-//This isn't required but shows you how long the processing took
+    //This isn't required but shows you how long the processing took
     SEQAN_PROTIMESTART(loadTime);
     unsigned seqid_length( 0 ), increment_between_reads( 0 ), start_at_read( 0 );
     std::string file1,file2,file_library,file_expt_id,file_primers,outfile,outpath;
@@ -122,35 +91,15 @@ int main(int argc, const char *argv[]) {
     getOptionValueLong(parser,"increment_between_reads", increment_between_reads); // for job splitting
     getOptionValueLong(parser,"start_at_read",start_at_read); // for job splitting
 
-    //Opening the output file and returning an error if it can't be opened
-    //FILE * oFile;
-    //oFile = fopen(outfile.c_str(),"w");
-
     ////////////////////////////////////////////////////////////////////
     // Read in Illumina fastq files
     ////////////////////////////////////////////////////////////////////
-    MultiSeqFile multiSeqFile1;
-    MultiSeqFile multiSeqFile2;
-    if (!open(multiSeqFile1.concat, file1.c_str(), OPEN_RDONLY) ) return 1;
-    if (!open(multiSeqFile2.concat, file2.c_str(), OPEN_RDONLY) ) return 1;
-
-    //The SeqAn library has a built in file parser that can guess the file format
-    //we use the AutoSeqFormat option for the MiSeq, Library, and barcode files
-    //MiSeq File1
-    AutoSeqFormat format1;
-    guessFormat(multiSeqFile1.concat, format1);
-    split(multiSeqFile1, format1);
-
-    //MiSeq File2
-    AutoSeqFormat format2;
-    guessFormat(multiSeqFile2.concat, format2);
-    split(multiSeqFile2, format2);
-
-    //Getting the total number of sequences in each of the files
-    //The two MiSeq files should match in the number of sequences
-    //They should also be in the same order
-    unsigned seqCount1 = length(multiSeqFile1);
-    unsigned seqCount2 = length(multiSeqFile2);
+    MultiSeqFile multiSeqFile1, multiSeqFile2, multiSeqFile_library;
+    AutoSeqFormat format1, format2, format_library;
+    unsigned seqCount1, seqCount2, seqCount_library;
+    read_in_fastq( multiSeqFile1, format1, file1, seqCount1 );
+    read_in_fastq( multiSeqFile2, format2, file2, seqCount2 );
+    read_in_fastq( multiSeqFile_library, format_library, file_library, seqCount_library );
 
     if(seqCount1 != seqCount2 ){
         std::cout << "MiSeq input files contain different number of sequences" << std::endl;
@@ -174,44 +123,23 @@ int main(int argc, const char *argv[]) {
 
 
     //////////////////////////////////////////////
-    // Read library of RNA sequences
+    // Build up library of RNA sequences
     //////////////////////////////////////////////
     // FRAGMENT(read_sequences)
-    String<char> seq1,seq1id,seq2,seq_from_library,seq_from_libraryid,seq_expt_id,seq_expt_id_id,qual1,qual2,id1,id2;
+    String<char> seq1,seq1id,seq2,seq_from_library,seq_from_libraryid,seq_expt_id,qual1,qual2,id1,id2;
     THaystacks haystacks_rna_library, haystacks_expt_ids;
     std::vector< String<char> > rna_library_vector_RC; //will be used for checking common sequences in the library and seqid_length
     std::vector< String<char> > short_expt_ids;
 
-    MultiSeqFile multiSeqFile_library;
-    if (!open(multiSeqFile_library.concat, file_library.c_str(), OPEN_RDONLY) ) return 1;
-    //Library
-    AutoSeqFormat format_library;
-    guessFormat(multiSeqFile_library.concat, format_library);
-    split(multiSeqFile_library, format_library);
-
-    // Get all RNA sequences from RNA library.
-    // check for sequences with '*', which signifies places where there can
-    //  be extra junk nucleotides
+    // Get all RNA sequences from RNA library, convert to DNA.
+    // Check for sequences with star ('*'), which signifies places where there can
+    //  be extra junk nucleotides.
     std::vector< CharString > RNA_sequences, sequences_before_star, sequences_after_star;
     std::vector< unsigned > star_sequence_ids;
-    unsigned seqCount_library = length(multiSeqFile_library);
+
     for(unsigned j=0; j< seqCount_library; j++) {
       assignSeq(seq_from_library, multiSeqFile_library[j], format_library);    // read sequence
-      int star_pos = findchar( seq_from_library, '*' );  // ironically, no simple equivalent to std::find.
-      if ( star_pos > -1 ){
-	CharString sequence_before_star = prefix(seq_from_library,star_pos  );
-	CharString sequence_after_star  = suffix(seq_from_library,star_pos+1);
-	CharString seq_from_library_new = sequence_before_star;
-	append( seq_from_library_new, sequence_after_star );
-	if ( findchar( seq_from_library_new, '*' ) > -1 ) {
-	  std::cerr << "Too many *'s in sequence: " << seq_from_library << std::endl;
-	  exit( 0 );
-	}
-	seq_from_library = seq_from_library_new;
-	star_sequence_ids.push_back( j );
-	sequences_before_star.push_back( sequence_before_star );
-	sequences_after_star.push_back( sequence_after_star );
-      }
+      check_for_star_sequence( seq_from_library, sequences_before_star, sequences_after_star, star_sequence_ids, j );
       RNA2DNA( seq_from_library );
       RNA_sequences.push_back( seq_from_library );
     }
@@ -228,161 +156,20 @@ int main(int argc, const char *argv[]) {
       reverseComplement( seq_from_library_RC );
       rna_library_vector_RC.push_back( seq_from_library_RC );
     }
-    //    Index<THaystacks> index(haystacks_rna_library);
     Finder<Index<THaystacks> > finder_sequence_id( haystacks_rna_library );
     std::cout << "completed" << std::endl;
     std::cout << "RNA sequence Lengths(max=" << max_rna_len <<"):" << std::endl;
 
 
-    /////////////////////////////////////////////////////////////////////////
-    // Figure out experimental IDs and primer binding site from barcodes.
-    /////////////////////////////////////////////////////////////////////////
-    if ( length( file_primers ) > 0 ){
-
-      MultiSeqFile multiSeqFile_primers; //barcode patterns
-      if (!open(multiSeqFile_primers.concat, file_primers.c_str(), OPEN_RDONLY) ) return 1;
-      AutoSeqFormat format_primers;
-      guessFormat(multiSeqFile_primers.concat, format_primers);
-      split(multiSeqFile_primers, format_primers);
-
-      unsigned seqCount_primers = length(multiSeqFile_primers);
-      if ( seqCount_primers == 0 ) { std::cerr << "Must have at least one primer!" << std::endl; return 1; }
-      std::cout << "Number of primers: " << seqCount_primers << std::endl;
-
-      String<char > seq_primer;
-      std::vector< String<char> > seq_primers, seq_primers_RC;
-      for(unsigned j=0; j< seqCount_primers; j++) {
-	assignSeq(seq_primer, multiSeqFile_primers[j], format_primers);    // read sequence
-	seq_primers.push_back( seq_primer );
-
-	CharString seq_primer_RC( seq_primer );
-	reverseComplement( seq_primer_RC );
-	seq_primers_RC.push_back( seq_primer_RC);
-      }
-
-      // now look for what sequence is shared across all primers from 5' end (should be Illumina adapter):
-      // this will need to be rewritten if we use primers containing index reads.
-      unsigned match_5prime = get_number_of_matching_residues( seq_primers );
-
-      // straightforward override if illumina adapter is in there...
-      if ( length( seq_primers[0] ) > length( universal_adapter_sequence ) ){
-	if ( prefix( universal_adapter_sequence, length( universal_adapter_sequence ) ) == universal_adapter_sequence ){
-	  std::cout << "Identified universal Illumina adapter sequence in primers! " << std::endl;
-	  match_5prime = length( universal_adapter_sequence );
-	}
-      }
-
-      //std::cout << "Matching from 5' end" << match_5prime << std::endl;
-      CharString adapterSequence_inferred = prefix( seq_primers[0], match_5prime );
-      if (length(adapterSequence) > 0 ){
-	if ( adapterSequence != adapterSequence_inferred ){
-	  std::cerr << "WARNING! these do not match: " << std::endl;
-	  std::cerr << adapterSequence << " [user input adapterSequence]" << std::endl;
-	  std::cerr << adapterSequence_inferred << " [inferred adapterSequence]" << std::endl;
-	  std::cerr << "over-riding with user-input." << std::endl << std::endl;
-	}
-      } else {
-	adapterSequence = adapterSequence_inferred;
-      }
-      std::cout << "Adapter sequence shared by primers: " << adapterSequence << std::endl;
-
-
-      unsigned match_3prime = get_number_of_matching_residues( seq_primers_RC );
-      std::cout << "Matching from 3' end [showing reverse complement], " << match_3prime << std::endl;
-      CharString cseq_inferred =  prefix( seq_primers_RC[0], match_3prime );
-      if (length(cseq) > 0 ){
-	if ( cseq != cseq_inferred ){
-	  std::cerr << "WARNING! these do not match: " << std::endl;
-	  std::cerr << cseq << " [user input cseq]" << std::endl;
-	  std::cerr << cseq_inferred << " [inferred cseq]" << std::endl;
-	  std::cerr << "over-riding with user-input." << std::endl << std::endl;
-	}
-      } else {
-	cseq = cseq_inferred;
-      }
-      std::cout << "Constant sequence shared by primers [reverse complement]: " << cseq << std::endl;
-
-      for(unsigned j=0; j< seqCount_primers; j++) {
-	CharString seq_expt_id = infix( seq_primers_RC[j], match_3prime, length( seq_primers_RC[j] ) - match_5prime );
-	std::cout << "Experimental ID inferred [reverse complement of region in primer]: " << j << " " << seq_expt_id << std::endl;
-	short_expt_ids.push_back( seq_expt_id );
-	appendValue(haystacks_expt_ids, seq_expt_id );
-      }
-
-    } else if ( length( file_expt_id ) > 0 && length( cseq ) > 0 ){
-
-      MultiSeqFile multiSeqFile_expt_id; //barcode patterns
-      if (!open(multiSeqFile_expt_id.concat, file_expt_id.c_str(), OPEN_RDONLY) ) return 1;
-
-      AutoSeqFormat format_expt_id;
-      guessFormat(multiSeqFile_expt_id.concat, format_expt_id);
-      split(multiSeqFile_expt_id, format_expt_id);
-
-      unsigned seqCount_expt_id = length(multiSeqFile_expt_id);
-
-      if ( length( adapterSequence ) == 0 ) adapterSequence = universal_adapter_sequence;
-
-      std::cout << "Getting " << seqCount_expt_id << " experimental IDs from 'barcode' file" << std::endl;
-      ///////////////////////////////////////////////////
-      // create a haystack to search with barcodes.
-      ///////////////////////////////////////////////////
-      for(unsigned j=0; j< seqCount_expt_id; j++) {
-	assignSeqId(seq_expt_id_id, multiSeqFile_expt_id[j], format_expt_id);    // read sequence
-	assignSeq(seq_expt_id, multiSeqFile_expt_id[j], format_expt_id);    // read sequence
-
-	short_expt_ids.push_back( seq_expt_id );
-	appendValue(haystacks_expt_ids, seq_expt_id );
-      }
-    } else {
-      std::cerr << std::endl << "ERROR! Must specify -p <primer_file>, or -b <barcode_file> -c <constant DNA sequence>." << std::endl;;
-      return 1;
-    }
+    ////////////////////////////////////////////////////////////////////////////////
+    // Figure out experimental IDs and primer binding site from primer sequences.
+    ///////////////////////////////////////////////////////////////////////////////
+    figure_out_expt_IDs( file_primers, file_expt_id, short_expt_ids, haystacks_expt_ids, cseq, adapterSequence );
     unsigned seqCount_expt_id = short_expt_ids.size();
 
     if ( length( adapterSequence2 ) == 0 ) adapterSequence2 = universal_adapter_sequence2;
 
-    //Infer RNA library sequence ID length.  This should have been specified by the -n flag, but this will
-    //throw a warning if an incorrect value is believed to have been specified.
-    //An accurate RNA library sequence ID length should be the shortest sequence from the 3' end that is
-    //sufficient to distinguish any sequence in the library from any other.
-    unsigned inferred_id_length = 0;
-    bool match_found = true;
-    unsigned cseq_len = length( cseq );
-    std::cout << "Inferring sequence ID length..." << std::endl;
-    for(unsigned i = 1; i < max_rna_len - cseq_len; i++){
-      if(!match_found) break;
-      inferred_id_length = i;
-      match_found = false;
-      for(unsigned j = 0; j < seqCount_library; j++){
-	String<char> test_seq = prefix( rna_library_vector_RC[j], i+cseq_len );
-	for(unsigned k = j+1; k < seqCount_library; k++){
-	  String<char> comp_seq = prefix( rna_library_vector_RC[k], i+cseq_len );
-	  if(test_seq == comp_seq){
-	    match_found = true;
-	    break;
-	  }
-	}
-	if(match_found) break;
-      }
-    }
-    std::cerr << "Inferred sequence ID length: " << inferred_id_length << std::endl;
-
-    if (seqid_length < 1){
-      std::cout << "Sequence ID length undefined by user." << std::endl;
-      std::cout << "Using inferred sequence ID length as sequence ID length." << std::endl;
-      seqid_length = inferred_id_length;
-    }
-    else if (inferred_id_length >  seqid_length){
-      std::cerr << "WARNING! these do not match: " << std::endl;
-      std::cerr << seqid_length << " [user input sequence ID length]" << std::endl;
-      std::cout << inferred_id_length << " [inferred sequence ID length]" << std::endl;
-      std::cerr << "Identical regions of user-specified length found in RNA library." << std::endl;
-      std::cerr << "Proceeding with user-input." << std::endl << std::endl;
-    }
-
-    if (inferred_id_length >=  max_rna_len - cseq_len-1){
-      std::cerr << "WARNING! Redundant RNA library members detected!" << std::endl;
-    }
+    check_unique_id( rna_library_vector_RC, cseq, seqid_length, max_rna_len );
 
     //    Index<THaystacks> index_expt_ids(haystacks_expt_ids);
     Finder<Index<THaystacks> > finder_expt_id(haystacks_expt_ids);
@@ -399,16 +186,17 @@ int main(int argc, const char *argv[]) {
     std::vector< std::string > counter_tags;
     unsigned perfect( 0 ), nullLigation( 0 );
 
-    std::cout << "Running alignment" << std::endl;
+    ////////////////////////////////////////////////////////////////
+    // MAIN LOOP!
+    ////////////////////////////////////////////////////////////////
 
+    std::cout << "Running alignment" << std::endl;
     SEQAN_PROTIMESTART(alignTime); // reset counter.
 
     //    while (!atEnd(reader1) && !atEnd(reader2)){
     for (unsigned i = start_at_read; i < seqCount1; i += increment_between_reads) {
 
-      ////////////////////////////////////////////////////////////////
       // Get the next forward and reverse read...
-      ////////////////////////////////////////////////////////////////
       assignSeq(seq1, multiSeqFile1[i], format1);    // read sequence
       assignQual(qual1, multiSeqFile1[i], format1);  // read ascii quality values
       assignSeqId(id1, multiSeqFile1[i], format1);   // read sequence id
@@ -436,7 +224,6 @@ int main(int argc, const char *argv[]) {
       ///////////////////////////////////////////////////////////////////////////////////////////
       //pos1 = try_exact_match( seq1, cseq, perfect );  //  interesting -- DPsearch (see next) is no slower than available exact matches.
       if ( pos1 < 0 ) pos1 = try_DP_match( seq1, cseq, perfect ); // allows for 1 mismatch, 2 deletions
-
       if ( pos1 < 0 ) continue;
       record_counter( "found primer binding site", counter_idx, counter_counts, counter_tags );
 
@@ -473,77 +260,17 @@ int main(int argc, const char *argv[]) {
       //   If that doesn't work, can try single nucleotide variants later...
       bool found_match_in_read1( false ), found_match_in_read2( false );
       std::vector< unsigned > possible_sids, possible_begpos;
-
-      Pattern<CharString> pattern_sequence_id_in_read1(sequence_id_region_in_sequence1); // this is now the 'needle' -- look for this sequence in the haystack of potential sequence IDs
-      clear( finder_sequence_id ); //reset.
-      while( find(finder_sequence_id, pattern_sequence_id_in_read1)) {
-	// seq_from_library contains the RNA library sequences
-	possible_sids.push_back( beginPosition(finder_sequence_id).i1 );
-	possible_begpos.push_back( beginPosition(finder_sequence_id).i2 ); // useful for disambiguation.
-      }
+      find_possible_sids( possible_sids, possible_begpos, finder_sequence_id, sequence_id_region_in_sequence1 );
 
       // ambiguous assignments. [should not occur if n (seqid_length) is set large enough.]
-      if ( possible_sids.size() > 1 ){
-	int max_match = 0;
-	std::vector< unsigned > possible_sids_new;
-	for ( int s = 0; s < possible_sids.size(); s++ ) {
-	  seq_from_library = RNA_sequences[ possible_sids[s] ];
-	  int n_seq1    = min_pos           ; // + seqid_length;
-	  int n_library = possible_begpos[s]; // + seqid_length;
-	  unsigned num_match( 0 );
-	  while ( n_seq1 >= 0 && n_library >= 0 &&
-		  ( seq1[ n_seq1 ] == seq_from_library[ n_library ] ) ){
-	    n_seq1--; n_library--; num_match++;
-	  }
-	  if ( num_match > max_match )  {
-	    possible_sids_new.clear();
-	    max_match = num_match;
-	  }
-	  if ( num_match == max_match ) possible_sids_new.push_back( possible_sids[s] );
-	}
-	possible_sids = possible_sids_new;
-      }
+      if ( possible_sids.size() > 1 )	disambiguate_possible_sids( possible_sids, possible_begpos, min_pos, seq1, RNA_sequences );
 
       // this might be a really short read -- can check this by looking for the appearance of the other
       // Illumina adapter sequence which should be ligated onto the 3' end.
       bool verbose( false );
-      if ( align_all && possible_sids.size() == 0 ){
-	CharString adapter_sequence2_pattern = adapterSequence2;
-	int length_of_adapter_sequence2( constant_sequence_begin_pos - seqid_length );
-	static int const min_length_of_adapter_sequence2( 8 );
-	if ( length_of_adapter_sequence2 < min_length_of_adapter_sequence2 ) length_of_adapter_sequence2 = min_length_of_adapter_sequence2;
-	if ( length_of_adapter_sequence2 < length( adapterSequence2 ) ){
-	  adapter_sequence2_pattern = infixWithLength( adapterSequence2, 0, length_of_adapter_sequence2 );
-	}
-	reverseComplement( adapter_sequence2_pattern );
-	Pattern<String<char>, DPSearch<SimpleScore> > pattern_constant_sequence_DP( adapter_sequence2_pattern, SimpleScore(0, -2, -2));
-	Finder<String<char> > finder_in_seq1(seq1);
-	int adapter_sequence2_pos( 0 );
-	CharString fragment;
+      if ( align_all && possible_sids.size() == 0 )  check_for_short_insert( adapterSequence2, cseq, constant_sequence_begin_pos, seqid_length,
+									     seq1, finder_sequence_id, possible_sids, verbose, nullLigation );
 
-	if ( find( finder_in_seq1, pattern_constant_sequence_DP, -1 /*score cutoff*/ ) ){
-	  adapter_sequence2_pos = beginPosition( finder_in_seq1 );
-	  if ( constant_sequence_begin_pos >= adapter_sequence2_pos  ){
-	    fragment = infixWithLength( seq1, adapter_sequence2_pos, constant_sequence_begin_pos - adapter_sequence2_pos + 1);
-	    CharString sequence_id_in_read1 = fragment;
-	    append( sequence_id_in_read1, cseq );
-	    std::vector< unsigned > mpos_vector, sid_vector;
-	    Pattern<CharString> pattern_sequence_id_in_read1( sequence_id_in_read1 ); // this is now the 'needle' -- look for this sequence in the haystack of potential sequence IDs
-	    clear( finder_sequence_id );
-	    while( find(finder_sequence_id, pattern_sequence_id_in_read1)) { // let's try *all* possibilities
-	      int sid = beginPosition(finder_sequence_id).i1;
-	      possible_sids.push_back( sid );
-	      //sid_vector.push_back( sid );
-	      int mpos = beginPosition(finder_sequence_id).i2;
-	      //mpos_vector.push_back( mpos );
-	      //if (!verbose) std::cout << seq1 << " " << seq2 << std::endl;
-	      //std::cout << "READ1 " << mpos << " " << sid << " " << length( fragment ) << std::endl;
-	      //	      verbose = true;
-	    }
-	  }
-	  if ( constant_sequence_begin_pos == adapter_sequence2_pos-1 ) nullLigation += 1;
-	}
-      }
 
       // there was originally a different logic for this, where MAPseeker had a while loop that went through
       // every single nt variant until finding a hit. The following is slower, testing every variant -- might
@@ -553,59 +280,18 @@ int main(int argc, const char *argv[]) {
 	CharString sequence_id_region_variant( sequence_id_region_in_sequence1 );
 	unsigned variant_counter( 1 );
 	while ( get_next_variant( sequence_id_region_in_sequence1, sequence_id_region_variant, variant_counter, seqid_length ) ){
-	  // following copies code from above. put into its own function.
-	  Pattern<CharString> pattern_sequence_id_in_read1(sequence_id_region_in_sequence1); // this is now the 'needle' -- look for this sequence in the haystack of potential sequence IDs
-	  clear( finder_sequence_id ); //reset.
-	  while( find(finder_sequence_id, pattern_sequence_id_in_read1)) {
-	    // seq_from_library contains the RNA library sequences
-	    int possible_sid = beginPosition(finder_sequence_id).i1;
-	    possible_sids.push_back( possible_sid );
-	  }
+	  find_possible_sids( possible_sids, possible_begpos, finder_sequence_id, sequence_id_region_variant );
 	}
       }
 
+      // Should be a class...
       // check for 'junk' -- random nts at 3' end of RNA added by T7 polymerase.
       // specified by user as sequence with '*' in the middle. See above for fasta readin.
       bool extra_junk_mode( false );
       std::vector< CharString > sequences_with_extra_junk;
-      if ( possible_sids.size() == 0 ){
-	for ( unsigned s = 0; s < star_sequence_ids.size(); s++ ){
-	  // find it.
-	  static int const min_length_of_sequence_before_star( 6 );
-	  CharString sequence_before_star = sequences_before_star[ s ];
-	  CharString search_suffix = suffix( sequence_before_star, length( sequence_before_star ) - min_length_of_sequence_before_star );
-	  CharString extra_junk;
-	  int star_pos( -1 );
-	  Finder<String<char> > finder_constant_sequence(seq1); // this is what to search.
-	  Pattern<String<char>, Horspool > pattern_constant_sequence( search_suffix );
-	  while( find(finder_constant_sequence, pattern_constant_sequence) ){
-	    int const finder_end_pos =  position( finder_constant_sequence )  + length( search_suffix );
-	    if ( finder_end_pos < constant_sequence_begin_pos + 1 ) star_pos = finder_end_pos;
-	    else break;
-	  }
-	  if (star_pos > -1 ){
-	    int extra_junk_length = constant_sequence_begin_pos - star_pos + 1;
-	    if ( extra_junk_length > 0 ){
-	      extra_junk = infixWithLength( seq1, star_pos, extra_junk_length );
-	      // what is the reconstructed sequence?
-	      CharString sequence_with_extra_junk = sequence_before_star;
-	      append( sequence_with_extra_junk, extra_junk );
-	      append( sequences_after_star[s], extra_junk );
-	      if (!extra_junk_mode ) {
-		if ( possible_sids.size() > 0 ) {
-		  std::cerr << "cannot align to star/junk sequences if another option is available" << std::endl; exit( 0 );
-		}
-		extra_junk_mode = true;
-	      }
-	      possible_sids.push_back( star_sequence_ids[s] );
-	      sequences_with_extra_junk.push_back( sequence_with_extra_junk );
-	      // verbose = true;
-	    }
-
-	  }
-	  //std::cout << "MYSTERY " << seq1 << " look for "  << search_suffix << " " << star_pos << " " << extra_junk << "  seq2 " << seq2 << std::endl;
-	}
-      }
+      if ( possible_sids.size() == 0 )  check_for_extra_junk_using_star_sequences( possible_sids, sequences_with_extra_junk, extra_junk_mode,
+										   finder_sequence_id, seq1, constant_sequence_begin_pos,
+										   sequences_before_star, sequences_after_star, star_sequence_ids );
 
       if ( possible_sids.size() > 0 ){
 
@@ -635,8 +321,8 @@ int main(int argc, const char *argv[]) {
 	  Finder<String<char> > finder_in_specific_sequence(seq_from_library);
 
 	  //reads beyond sequence ID are nonsense -- sequence ID better be there based on match to read1 above.
-	  int mpos_max = try_exact_match( seq_from_library, cseq ) - 1;
-	  //	  int mpos_max = try_exact_match( seq_from_library, cseq ) - seqid_length;
+	  int mpos_max = try_exact_match( seq_from_library, cseq ) - seqid_length;
+	  if ( align_all ) try_exact_match( seq_from_library, cseq ) - 1;
 	  if ( mpos_max < 0 ) mpos_max = length( seq_from_library );  //to catch boundary cases -- no match to constant sequence.
 
 	  if ( match_DP ){
@@ -952,4 +638,362 @@ get_next_variant( CharString const & seq, CharString & seq_var, unsigned & varia
 
   return false;
 
+}
+
+////////////////////////////////////////////////////
+void
+check_for_star_sequence( CharString & seq_from_library,
+			 std::vector< CharString > & sequences_before_star,
+			 std::vector< CharString > & sequences_after_star,
+			 std::vector< unsigned > & star_sequence_ids,
+			 unsigned const j ){
+
+  int star_pos = findchar( seq_from_library, '*' );  // ironically, no simple equivalent to std::findin seqan
+  if ( star_pos > -1 ){
+    CharString sequence_before_star = prefix(seq_from_library,star_pos  );
+    CharString sequence_after_star  = suffix(seq_from_library,star_pos+1);
+    CharString seq_from_library_new = sequence_before_star;
+    append( seq_from_library_new, sequence_after_star );
+    if ( findchar( seq_from_library_new, '*' ) > -1 ) {
+      std::cerr << "Too many *'s in sequence: " << seq_from_library << std::endl;
+      exit( 0 );
+    }
+    seq_from_library = seq_from_library_new;
+    star_sequence_ids.push_back( j );
+    sequences_before_star.push_back( sequence_before_star );
+    sequences_after_star.push_back( sequence_after_star );
+  }
+}
+
+
+/////////////////////////////////////////////////////////////
+void
+figure_out_expt_IDs( std::string const & file_primers,
+		     std::string const & file_expt_id,
+		     std::vector< String<char> > & short_expt_ids,
+		     THaystacks & haystacks_expt_ids,
+		     CharString & cseq,
+		     CharString & adapterSequence ){
+
+  CharString seq_expt_id;
+
+    if ( length( file_primers ) > 0 ){
+
+      MultiSeqFile multiSeqFile_primers; //barcode patterns
+      if (!open(multiSeqFile_primers.concat, file_primers.c_str(), OPEN_RDONLY) ) exit( 0 );
+      AutoSeqFormat format_primers;
+      guessFormat(multiSeqFile_primers.concat, format_primers);
+      split(multiSeqFile_primers, format_primers);
+
+      unsigned seqCount_primers = length(multiSeqFile_primers);
+      if ( seqCount_primers == 0 ) { std::cerr << "Must have at least one primer!" << std::endl; exit( 0 ); }
+      std::cout << "Number of primers: " << seqCount_primers << std::endl;
+
+      String<char > seq_primer;
+      std::vector< String<char> > seq_primers, seq_primers_RC;
+      for(unsigned j=0; j< seqCount_primers; j++) {
+	assignSeq(seq_primer, multiSeqFile_primers[j], format_primers);    // read sequence
+	seq_primers.push_back( seq_primer );
+
+	CharString seq_primer_RC( seq_primer );
+	reverseComplement( seq_primer_RC );
+	seq_primers_RC.push_back( seq_primer_RC);
+      }
+
+      // now look for what sequence is shared across all primers from 5' end (should be Illumina adapter):
+      // this will need to be rewritten if we use primers containing index reads.
+      unsigned match_5prime = get_number_of_matching_residues( seq_primers );
+
+      // straightforward override if illumina adapter is in there...
+      if ( length( seq_primers[0] ) > length( universal_adapter_sequence ) ){
+	if ( prefix( universal_adapter_sequence, length( universal_adapter_sequence ) ) == universal_adapter_sequence ){
+	  std::cout << "Identified universal Illumina adapter sequence in primers! " << std::endl;
+	  match_5prime = length( universal_adapter_sequence );
+	}
+      }
+
+      //std::cout << "Matching from 5' end" << match_5prime << std::endl;
+      CharString adapterSequence_inferred = prefix( seq_primers[0], match_5prime );
+      if (length(adapterSequence) > 0 ){
+	if ( adapterSequence != adapterSequence_inferred ){
+	  std::cerr << "WARNING! these do not match: " << std::endl;
+	  std::cerr << adapterSequence << " [user input adapterSequence]" << std::endl;
+	  std::cerr << adapterSequence_inferred << " [inferred adapterSequence]" << std::endl;
+	  std::cerr << "over-riding with user-input." << std::endl << std::endl;
+	}
+      } else {
+	adapterSequence = adapterSequence_inferred;
+      }
+      std::cout << "Adapter sequence shared by primers: " << adapterSequence << std::endl;
+
+
+      unsigned match_3prime = get_number_of_matching_residues( seq_primers_RC );
+      std::cout << "Matching from 3' end [showing reverse complement], " << match_3prime << std::endl;
+      CharString cseq_inferred =  prefix( seq_primers_RC[0], match_3prime );
+      if (length(cseq) > 0 ){
+	if ( cseq != cseq_inferred ){
+	  std::cerr << "WARNING! these do not match: " << std::endl;
+	  std::cerr << cseq << " [user input cseq]" << std::endl;
+	  std::cerr << cseq_inferred << " [inferred cseq]" << std::endl;
+	  std::cerr << "over-riding with user-input." << std::endl << std::endl;
+	}
+      } else {
+	cseq = cseq_inferred;
+      }
+      std::cout << "Constant sequence shared by primers [reverse complement]: " << cseq << std::endl;
+
+      for(unsigned j=0; j< seqCount_primers; j++) {
+	seq_expt_id = infix( seq_primers_RC[j], match_3prime, length( seq_primers_RC[j] ) - match_5prime );
+	std::cout << "Experimental ID inferred [reverse complement of region in primer]: " << j << " " << seq_expt_id << std::endl;
+	short_expt_ids.push_back( seq_expt_id );
+	appendValue(haystacks_expt_ids, seq_expt_id );
+      }
+
+    } else if ( length( file_expt_id ) > 0 && length( cseq ) > 0 ){
+
+      MultiSeqFile multiSeqFile_expt_id; //barcode patterns
+      if (!open(multiSeqFile_expt_id.concat, file_expt_id.c_str(), OPEN_RDONLY) ) exit( 0 );
+
+      AutoSeqFormat format_expt_id;
+      guessFormat(multiSeqFile_expt_id.concat, format_expt_id);
+      split(multiSeqFile_expt_id, format_expt_id);
+
+      unsigned seqCount_expt_id = length(multiSeqFile_expt_id);
+
+      if ( length( adapterSequence ) == 0 ) adapterSequence = universal_adapter_sequence;
+
+      std::cout << "Getting " << seqCount_expt_id << " experimental IDs from 'barcode' file" << std::endl;
+      ///////////////////////////////////////////////////
+      // create a haystack to search with barcodes.
+      ///////////////////////////////////////////////////
+      for(unsigned j=0; j< seqCount_expt_id; j++) {
+	//	assignSeqId(seq_expt_id_ID, multiSeqFile_expt_id[j], format_expt_id);    // read sequence
+	assignSeq(seq_expt_id, multiSeqFile_expt_id[j], format_expt_id);    // read sequence
+
+	short_expt_ids.push_back( seq_expt_id );
+	appendValue(haystacks_expt_ids, seq_expt_id );
+      }
+    } else {
+      std::cerr << std::endl << "ERROR! Must specify -p <primer_file>, or -b <barcode_file> -c <constant DNA sequence>." << std::endl;;
+      exit( 0 );
+    }
+}
+
+
+//////////////////////////////////////////////////
+void
+read_in_fastq( MultiSeqFile & multiSeqFile1,
+	       AutoSeqFormat & format1,
+	       std::string const & file1,
+	       unsigned & seqCount1 ){
+
+  if (!open(multiSeqFile1.concat, file1.c_str(), OPEN_RDONLY) ) { std::cerr << "Problem reading file "+file1 << std::endl; exit( 0 );}
+
+  //The SeqAn library has a built in file parser that can guess the file format
+  //we use the AutoSeqFormat option for the MiSeq, Library, and barcode files
+  //MiSeq File1
+  guessFormat(multiSeqFile1.concat, format1);
+  split(multiSeqFile1, format1);
+  seqCount1 = length(multiSeqFile1);
+}
+
+
+//////////////////////////////////////////////////
+void
+check_unique_id(  std::vector< String<char> > const & rna_library_vector_RC,
+		  CharString const & cseq,
+		  unsigned & seqid_length,
+		  unsigned const & max_rna_len  ){
+
+    //Infer RNA library sequence ID length.  This should have been specified by the -n flag, but this will
+    //throw a warning if an incorrect value is believed to have been specified.
+    //An accurate RNA library sequence ID length should be the shortest sequence from the 3' end that is
+    //sufficient to distinguish any sequence in the library from any other.
+    unsigned inferred_id_length = 0;
+    bool match_found = true;
+    unsigned cseq_len = length( cseq );
+    std::cout << "Inferring sequence ID length..." << std::endl;
+    for(unsigned i = 1; i < max_rna_len - cseq_len; i++){
+      if(!match_found) break;
+      inferred_id_length = i;
+      match_found = false;
+      unsigned const seqCount_library = rna_library_vector_RC.size();
+      for(unsigned j = 0; j < seqCount_library; j++){
+	String<char> test_seq = prefix( rna_library_vector_RC[j], i+cseq_len );
+	for(unsigned k = j+1; k < seqCount_library; k++){
+	  String<char> comp_seq = prefix( rna_library_vector_RC[k], i+cseq_len );
+	  if(test_seq == comp_seq){
+	    match_found = true;
+	    break;
+	  }
+	}
+	if(match_found) break;
+      }
+    }
+    std::cerr << "Inferred sequence ID length: " << inferred_id_length << std::endl;
+
+    if (seqid_length < 1){
+      std::cout << "Sequence ID length undefined by user." << std::endl;
+      std::cout << "Using inferred sequence ID length as sequence ID length." << std::endl;
+      seqid_length = inferred_id_length;
+    }
+    else if (inferred_id_length >  seqid_length){
+      std::cerr << "WARNING! these do not match: " << std::endl;
+      std::cerr << seqid_length << " [user input sequence ID length]" << std::endl;
+      std::cout << inferred_id_length << " [inferred sequence ID length]" << std::endl;
+      std::cerr << "Identical regions of user-specified length found in RNA library." << std::endl;
+      std::cerr << "Proceeding with user-input." << std::endl << std::endl;
+    }
+
+    if (inferred_id_length >=  max_rna_len - cseq_len-1){
+      std::cerr << "WARNING! Redundant RNA library members detected!" << std::endl;
+    }
+}
+
+
+/////////////////////////////////////////////////////
+void
+disambiguate_possible_sids( std::vector< unsigned > & possible_sids,
+			    std::vector< unsigned > const & possible_begpos,
+			    unsigned const min_pos,
+			    CharString const & seq1,
+			    std::vector< CharString > const & RNA_sequences ) {
+  int max_match = 0;
+  CharString seq_from_library;
+  std::vector< unsigned > possible_sids_new;
+  for ( int s = 0; s < possible_sids.size(); s++ ) {
+    seq_from_library = RNA_sequences[ possible_sids[s] ];
+    int n_seq1    = min_pos           ; // + seqid_length;
+    int n_library = possible_begpos[s]; // + seqid_length;
+    unsigned num_match( 0 );
+    while ( n_seq1 >= 0 && n_library >= 0 &&
+	    ( seq1[ n_seq1 ] == seq_from_library[ n_library ] ) ){
+      n_seq1--; n_library--; num_match++;
+    }
+    if ( num_match > max_match )  {
+      possible_sids_new.clear();
+      max_match = num_match;
+    }
+    if ( num_match == max_match ) possible_sids_new.push_back( possible_sids[s] );
+  }
+  possible_sids = possible_sids_new;
+}
+
+
+/////////////////////////////////////////////////////
+void
+check_for_short_insert( CharString const & adapterSequence2,
+			CharString const & cseq,
+			unsigned const & constant_sequence_begin_pos,
+			unsigned const & seqid_length,
+			CharString & seq1,
+			Finder<Index<THaystacks> > & finder_sequence_id,
+			std::vector< unsigned > & possible_sids,
+			bool & verbose,
+			unsigned & nullLigation ){
+
+  CharString adapter_sequence2_pattern = adapterSequence2;
+  int length_of_adapter_sequence2( constant_sequence_begin_pos - seqid_length );
+  static int const min_length_of_adapter_sequence2( 8 );
+  if ( length_of_adapter_sequence2 < min_length_of_adapter_sequence2 ) length_of_adapter_sequence2 = min_length_of_adapter_sequence2;
+  if ( length_of_adapter_sequence2 < length( adapterSequence2 ) ){
+    adapter_sequence2_pattern = infixWithLength( adapterSequence2, 0, length_of_adapter_sequence2 );
+  }
+  reverseComplement( adapter_sequence2_pattern );
+  Pattern<String<char>, DPSearch<SimpleScore> > pattern_constant_sequence_DP( adapter_sequence2_pattern, SimpleScore(0, -2, -2));
+  Finder<String<char> > finder_in_seq1(seq1);
+  int adapter_sequence2_pos( 0 );
+  CharString fragment;
+
+  if ( find( finder_in_seq1, pattern_constant_sequence_DP, -1 /*score cutoff*/ ) ){
+    adapter_sequence2_pos = beginPosition( finder_in_seq1 );
+    if ( constant_sequence_begin_pos >= adapter_sequence2_pos  ){
+      fragment = infixWithLength( seq1, adapter_sequence2_pos, constant_sequence_begin_pos - adapter_sequence2_pos + 1);
+      CharString sequence_id_in_read1 = fragment;
+      append( sequence_id_in_read1, cseq );
+      std::vector< unsigned > mpos_vector, sid_vector;
+      Pattern<CharString> pattern_sequence_id_in_read1( sequence_id_in_read1 ); // this is now the 'needle' -- look for this sequence in the haystack of potential sequence IDs
+      clear( finder_sequence_id );
+      while( find(finder_sequence_id, pattern_sequence_id_in_read1)) { // let's try *all* possibilities
+	int sid = beginPosition(finder_sequence_id).i1;
+	possible_sids.push_back( sid );
+	// note that this is a totally valid guess for mpos -- but we'll still check read2
+	int mpos = beginPosition(finder_sequence_id).i2;
+	//if (!verbose) std::cout << seq1 << " " << seq2 << std::endl;
+	//std::cout << "READ1 " << mpos << " " << sid << " " << length( fragment ) << std::endl;
+	//	      verbose = true;
+      }
+    }
+    if ( constant_sequence_begin_pos == adapter_sequence2_pos-1 ) nullLigation += 1;
+  }
+}
+
+
+////////////////////////////////////
+void
+find_possible_sids( std::vector< unsigned > & possible_sids,
+		    std::vector< unsigned > & possible_begpos,
+		    Finder<Index<THaystacks> > & finder_sequence_id,
+		    CharString & sequence_id_region_in_sequence1 ){
+
+  Pattern<CharString> pattern_sequence_id_in_read1(sequence_id_region_in_sequence1); // this is now the 'needle' -- look for this sequence in the haystack of potential sequence IDs
+  clear( finder_sequence_id ); //reset.
+  while( find(finder_sequence_id, pattern_sequence_id_in_read1)) {
+    // seq_from_library contains the RNA library sequences
+    possible_sids.push_back( beginPosition(finder_sequence_id).i1 );
+    possible_begpos.push_back( beginPosition(finder_sequence_id).i2 ); // useful for disambiguation.
+  }
+}
+
+
+////////////////////////////////////
+void
+check_for_extra_junk_using_star_sequences(
+					  std::vector< unsigned > & possible_sids,
+					  std::vector< CharString > & sequences_with_extra_junk,
+					  bool & extra_junk_mode,
+					  Finder<Index<THaystacks> > & finder_sequence_id,
+					  CharString & seq1,
+					  unsigned const & constant_sequence_begin_pos,
+					  std::vector< CharString > const & sequences_before_star,
+					  std::vector< CharString > const & sequences_after_star,
+					  std::vector< unsigned > const & star_sequence_ids ){
+
+  for ( unsigned s = 0; s < star_sequence_ids.size(); s++ ){
+    // find it.
+    static int const min_length_of_sequence_before_star( 6 );
+    CharString sequence_before_star = sequences_before_star[ s ];
+    CharString search_suffix = suffix( sequence_before_star, length( sequence_before_star ) - min_length_of_sequence_before_star );
+    CharString extra_junk;
+    int star_pos( -1 );
+    Finder<String<char> > finder_constant_sequence(seq1); // this is what to search.
+    Pattern<String<char>, Horspool > pattern_constant_sequence( search_suffix );
+    while( find(finder_constant_sequence, pattern_constant_sequence) ){
+      int const finder_end_pos =  position( finder_constant_sequence )  + length( search_suffix );
+      if ( finder_end_pos < constant_sequence_begin_pos + 1 ) star_pos = finder_end_pos;
+      else break;
+    }
+    if (star_pos > -1 ){
+      int extra_junk_length = constant_sequence_begin_pos - star_pos + 1;
+      if ( extra_junk_length > 0 ){
+	extra_junk = infixWithLength( seq1, star_pos, extra_junk_length );
+	// what is the reconstructed sequence?
+	CharString sequence_with_extra_junk = sequence_before_star;
+	append( sequence_with_extra_junk, extra_junk );
+	CharString sequence_after_star = sequences_after_star[ s ];
+	append( sequence_with_extra_junk, sequence_after_star );
+	if (!extra_junk_mode ) {
+	  if ( possible_sids.size() > 0 ) {
+	    std::cerr << "cannot align to star/junk sequences if another option is available" << std::endl; exit( 0 );
+	  }
+	  extra_junk_mode = true;
+	}
+	possible_sids.push_back( star_sequence_ids[s] );
+	sequences_with_extra_junk.push_back( sequence_with_extra_junk );
+	// verbose = true;
+      }
+
+    }
+    //std::cout << "MYSTERY " << seq1 << " look for "  << search_suffix << " " << star_pos << " " << extra_junk << "  seq2 " << seq2 << std::endl;
+  }
 }
