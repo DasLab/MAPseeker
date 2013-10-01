@@ -322,7 +322,7 @@ int main(int argc, const char *argv[]) {
 
 	  //reads beyond sequence ID are nonsense -- sequence ID better be there based on match to read1 above.
 	  int mpos_max = try_exact_match( seq_from_library, cseq ) - seqid_length;
-	  if ( align_all ) try_exact_match( seq_from_library, cseq ) - 1;
+	  if ( align_all ) mpos_max = try_exact_match( seq_from_library, cseq ) - 1;
 	  if ( mpos_max < 0 ) mpos_max = length( seq_from_library );  //to catch boundary cases -- no match to constant sequence.
 
 	  if ( match_DP ){
@@ -970,7 +970,8 @@ check_for_extra_junk_using_star_sequences(
     Pattern<String<char>, Horspool > pattern_constant_sequence( search_suffix );
     while( find(finder_constant_sequence, pattern_constant_sequence) ){
       int const finder_end_pos =  position( finder_constant_sequence )  + length( search_suffix );
-      if ( finder_end_pos < constant_sequence_begin_pos + 1 ) star_pos = finder_end_pos;
+      //if ( finder_end_pos < constant_sequence_begin_pos + 1 ) star_pos = finder_end_pos;
+      if ( finder_end_pos < constant_sequence_begin_pos ) star_pos = finder_end_pos;
       else break;
     }
     if (star_pos > -1 ){
