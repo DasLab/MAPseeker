@@ -186,7 +186,7 @@ int main(int argc, const char *argv[]) {
     std::vector< std::vector< double > > bunch_of_sequence_counts( seqCount_library, sequence_counts);
     std::vector< std::vector< std::vector < double > > > all_count( seqCount_expt_id, bunch_of_sequence_counts);
 
-    std::vector< std::vector< std::vector < double > > > all_count_mutation = all_count;
+    std::vector< std::vector< std::vector < double > > > all_count_strict = all_count;
 
     // keep track of how many sequences pass through each filter
     std::vector< unsigned > counter_counts;
@@ -414,6 +414,7 @@ int main(int argc, const char *argv[]) {
 
       found_match_in_read2 = true;
       record_counter( "found match in RNA sequence (read 2)", counter_idx, counter_counts, counter_tags );
+      if ( mscr == 0 ) record_counter( "found strict match in RNA sequence (read 2)", counter_idx, counter_counts, counter_tags );
 
       float const weight = 1.0 / mpos_vector.size();
       for (unsigned q = 0; q < mpos_vector.size(); q++ ){
@@ -422,9 +423,7 @@ int main(int argc, const char *argv[]) {
 	if ( verbose ) std::cout << "READ2 " << mpos << " " << sid_idx << std::endl;
 	if ( mpos < 0 ) mpos = 0;
 	all_count[ expt_idx ][ sid_idx ][ mpos ] += weight;
-
-	// mscr is edit distance. If *not* 0, keep track of this.
-	if ( mscr < 0 ) all_count_mutation[ expt_idx ][ sid_idx ][ mpos ] += weight;
+	if ( mscr == 0 ) all_count_strict[ expt_idx ][ sid_idx ][ mpos ] += weight;
       }
     }
 
@@ -442,8 +441,7 @@ int main(int argc, const char *argv[]) {
     if ( align_all ) std::cout << "Null ligations           : " << nullLigation << std::endl;
 
     output_stats_files( all_count, outpath, "stats" );
-
-    output_stats_files( all_count_mutation, outpath, "mut_stats" );
+    output_stats_files( all_count_strict, outpath, "strict_stats" );
 
     return 1;
 }
@@ -1026,7 +1024,7 @@ output_stats_files( std::vector< std::vector< std::vector < double > > > const &
 {
 
   unsigned const seqCount_expt_id = all_count.size();
-
+  std::cout << std::endl;
   //////////////////////////////////////////////////////
   //  output matrices with stored counts.
   //////////////////////////////////////////////////////
