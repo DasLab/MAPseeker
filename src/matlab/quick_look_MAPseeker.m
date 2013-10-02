@@ -1,6 +1,6 @@
 function [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_ref ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, more_options );
 %
-% [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_ref ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, combine_mode_RNA, combine_mode_primer );
+% [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_ref ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, more_options );
 %
 %     Reads in MAPseeker output and prints useful graphs & results for your
 %      notebook.
@@ -43,7 +43,12 @@ function [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_re
 %                   names, as specified in the primer_file. In the primer name, the text before the
 %                   first tab is ignored; the text after that is assumed to be a description of the library
 %                   probed or modifier and is used to determine which primers should be combined.
-%          'noSHAPEscores' =  turn off output of SHAPE scores into RDAT.
+%          'noSHAPEscores'   = turn off output of SHAPE scores into RDAT.
+%          'no_output_fig'   = turn off output of figures.
+%          'no_output_rdat'  = turn off output of RDAT files.
+%          'output_raw_rdat' = save raw counts into a RAW.rdat file.
+%          'no_stair_plots'  = turn off stair plots
+%          'strict_stats'    = use strict_stats* ffiles (not stats_* files).
 %
 % Outputs:
 %
@@ -75,7 +80,7 @@ else
   FULL_LENGTH_CORRECTION_FACTOR_SPECIFIED = 1;
 end
 if ~exist( 'more_options' ) more_options = {}; end;
-PRINT_STUFF = 1;
+PRINT_STUFF = isempty( find( strcmp( more_options, 'no_output_fig' ) ) );
 
 output_text_file_name = 'MAPseeker_results.txt';
 fid = fopen( output_text_file_name, 'w' );
@@ -92,13 +97,17 @@ N_primers = length( primer_info );
 % load the data
 
 % run MAPseeker executable if we can't find the file...
-stats_file = sprintf( '%s/stats_ID%d.txt', inpath,1);
+stats_prefix = 'stats';
+STRICT_STATS = ~isempty( find( strcmp( more_options, 'strict_stats' ) ) );
+if STRICT_STATS; stats_prefix = 'strict_stats'; end;
+
+stats_file = sprintf( '%s/%s_ID%d.txt', inpath,stats_prefix, 1);
 if ~exist( stats_file, 'file' )
   run_map_seeker_executable( library_file, primer_file, inpath );
 end
 
 for i = 1:N_primers;    
-  stats_file = sprintf( '%s/stats_ID%d.txt', inpath,i);
+  stats_file = sprintf( '%s/%s_ID%d.txt', inpath, stats_prefix, i);
   print_it( fid,  sprintf('Looking for MAPseeker output file: %s\n', stats_file ) );
   if ~exist( stats_file, 'file' );  print_it( fid, sprintf(  ['Could not find ',stats_file,'!\n']) ); return;end;
 
@@ -254,14 +263,14 @@ figure_ysize = min( N_RNA*150, 800);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Make 2D gray of all counts
 FigHandle = figure(4);
-set(FigHandle, 'Position', [250,250,600,figure_ysize], 'name', 'Counts (normalized per primer)');
+set(FigHandle, 'Position', [250,250,800,figure_ysize], 'name', 'Counts (normalized per primer)');
 clf;
 make_image_plot( D_raw, RNA_info, primer_info, most_common_sequences , 'raw counts');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Make 2D gray of all reactivities, corrected
 FigHandle = figure(5);
-set(FigHandle, 'Position', [300,300,600,figure_ysize], 'name', 'Reactivity');
+set(FigHandle, 'Position', [300,300,800,figure_ysize], 'name', 'Reactivity');
 clf;
 make_image_plot( D_correct, RNA_info, primer_info, most_common_sequences, 'correct', 1000 );
 
@@ -279,25 +288,28 @@ final_image_scalefactor = 20;
 % Make 2D gray of all reactivities, background subtracted
 if BACKGD_SUB
   FigHandle = figure(6);
-  set(FigHandle, 'Position', [350,350,600,figure_ysize],'name','Final');
+  set(FigHandle, 'Position', [350,350,800,figure_ysize],'name','Final');
   clf;
   make_image_plot( D_final, RNA_info, primer_info, most_common_sequences, 'final', final_image_scalefactor );
 end
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%  Make 1D plots of most common sequences
-FigHandle = figure(2);
-set(FigHandle, 'Position', [150,150,600,figure_ysize], 'name', 'Counts [Most Common RNAs]');
-make_stair_plots( D_raw, most_common_sequences, RNA_info, primer_info, colorcode );
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%  Make 1D plots of most common sequences, apply correction
-FigHandle = figure(3);
-set(FigHandle, 'Position', [200,200,600,figure_ysize],'name','Reactivity [Most Common RNAs]');
-make_stair_plots( D_correct, most_common_sequences, RNA_info, primer_info, colorcode, D_correct_err );
-figure(4); figure(5); if BACKGD_SUB; figure(6);end;
-figure(4); axis image; figure(5); axis image;
 
+MAKE_STAIR_PLOTS = isempty( find( strcmp( more_options, 'no_stair_plots' ) ) );
+
+if MAKE_STAIR_PLOTS  
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  %  Make 1D plots of most common sequences
+  FigHandle = figure(2);
+  set(FigHandle, 'Position', [150,150,600,figure_ysize], 'name', 'Counts [Most Common RNAs]');
+  make_stair_plots( D_raw, most_common_sequences, RNA_info, primer_info, colorcode );
+  
+  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  %  Make 1D plots of most common sequences, apply correction
+  FigHandle = figure(3);
+  set(FigHandle, 'Position', [200,200,600,figure_ysize],'name','Reactivity [Most Common RNAs]');
+  make_stair_plots( D_correct, most_common_sequences, RNA_info, primer_info, colorcode, D_correct_err );
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Remove first position in D_final & D_final_err
@@ -324,29 +336,37 @@ output_signal_to_noise_ratio( D, D_err, fid );
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % output RDAT
-print_it( fid, sprintf(  '\nAbout to create RDAT files ... may take a while...\n' ) );
-dirnames = split_string( pwd, '/' );
-dirname = dirnames{end};
-rdat_filename = [ dirname, '.rdat' ];
-name = dirname; % maybe this should be input.
-comments = { ['Output of MAPseeker v',VERSION_NUM_STRING] };
+OUTPUT_RDAT = isempty( find( strcmp( more_options, 'no_output_rdat' ) ) );
 
-annotations = {};
-annotations = [annotations, 'processing:overmodificationCorrectionExact'];
-annotations = [annotations, ['processing:ligationBiasCorrection:',num2str(full_length_correction_factor,'%8.3f')] ];
-if BACKGD_SUB; annotations = [annotations, 'processing:backgroundSubtraction']; end;
-if REFERENCE_INCLUDED;    annotations = [ annotations, ['processing:normalization:',ref_segment] ]; 
-elseif BOXPLOT_NORMALIZATION;  annotations = [ annotations, ['processing:normalization:boxplot'] ]; 
-end
-
-rdat_raw_filename = [ dirname, '.RAW.rdat' ];
-r_raw  = MAPseeker_to_rdat( rdat_raw_filename, name, D_raw, cell_sqrt( D_raw ), primer_info, RNA_info, comments, annotations, 1 );
-r = MAPseeker_to_rdat( rdat_filename, name, D, D_err, primer_info, RNA_info, comments, annotations );
-
-if REFERENCE_INCLUDED
-  rdat_filename_reference = [ dirname, '_REFERENCE.rdat' ];
-  name = RNA_info_ref(1).Header;
-  MAPseeker_to_rdat( rdat_filename_reference, name, D_ref, D_ref_err, primer_info, RNA_info_ref, comments, annotations );
+if OUTPUT_RDAT
+  print_it( fid, sprintf(  '\nAbout to create RDAT files ... may take a while...\n' ) );
+  dirnames = split_string( pwd, '/' );
+  dirname = dirnames{end};
+  rdat_filename = [ dirname, '.rdat' ];
+  name = dirname; % maybe this should be input.
+  comments = { ['Output of MAPseeker v',VERSION_NUM_STRING] };
+  
+  annotations = {};
+  annotations = [annotations, 'processing:overmodificationCorrectionExact'];
+  annotations = [annotations, ['processing:ligationBiasCorrection:',num2str(full_length_correction_factor,'%8.3f')] ];
+  if BACKGD_SUB; annotations = [annotations, 'processing:backgroundSubtraction']; end;
+  if REFERENCE_INCLUDED;    annotations = [ annotations, ['processing:normalization:',ref_segment] ]; 
+  elseif BOXPLOT_NORMALIZATION;  annotations = [ annotations, ['processing:normalization:boxplot'] ]; 
+  end
+  
+  OUTPUT_RAW = ~isempty( find( strcmp( more_options, 'output_raw_rdat' ) ) );
+  if OUTPUT_RAW
+    rdat_raw_filename = [ dirname, '.RAW.rdat' ];
+    MAPseeker_to_rdat( rdat_raw_filename, name, D_raw, cell_sqrt( D_raw ), primer_info, RNA_info, comments, annotations, 1 );
+  end
+  
+  r = MAPseeker_to_rdat( rdat_filename, name, D, D_err, primer_info, RNA_info, comments, annotations );
+  
+  if REFERENCE_INCLUDED
+    rdat_filename_reference = [ dirname, '_REFERENCE.rdat' ];
+    name = RNA_info_ref(1).Header;
+    MAPseeker_to_rdat( rdat_filename_reference, name, D_ref, D_ref_err, primer_info, RNA_info_ref, comments, annotations );
+  end
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -530,6 +550,8 @@ set(gcf, 'PaperPositionMode','auto','color','white');
 
 xlabel( basename(pwd),'interpreter','none' );
 %print( '-dpdf',sprintf( 'EteRNA_PlayerProjects_RawData%02d.pdf',j) );
+
+axis image;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function make_lines( line_pos, colorcode, linewidth );
