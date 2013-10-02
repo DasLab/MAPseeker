@@ -1,8 +1,8 @@
-function [ D_sim, pdbstruct, D_combine ] = sim_MOHCAseq( pdb, pdbname, offset, tail_length, fignum_start, plot_heads, D, printfig )
+function [ D_sim, pdbstruct, D_combine ] = sim_MOHCAseq( pdbfile, pdbname, offset, tail_length, fignum_start, plot_heads, D, printfig )
 
 %%%
 %%%  INPUTS
-%%%     pdb:           Either a string name of a .pdb file or a structure array produced by the pdbread function 
+%%%     pdbfile:       Either a string name of a .pdb file or a structure array produced by the pdbread function 
 %%%     pdbname:       Either the string name of the input .pdb file or the string name of the input structure array 
 %%%     offset:        Number of nucleotides before the 5' end of the RNA sequence of interest (e.g. length of 5'-buffer region and reference hairpin) 
 %%%     tail_length:   Number of nucleotides after the 3' end of the RNA sequence of interest (e.g. length of 3'-buffer region, reference hairpin, and Tail2) 
@@ -31,13 +31,13 @@ function [ D_sim, pdbstruct, D_combine ] = sim_MOHCAseq( pdb, pdbname, offset, t
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% 1. Read in PDB file (or copy to variable)
 
-if ischar(pdb)
+if ischar(pdbfile)
     fprintf('Input is .pdb file... reading in .pdb file... \n\n');
-    pdbstruct = pdbread(pdb);
-    pdbname = pdb;
-elseif isstruct(pdb)
+    pdbstruct = pdbread(pdbfile);
+    pdbname = pdbfile;
+elseif isstruct(pdbfile)
     fprintf('Input is structure array... reading in structure array... \n\n');
-    pdbstruct = pdb;
+    pdbstruct = pdbfile;
 end
 
 

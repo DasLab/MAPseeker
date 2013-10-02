@@ -1,4 +1,4 @@
-function [Zscores_mask, Zscores_mask_err, D_sim, pdbstruct, D_combine, Zscores, Zscores_err] = analyze_MOHCAseq( D, D_err, D_raw, plot_heads, offset, tail_length, seqstart, pdb, sample_sel, source_locs, printfig )
+function [Zscores_mask, Zscores_mask_err, D_sim, pdbstruct, D_combine, Zscores, Zscores_err] = analyze_MOHCAseq( D, D_err, D_raw, plot_heads, offset, tail_length, seqstart, pdbfile, sample_sel, source_locs, printfig )
 
 %%%
 %%%  INPUTS
@@ -10,7 +10,7 @@ function [Zscores_mask, Zscores_mask_err, D_sim, pdbstruct, D_combine, Zscores, 
 %%%     tail_length:    Number of nucleotides after the 3' end of the RNA sequence of interest (e.g. length of 3'-buffer region, reference hairpin, and Tail2) 
 %%%     seqstart:       Number of the 5' nucleotide in the .pdb file 
 %%%   (OPTIONAL)
-%%%     pdb:            Either a string name of a .pdb file or a structure array produced by the pdbread function 
+%%%     pdbfile:        Either a string name of a .pdb file or a structure array produced by the pdbread function 
 %%%     sample_sel:     Indices of arrays in D from which Z-scores for coloring structures by data will be drawn 
 %%%     source_locs:    Locations of interest for getting text files of Z-scores for color_by_data using PyMol 
 %%%     printfig:       Determines whether figures will be saved to a folder called "Figures_Analysis" (0 for no, 1 for yes, default 1) 
@@ -19,7 +19,7 @@ function [Zscores_mask, Zscores_mask_err, D_sim, pdbstruct, D_combine, Zscores, 
 %%%     Zscores_mask:        Z-scores of masked reactivities from input D (high-uncertainty reactivities masked before Z-score calculation) 
 %%%     Zscores_mask_err:    Errors of Z-scores of masked reactivities, propagated from input D_err 
 %%%     D_sim:               Data of simulated Z-scores of reactivities from input D
-%%%     pdbstruct:           Either structure array from pdbread(pdb) or simply the input pdb 
+%%%     pdbstruct:           Either structure array from pdbread(pdbfile) or simply the input pdbfile 
 %%%     D_combine:           Overlaid data of Zscores_mask and D_sim 
 %%%     Zscores:             Z-scores of reactivities from input D (reactivities not masked before Z-score calculation) 
 %%%     Zscores_err:         Errors of Z-scores of reactivities, propagated from input D_err
@@ -96,13 +96,16 @@ end
 
 
 
-if ~exist('pdb')
+if ~exist('pdbfile')
     fprintf('No PDB file or structure array detected...\n\n');
+    D_sim = [];
+    D_combine = [];
+    pdbstruct = [];
 else
     fprintf('PDB file or structure array detected... Generating simulated and overlaid contact maps...\n\n');
     fignum_start = 2*length(D)+1;
     pdbname = inputname(8);
-    [D_sim, pdbstruct, D_combine] = sim_MOHCAseq( pdb, pdbname, offset, tail_length, fignum_start, plot_heads, Zscores_mask, 1 );
+    [D_sim, pdbstruct, D_combine] = sim_MOHCAseq( pdbfile, pdbname, offset, tail_length, fignum_start, plot_heads, Zscores_mask, 1 );
 end
 
 
