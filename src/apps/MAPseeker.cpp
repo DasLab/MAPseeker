@@ -386,7 +386,8 @@ int main(int argc, const char *argv[]) {
 	    int cscr = getScore(pattern_in_specific_sequence);
 	    if ( cscr >= mscr ){ // in case of ties, keep track of all hits
 	      findBegin( finder_in_specific_sequence, pattern_in_specific_sequence, mscr );
-	      int mpos = beginPosition( finder_in_specific_sequence );
+	      int mpos = beginPosition( finder_in_specific_sequence )-1;
+	      if ( mpos < 0 ) mpos = 0;
 	      //	      if ( sid_idx >= 200 && mpos > 180 ) { if (!verbose) { std::cout << std::endl; verbose = true;} }
 	      //	      if ( verbose ) std::cout << "check: " << mpos << " gives score " << cscr << std::endl;
 	      // watch out ... this can't go beyond the "sequence id"!?
