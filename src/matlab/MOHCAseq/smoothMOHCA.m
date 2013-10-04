@@ -1,4 +1,33 @@
-function [D_smooth,r] = smoothMOHCA( rdat_file, pdb, USE_Z_SCORE, MOD_CORRECT );
+function [D_smooth, seqpos, ligpos, r] = smoothMOHCA( rdat_file, pdb, USE_Z_SCORE, MOD_CORRECT );
+%% [D_smooth,seqpos, ligpos, r] = smoothMOHCA( rdat_file, pdb, USE_Z_SCORE, MOD_CORRECT );
+%%
+%% One-shot script to take MOHCA raw data (in rdat format) and any known 
+%%  reference structure, and make a nice summary plot.
+%% 
+%% Inputs
+%%  rdat_file   = rdat or cell of rdats (either filenames or actual data objects will work)
+%%  pdb         = filename of pdb (or pdbstruct object from pdbread)
+%%  USE_Z_SCORE = [Default 0] Use Z-score processing of reactivities (note that 
+%%                 this script will apply attenuation correction for you). Otherwise
+%%                 use 'repsub' processing based on subtracting data corresponding
+%%                 to uncleaved RNA.
+%%  MOD_CORRECT = [Default 1] In 'repsub' processing, apply a smooth correction to 
+%%                 correct for attenuation and/or source distribution.
+%%
+%% Outputs 
+%%  D_smooth    = matrix of output, averaged over all data sets.
+%%  seqpos      = MOHCA stop positions of 5' ends (x-axis)
+%%  ligpos      = MOHCA ligation positions at 3' ends (these are the cleavage 
+%%                 positions + 1, corresponding to the sites actually attacked).
+%%  r           = cell of rdats
+%%
+%% (C) R. Das, C. Cheng, 2013
+%%
+
+if nargin < 1; help( mfilename ); return; end;
+
+clf;
+set(gcf, 'PaperPositionMode','auto','color','white');
 
 if ~exist( 'USE_Z_SCORE', 'var' ); USE_Z_SCORE = 0; end;
 if ~exist( 'MOD_CORRECT', 'var' ); MOD_CORRECT = 1; end % only in use without Z-score

@@ -1,4 +1,23 @@
 function [D_sim_a, rad_res, hit_res, dist_matrix, pdbstruct] = get_simulated_data( pdb );
+%%% [D_sim_a, rad_res, hit_res, dist_matrix, pdbstruct] = get_simulated_data( pdb );
+%%%
+%%% Script for simulating MOHCA contact maps (O2' to C4'), with vectorized distance 
+%%%     computation 
+%%%
+%%%  INPUT
+%%%     pdb      : PDB file name or pdbstruct object from pdbread.
+%%%
+%%%  OUTPUTS
+%%%     D_sim_a:       Data of simulated contact probabilities
+%%%     rad_res:       Residue numbers corresponding to radical source positions [5' stops]
+%%%     hit_res:       Residue numbers corresponding to ligation positions [3' ends + 1,
+%%%                        i.e., the sites actually hit by radicals.]
+%%%     dist_matrix:   Matrix of O2' (rad_res) to C4' (hit_res) distances.
+%%%     pdbstruct:     Object form pdbread
+%%%
+%%%
+%%% (C) Clarence Cheng, R. Das, 2013
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% 1. Read in PDB file (or copy to variable)
@@ -11,20 +30,25 @@ elseif isstruct(pdb)
     %fprintf('Input is structure array... reading in structure array... \n\n');
     pdbstruct = pdb;
 end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% 2. Calculate pairwise distances between 2'-OH of 'source position' and C4' of 'hit position' 
 D_sim_a = []; 
 
-[rad_atom, hit_atom] = figure_out_atoms( pdbstruct );
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% 2. Figure out atoms.
 
+[rad_atom, hit_atom] = figure_out_atoms( pdbstruct );
 [rad_x, rad_y, rad_z, rad_pos, rad_res ] = get_atoms( pdbstruct, rad_atom );
 [hit_x, hit_y, hit_z, hit_pos, hit_res ] = get_atoms( pdbstruct, hit_atom );
 
-% vectorized distance calculation:
-dist_matrix_raw = sqrt( d2_matrix( rad_x, hit_x ) + d2_matrix( rad_y, hit_y )  + d2_matrix( rad_z, hit_z ) );
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% 3. Calculate pairwise distances between 2'-OH of 'source position' and 
+%%%     C4' of 'hit position'. Vectorized for speed.
 
+dist_matrix_raw = sqrt( d2_matrix( rad_x, hit_x ) + d2_matrix( rad_y, hit_y )  + d2_matrix( rad_z, hit_z ) );
 dist_matrix( rad_pos, hit_pos )  = dist_matrix_raw;
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% 4. Convert distances to hit probability
 D_sim_a( rad_pos, hit_pos ) = 1 ./ dist_matrix_raw;
 
 

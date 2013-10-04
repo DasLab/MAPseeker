@@ -27,6 +27,8 @@ function [ D_sim, pdbstruct, D_combine ] = sim_MOHCAseq( pdbfile, pdbname, offse
 %%%
 %%% (C) Clarence Cheng, 2013
 
+if nargin < 1; help( mfilename ); return; end;
+
 [D_sim_a,pdbstruct] = get_simulated_data( pdb );
 
 for i = 1:length(pdbstruct.Model.Atom)
