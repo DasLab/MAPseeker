@@ -15,7 +15,8 @@ function [D_smooth, seqpos, ligpos, r] = smoothMOHCA( rdat_file, pdb, USE_Z_SCOR
 %%                 correct for attenuation and/or source distribution.
 %%
 %% Outputs 
-%%  D_smooth    = matrix of output, averaged over all data sets.
+%%  D_smooth    = matrix of output, averaged over all data sets (weighted by 
+%%                 inverse error^2).
 %%  seqpos      = MOHCA stop positions of 5' ends (x-axis)
 %%  ligpos      = MOHCA ligation positions at 3' ends (these are the cleavage 
 %%                 positions + 1, corresponding to the sites actually attacked).
