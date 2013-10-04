@@ -51,7 +51,10 @@ for i = 1:length( rdat_file )
 end
 
 
-weight = 1./mean_rel_error.^2
+% signal-to-noise estimate is mean(error)/mean(counts), and seems to 
+% correspond well to visual estimate of how noisy the data sets are.
+
+weight = 1 ./ mean_rel_error.^2
 D_smooth_sum = 0*squeeze( all_D_smooth(:,:,1) ); 
 weight_sum = 0;
 for i = 1:length( rdat_file )
@@ -128,17 +131,24 @@ ligpos = str2num( char(get_tag( r, 'lig_pos' )) );
 seqpos = r.seqpos;
 
 if USE_Z_SCORE
+  % Use Clarence's Z-score pipeline, which takes in reactivities.
   %D_err = r.reactivity_error;
   [ D_correct, D_correct_err ] = determine_corrected_reactivity( D, 1.0);
   D_show = get_MOHCAseq_zscores( D_correct, D_correct_err, 0.0 );
   threshold = 0.5;
+
 else
 
+  % 'repsub' pipeline.
   N_RNA = size(D,2);
+
+  % use average reverse transcription profile over RNAs that got cut in 3' flanking sequences to provide a 
+  % reference to stuff that isn't the contact map.
   refcols = N_RNA+[-12:-2];
-  
   [D_norm, ref_profile] = normalize_to_RNA( D, refcols );
   
+  % normalized each 'row' (reverse transcription profile) based on match of observed window to 
+  % corresponding window in reference profile.
   D_norm( isnan( D_norm ) ) = 0.0;
   D_norm = D_norm/ mean( mean(D_norm) );
   D_repsub = D_norm  - repmat( mean(D_norm( :, refcols ),2), 1, N_RNA);
@@ -152,7 +162,9 @@ else
   %D_show = D_repsub;
   
   D_show = 10*D_norm;
-  
+
+  % reweights so that data from regions that are radical-source-rich are pushed back down
+  % to the level of other regions.
   if MOD_CORRECT
     mod_profile = repmat( smooth( ref_profile ), 1, N_RNA);
     mod_profile = mod_profile / mean( mod_profile(  find( ~isnan( mod_profile) ) ) );
@@ -164,4 +176,6 @@ else
   threshold = mean( std( D_show_ref ) );
 end
 
+% smoothing & removing noise for pretty plots. Note that this will have negative values, but
+% those will not be displayed on image.
 D_smooth = smooth2d( D_show' - 0.2*threshold);
