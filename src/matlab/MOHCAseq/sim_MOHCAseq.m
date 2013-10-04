@@ -127,7 +127,7 @@ D_sim = D_sim_a;
 fprintf('Dimensions of simulated dataset expanded to size of experimental data: %s\n\n', num2str(size(D_sim)));
 
 % for n = 1:length(D_sim)
-figure(fignum_start); clf reset; fig_MOHCAseq( D_sim, 1, 1000, 1-gray(100), pdbname, 'Simulated data', offset, tail_length, seqstart, 1, 1, 1);
+figure(fignum_start); clf reset; fig_MOHCAseq( D_sim, 0, 1000, 1-gray(100), pdbname, 'Simulated data', offset, tail_length, seqstart, 1, 1, 1);
 % end
 fignum_start = fignum_start + 1;
 
