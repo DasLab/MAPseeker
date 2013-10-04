@@ -49,6 +49,7 @@ function [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_re
 %          'output_raw_rdat' = save raw counts into a RAW.rdat file.
 %          'no_stair_plots'  = turn off stair plots
 %          'strict_stats'    = use strict_stats* ffiles (not stats_* files).
+%          'no_norm'         = no boxplot or reference-based normalization
 %
 % Outputs:
 %
@@ -73,6 +74,7 @@ if ~exist( 'library_file') | length( library_file ) == 0;  library_file = 'RNA_s
 if ~exist( library_file );  library_file = 'RNA_sequences.fasta'; end    
 if ~exist( 'primer_file') | length( primer_file ) == 0; primer_file = 'primers.fasta';end;
 if ~exist( 'inpath') | length( inpath ) == 0; inpath = './';end;
+
 FULL_LENGTH_CORRECTION_FACTOR_SPECIFIED = 0;
 if ~exist( 'full_length_correction_factor') | length( full_length_correction_factor ) == 0;  % if not inputted, try this.
   full_length_correction_factor = 0.5; % default. 
@@ -90,9 +92,14 @@ print_it( fid, [pwd(),'\n\n'] );
 
 output_tag = strrep( strrep( inpath, '.','' ), '/', '' ); % could be blank
 
+if ~exist( library_file, 'file' ) & exist( 'MOHCA.fasta','file' );  get_frag_library; end
+
 RNA_info = fastaread_structures( library_file );
 primer_info = fastaread( primer_file );
 N_primers = length( primer_info );
+
+% check if this is MOCHA run.
+MOHCA = isMOHCA( RNA_info );
 
 % load the data
 
@@ -103,7 +110,8 @@ if STRICT_STATS; stats_prefix = 'strict_stats'; end;
 
 stats_file = sprintf( '%s/%s_ID%d.txt', inpath,stats_prefix, 1);
 if ~exist( stats_file, 'file' )
-  run_map_seeker_executable( library_file, primer_file, inpath );
+  align_all = MOHCA;
+  run_map_seeker_executable( library_file, primer_file, inpath, align_all );
 end
 
 for i = 1:N_primers;    
@@ -275,14 +283,16 @@ clf;
 make_image_plot( D_correct, RNA_info, primer_info, most_common_sequences, 'correct', 1000 );
 
 BOXPLOT_NORMALIZATION = 0;
-if REFERENCE_INCLUDED
-  [D_final, D_final_err] = apply_reference_normalization( D_final, D_final_err, ref_idx, ref_segment, RNA_info, fid );
-else
-  [D_final, D_final_err] = apply_boxplot_normalization( D_final, D_final_err, fid );
-  BOXPLOT_NORMALIZATION = 1;
+NORM = isempty( find( strcmp( more_options, 'no_norm' ) ) );
+if NORM
+  if REFERENCE_INCLUDED
+    [D_final, D_final_err] = apply_reference_normalization( D_final, D_final_err, ref_idx, ref_segment, RNA_info, fid );
+  else
+    [D_final, D_final_err] = apply_boxplot_normalization( D_final, D_final_err, fid );
+    BOXPLOT_NORMALIZATION = 1;
+  end
 end
 final_image_scalefactor = 20;
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Make 2D gray of all reactivities, background subtracted
@@ -354,18 +364,18 @@ if OUTPUT_RDAT
   elseif BOXPLOT_NORMALIZATION;  annotations = [ annotations, ['processing:normalization:boxplot'] ]; 
   end
   
-  OUTPUT_RAW = ~isempty( find( strcmp( more_options, 'output_raw_rdat' ) ) );
+  OUTPUT_RAW = ~isempty( find( strcmp( more_options, 'output_raw_rdat' ) ) ) || MOHCA;
   if OUTPUT_RAW
     rdat_raw_filename = [ dirname, '.RAW.rdat' ];
-    MAPseeker_to_rdat( rdat_raw_filename, name, D_raw, cell_sqrt( D_raw ), primer_info, RNA_info, comments, annotations, 1 );
+    MAPseeker_to_rdat_by_primer( rdat_raw_filename, name, D_raw, cell_sqrt( D_raw ), primer_info, RNA_info, comments, annotations, 1 );
   end
   
-  r = MAPseeker_to_rdat( rdat_filename, name, D, D_err, primer_info, RNA_info, comments, annotations );
+  r = MAPseeker_to_rdat_by_primer( rdat_filename, name, D, D_err, primer_info, RNA_info, comments, annotations );
   
   if REFERENCE_INCLUDED
     rdat_filename_reference = [ dirname, '_REFERENCE.rdat' ];
     name = RNA_info_ref(1).Header;
-    MAPseeker_to_rdat( rdat_filename_reference, name, D_ref, D_ref_err, primer_info, RNA_info_ref, comments, annotations );
+    MAPseeker_to_rdat_by_primer( rdat_filename_reference, name, D_ref, D_ref_err, primer_info, RNA_info_ref, comments, annotations );
   end
 end
 
@@ -392,7 +402,7 @@ print_it( fid, '\n' );
 if BACKGD_SUB;  print_it( fid, sprintf(  'Applied background subtraction.\n') );
 else print_it( fid, sprintf(  'Did NOT apply background subtraction.\n') ); end;
 if REFERENCE_INCLUDED;  print_it( fid, sprintf(  'Normalized based on reference.\n') );
-else print_it( fid, sprintf(  'Did not normalize based on reference -- used boxplot_normalize on each primer.\n') ); end;
+elseif BOXPLOT_NORMALIZATION; print_it( fid, sprintf(  'Did not normalize based on reference -- used boxplot_normalize on each primer.\n') ); end;
 if AUTOFIT_ATTENUATION;  print_it( fid, sprintf(  'Autofitted ligation bias for attenuation correction.\n') ); end;
 
 print_it( fid, '\n' );
@@ -446,8 +456,8 @@ function make_image_plot( D, RNA_info, primer_info, most_common_sequences, title
 
 clf;
 
-N_RNA = size( D{1}, 2 );
 N_res = size( D{1}, 1 ); % this is actually the number of residues + 1 (first value is at zero).
+N_RNA = size( D{1}, 2 );
 N_primers = length( primer_info );
 
 % if there are lots of sequences with one length, and one with a longer length, ignore the latter.
@@ -486,11 +496,17 @@ if STRUCTURES_DEFINED
   xticklabels = [ xticklabels, [0:20:L-20] ];  
 end
 
+offset_to_conventional = 0;
+MOHCA = isMOHCA( RNA_info );
+if MOHCA
+  offset_to_conventional = str2num( get_tag_from_string( RNA_info( end ).Header, 'offset' ) );
+end
+
 for i = 1:N_primers
 
-  offset = (i+STRUCTURES_DEFINED-1)*L;
-  minresidx = 1 + offset; 
-  maxresidx = L + offset;
+  bound_offset = (i+STRUCTURES_DEFINED-1)*L;
+  minresidx = 1 + bound_offset; 
+  maxresidx = L + bound_offset;
   Dplot = D{i};
   if ~exist( 'scalefactor' )
     meanval = mean(mean(Dplot(2:end-1, :)));
@@ -510,14 +526,16 @@ for i = 1:N_primers
   plot_title = join_string( title_cols, '\n' );
   plot_titles = [ plot_titles, plot_title ];
 
-  xticks      = [ xticks,      [0:20:L-20] + offset];
-  xticklabels = [ xticklabels, [0:20:L-20] ];
+  xticks      = [ xticks,      [0:L] + bound_offset];
+  xticklabels = [ xticklabels, [0:L] + offset_to_conventional ];
   
   boundaries = [boundaries, maxresidx ];
   
 end
 image( [0:(L*N_plots)-1], [1:N_RNA], imagex );
-set( gca,'tickdir','out','xtick',xticks,'xticklabel',xticklabels,'fontw','bold','fonts',6);
+
+gp = find( mod(xticklabels,20) == 0 );
+set( gca,'tickdir','out','xtick',xticks(gp),'xticklabel',xticklabels(gp),'fontw','bold','fonts',6);
 boundaries = boundaries( 1:end-1);
 make_lines( boundaries, 'b', 0.25 );
 make_lines( boundaries-1, 'b', 0.25 );
@@ -536,6 +554,15 @@ if (N_RNA < 220 );  %totally arbitrary cut
   set( gca,'ytick',[1:N_RNA],'yticklabel',RNA_labels);
 end
 
+if MOHCA
+  for i = 1:length( RNA_info )
+    lig_pos(i) = str2num( get_tag_from_string( RNA_info(i).Header, 'lig_pos' ) );
+  end
+  gp = find( mod(lig_pos,20) == 0 );
+  set( gca,'ytick',gp,'yticklabel',lig_pos( gp ) );
+  set( gca,'xgrid','on','ygrid','on');
+end
+
 N_display = length( most_common_sequences );
 for j = 1:N_display
   idx = most_common_sequences(j);
@@ -551,7 +578,7 @@ set(gcf, 'PaperPositionMode','auto','color','white');
 xlabel( basename(pwd),'interpreter','none' );
 %print( '-dpdf',sprintf( 'EteRNA_PlayerProjects_RawData%02d.pdf',j) );
 
-axis image;
+if MOHCA; axis image; end;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function make_lines( line_pos, colorcode, linewidth );
@@ -808,3 +835,7 @@ function sqrtD = cell_sqrt( D );
 for i = 1:length( D ) 
   sqrtD{i} = sqrt( D{i} );
 end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function MOHCA = isMOHCA( RNA_info );
+MOHCA = ~isempty( strfind( RNA_info(1).Header, 'MOHCA' ) );

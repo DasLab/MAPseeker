@@ -1,5 +1,5 @@
 function [Zscores_mask, Zscores_mask_err, D_sim, pdbstruct, D_combine, Zscores, Zscores_err] = analyze_MOHCAseq( D, D_err, D_raw, plot_heads, offset, tail_length, seqstart, pdbfile, sample_sel, source_locs, printfig )
-
+%%% [Zscores_mask, Zscores_mask_err, D_sim, pdbstruct, D_combine, Zscores, Zscores_err] = analyze_MOHCAseq( D, D_err, D_raw, plot_heads, offset, tail_length, seqstart, pdb, sample_sel, source_locs, printfig )
 %%%
 %%%  INPUTS
 %%%     D:              Cell array of reactivities, output by MAPseeker 

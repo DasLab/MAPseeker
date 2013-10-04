@@ -113,7 +113,7 @@ for i = 1:length(D)
 end
 
 
-fprintf( 'Maximum sequence length: %d\n', max_seq_len );
+%fprintf( 'Maximum sequence length: %d\n', max_seq_len );
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if JUST_ONE_RNA 
@@ -128,12 +128,19 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 seqpos = [ 1 : size(reactivity,1) ];
 offset = 0; 
+offset_string = get_tag_from_string( RNA_info(end).Header, 'offset' );
+if length( offset_string ) > 0; 
+  offset = str2num( offset_string ); 
+  seqpos = seqpos + offset;
+  if ( length( RNA_info(end).Sequence )  == max_seq_len ); sequence = strrep( RNA_info(end).Sequence, '*','X' ); end;
+end;
+
 
 if INCLUDE_ZERO_IN_SEQPOS; 
   seqpos    = seqpos - 1; 
   sequence  = [ 'X', sequence ];
-  structure = [ 'X', sequence ];
-  offset = -1;
+  structure = [ '.', structure ];
+  offset = offset - 1;
 end;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

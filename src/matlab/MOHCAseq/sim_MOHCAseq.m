@@ -1,5 +1,5 @@
 function [ D_sim, pdbstruct, D_combine ] = sim_MOHCAseq( pdbfile, pdbname, offset, tail_length, fignum_start, plot_heads, D, printfig )
-
+%%% [ D_sim, pdbstruct, D_combine ] = sim_MOHCAseq( pdb, pdbname, offset, tail_length, fignum_start, plot_heads, D, printfig )
 %%%
 %%%  INPUTS
 %%%     pdbfile:       Either a string name of a .pdb file or a structure array produced by the pdbread function 
@@ -27,22 +27,7 @@ function [ D_sim, pdbstruct, D_combine ] = sim_MOHCAseq( pdbfile, pdbname, offse
 %%%
 %%% (C) Clarence Cheng, 2013
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% 1. Read in PDB file (or copy to variable)
-
-if ischar(pdbfile)
-    fprintf('Input is .pdb file... reading in .pdb file... \n\n');
-    pdbstruct = pdbread(pdbfile);
-    pdbname = pdbfile;
-elseif isstruct(pdbfile)
-    fprintf('Input is structure array... reading in structure array... \n\n');
-    pdbstruct = pdbfile;
-end
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% 2. Calculate pairwise distances between 2'-OH of 'source position' and C4' of 'hit position' 
+[D_sim_a,pdbstruct] = get_simulated_data( pdb );
 
 for i = 1:length(pdbstruct.Model.Atom)
     resSeqs(i) = pdbstruct.Model.Atom(1,i).resSeq;
@@ -51,65 +36,9 @@ end
 struct_length = max(resSeqs) - pdbstruct.Model.Atom(1,1).resSeq;
 fprintf('Total length of PDB sequence: %s\n\n', num2str(struct_length));
 
-seqstart = pdbstruct.Model.Atom(1,1).resSeq;
-
+struct_length = max(resSeqs) - pdbstruct.Model.Atom(1,1).resSeq;
 tot_length = offset+1 + struct_length+1 + tail_length;
 fprintf('Total length of PDB sequence with offset and tail: %s\n\n', num2str(tot_length));
-
-D_sim_a = [];
-D_sim = [];
-rad_pos = 1;
-hit_pos = 1;
-
-
-for i = 1:20
-    if strcmp(pdbstruct.Model.Atom(1,i).AtomName, 'O2''')
-        atomname = 1;
-    elseif strcmp(pdbstruct.Model.Atom(1,i).AtomName, 'O2*')
-        atomname = 2;
-    end
-end
-
-if atomname == 1;
-    rad_atom = 'O2''';
-    hit_atom = 'C4''';
-    fprintf('2''-OH atom name: %s\n\n', 'O2''');
-elseif atomname == 2;
-    rad_atom = 'O2*';
-    hit_atom = 'C4*';
-    fprintf('2''-OH atom name: %s\n\n', 'O2*');
-end
-
-if ~exist('atomname')
-    fprintf('Warning! Unable to detect a 2''-OH atom name...\n\n');
-    return
-end
-
-% for n = 1:length(D)
-    for i = 1:length(pdbstruct.Model.Atom)
-        if strcmp(pdbstruct.Model.Atom(1,i).AtomName, rad_atom)
-    %         pdbstruct.Model.Atom(1,i).resSeq;
-            xi = pdbstruct.Model.Atom(1,i).X;
-            yi = pdbstruct.Model.Atom(1,i).Y;
-            zi = pdbstruct.Model.Atom(1,i).Z;
-            for j = 1:length(pdbstruct.Model.Atom)
-                if strcmp(pdbstruct.Model.Atom(1,j).AtomName, hit_atom)
-                    rad_pos(i,j) = pdbstruct.Model.Atom(1,i).resSeq - seqstart + 1;    % radical location is the nucleotide position of the 2'-OH; adjust the numbering to start at 1
-                    hit_pos(i,j) = pdbstruct.Model.Atom(1,j).resSeq - seqstart + 1;    % hit location is 1 nt 3' of the nt position of the C4' (will offset by 1 later); adjust the numbering to start at 1
-                    xj = pdbstruct.Model.Atom(1,j).X;
-                    yj = pdbstruct.Model.Atom(1,j).Y;
-                    zj = pdbstruct.Model.Atom(1,j).Z;
-                    dist = sqrt( (xj-xi)^2 + (yj-yi)^2 + (zj-zi)^2 );
-                    D_sim_a(rad_pos(i,j), hit_pos(i,j)) = 1/dist;       %{1,n}
-                else
-                end
-            end
-        else
-        end
-    end
-% end
-
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% 3. Pad simulated data with zeros to match dimensions of experimental data 
@@ -125,6 +54,8 @@ D_sim = D_sim_a;
 % end
 
 fprintf('Dimensions of simulated dataset expanded to size of experimental data: %s\n\n', num2str(size(D_sim)));
+
+if ~PLOT_STUFF; return; end;
 
 % for n = 1:length(D_sim)
 figure(fignum_start); clf reset; fig_MOHCAseq( D_sim, 0, 1000, 1-gray(100), pdbname, 'Simulated data', offset, tail_length, seqstart, 1, 1, 1);
@@ -147,7 +78,7 @@ if exist('D');
         for i = 1:length(D_sim)
             for j = 1:length(D_sim)
                 if i <= j
-                    D_combine{1,n}(i,j) = D_sim(i,j)*1000;
+                    D_combine{1,n}(i,j) = D_sim(i,j)*500;
                 else
                 end
             end
@@ -165,7 +96,7 @@ if exist('D');
                 plot(y,'Color',[0.5 0.5 0.5]);
             end
             z = xn;
-            plot(z,'Color','k');
+            plot(z,'Color','m');
             
         figcomb(n) = fignum_start + 2*(n-1) + 1;
         figure(figcomb(n)); clf reset;
@@ -179,6 +110,7 @@ if exist('D');
             z = xn;
             plot(z,'Color','k');
     end
+    set(gcf, 'PaperPositionMode','auto','color','white');
     
 else
     fprintf('No experimental data input... No comparison plot will be generated...\n\n');

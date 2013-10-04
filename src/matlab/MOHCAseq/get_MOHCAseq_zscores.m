@@ -1,5 +1,6 @@
 function [zscores, zscores_err, zscores_mask, zscores_mask_err] = get_MOHCAseq_zscores( data, data_err, thresh )
-
+%%% [zscores, zscores_err, zscores_mask, zscores_mask_err] = get_MOHCAseq_zscores( data, data_err, thresh )
+%%%
 %%% Function for getting Z-scores and errors of Z-scores for MOHCA-Seq
 %%% data, which is organized in cell arrays as output by MAPseeker. 
 %%%
