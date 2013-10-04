@@ -144,6 +144,9 @@ int main(int argc, const char *argv[]) {
 
     for(unsigned j=0; j< seqCount_library; j++) {
       assignSeq(seq_from_library, multiSeqFile_library[j], format_library);    // read sequence
+      //      std::string blah;
+      //      assignSeqId(blah, multiSeqFile_library[j], format_library);   // read sequence id
+      //      std::cout << j << " " << blah << " out of " << seqCount_library  << std::endl;
       check_for_star_sequence( seq_from_library, sequences_before_star, sequences_after_star, star_sequence_ids, j );
       RNA2DNA( seq_from_library );
       RNA_sequences.push_back( seq_from_library );
@@ -182,11 +185,10 @@ int main(int argc, const char *argv[]) {
     std::cout << "Reading MiSEQ, RNA library, primer sequence files took: " << SEQAN_PROTIMEDIFF(loadTime) << " seconds." << std::endl;
 
     // initialize a histogram recording the counts [convenient for plotting in matlab, R, etc.]
-    std::vector< double > sequence_counts( max_rna_len+1,0.0 );
+    std::vector< double > sequence_counts( max_rna_len+1, 0.0 );
     std::vector< std::vector< double > > bunch_of_sequence_counts( seqCount_library, sequence_counts);
     std::vector< std::vector< std::vector < double > > > all_count( seqCount_expt_id, bunch_of_sequence_counts);
-
-    std::vector< std::vector< std::vector < double > > > all_count_strict = all_count;
+    //    std::vector< std::vector< std::vector < double > > > all_count_strict = all_count;
 
     // keep track of how many sequences pass through each filter
     std::vector< unsigned > counter_counts;
@@ -386,8 +388,7 @@ int main(int argc, const char *argv[]) {
 	    int cscr = getScore(pattern_in_specific_sequence);
 	    if ( cscr >= mscr ){ // in case of ties, keep track of all hits
 	      findBegin( finder_in_specific_sequence, pattern_in_specific_sequence, mscr );
-	      int mpos = beginPosition( finder_in_specific_sequence )-1;
-	      if ( mpos < 0 ) mpos = 0;
+	      int mpos = int(beginPosition( finder_in_specific_sequence )) - 1; // the -1 appears necessary for myers beginPos. Sigh.
 	      //	      if ( sid_idx >= 200 && mpos > 180 ) { if (!verbose) { std::cout << std::endl; verbose = true;} }
 	      //	      if ( verbose ) std::cout << "check: " << mpos << " gives score " << cscr << std::endl;
 	      // watch out ... this can't go beyond the "sequence id"!?
@@ -424,7 +425,7 @@ int main(int argc, const char *argv[]) {
 	if ( verbose ) std::cout << "READ2 " << mpos << " " << sid_idx << std::endl;
 	if ( mpos < 0 ) mpos = 0;
 	all_count[ expt_idx ][ sid_idx ][ mpos ] += weight;
-	if ( mscr == 0 ) all_count_strict[ expt_idx ][ sid_idx ][ mpos ] += weight;
+	//	if ( mscr == 0 ) all_count_strict[ expt_idx ][ sid_idx ][ mpos ] += weight;
       }
     }
 
@@ -442,7 +443,7 @@ int main(int argc, const char *argv[]) {
     if ( align_all ) std::cout << "Null ligations           : " << nullLigation << std::endl;
 
     output_stats_files( all_count, outpath, "stats" );
-    output_stats_files( all_count_strict, outpath, "strict_stats" );
+    //    output_stats_files( all_count_strict, outpath, "strict_stats" );
 
     return 1;
 }
@@ -1040,12 +1041,12 @@ output_stats_files( std::vector< std::vector< std::vector < double > > > const &
     for ( unsigned j = 0; j < seqCount_library; j++ ){
       double total_for_RNA( 0.0 );
 
-    unsigned const max_rna_len = all_count[i][j].size() - 1;
-      for ( unsigned k = 0; k < max_rna_len+1; k++ ){
-	fprintf( stats_oFile, " %11.3f", all_count[i][j][k] );
+      unsigned const max_rna_len_plus_one = all_count[i][j].size();
+      for ( unsigned k = 0; k < (max_rna_len_plus_one); k++ ){
+	fprintf( stats_oFile, " %10.3f", all_count[i][j][k] );
 	total_for_RNA += all_count[i][j][k];
       }
-      // std::cout << total_for_RNA << std::endl; // was used to check if total was integer.
+      //      std::cout << i << " " << j << " " << all_count[i][j][0] << " " << max_rna_len_plus_one << " " << total_for_RNA << " " << std::endl; // was used to check if total was integer.
       fprintf( stats_oFile, "\n");
     }
     fclose( stats_oFile );
