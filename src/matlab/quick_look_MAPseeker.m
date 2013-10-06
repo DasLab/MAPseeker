@@ -92,7 +92,10 @@ print_it( fid, [pwd(),'\n\n'] );
 
 output_tag = strrep( strrep( inpath, '.','' ), '/', '' ); % could be blank
 
-if ~exist( library_file, 'file' ) & exist( 'MOHCA.fasta','file' );  get_frag_library; end
+if ~exist( [inpath,library_file], 'file' ) & exist( 'MOHCA.fasta','file' );  
+    get_frag_library; 
+end
+
 
 RNA_info = fastaread_structures( library_file );
 primer_info = fastaread( primer_file );

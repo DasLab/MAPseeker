@@ -40,6 +40,9 @@ function [ frag_lib_seqs, frag_lib_heads, frag_lib_seqs_tail ] = get_frag_librar
 %% defaults
 if ~exist( 'rna_seqs_FL', 'var' ); rna_seqs_FL = 'MOHCA.fasta'; end;
 
+RNA_sequences_file = 'RNA_sequences.fasta';
+fprintf( 'Generating from %s: %s\n', rna_seqs_FL, RNA_sequences_file );
+
 %% Read fasta format to get names and sequences of full-length RNAs
 
 % Read full-length RNA sequences and headers, as well as sequence and header of DNA tail, from .fasta files
@@ -121,9 +124,7 @@ for i = 1:length(frag_lib_seqs)
     end
 end
 
-RNA_sequences_file = 'RNA_sequences.fasta';
-fprintf( 'Generating from %s: %s\n', rna_seqs_FL, RNA_sequences_file );
-if exist( RNA_sequences_file ); delete( RNA_sequences_file ); end;
+if exist( RNA_sequences_file, 'file' ); delete( RNA_sequences_file ); end;
 fastawrite_noNL( RNA_sequences_file, frag_lib_heads, frag_lib_seqs_tail );    % Write headers and sequences to fragment library .fasta file
 
 

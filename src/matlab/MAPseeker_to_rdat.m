@@ -190,6 +190,9 @@ if ~isempty( str2num( tag ) ) ok = 1; end;
 % and remove them from data_annotations.
 function [shared_annotations, data_annotations] = find_shared_annotations( input_annotations, data_annotations );
 
+shared_annotations = {};
+if length( data_annotations ) == 0; return; end;
+
 shared_annotations = data_annotations{1};
 
 match = ones(  length( shared_annotations ), 1 );
