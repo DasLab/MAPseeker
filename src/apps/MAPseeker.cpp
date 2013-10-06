@@ -1,14 +1,14 @@
+// -*- mode:c++;tab-width:2;indent-tabs-mode:t;show-trailing-whitespace:t;rm-trailing-spaces:t -*-
+// vi: set ts=2 noet:
+// :noTabs=false:tabSize=4:indentSize=4:
+//
+// (c) Copyright Laboratory of Rhiju Das, Stanford University.
+
 #define SEQAN_PROFILE // enable time measurements
+
 #include <apps/MAPseeker.h>
+#include <seqan/seq_io.h>
 #include <seqan/misc/misc_cmdparser.h>
-#include <tr1/unordered_map>
-#include <seqan/file.h>
-#include <iostream>
-#include <sstream>
-#include <string>
-#include <stdio.h>
-
-
 
 //cseq is the constant region between the experimental id and the sequence id
 //in the Das lab this is the tail2 sequence AAAGAAACAACAACAACAAC
@@ -17,12 +17,11 @@ std::string const daslab_tail2_sequence("AAAGAAACAACAACAACAAC");
 std::string const universal_adapter_sequence( "AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGATCT");
 std::string const universal_adapter_sequence2("AGATCGGAAGAGC"); // reverse complement of AadaptBp or truseq 'adapter' sequence
 
-
 //Versioning information
 inline void
 _addVersion(CommandLineParser& parser) {
-    ::std::string rev = "$Revision: 0075 $";
-    addVersionLine(parser, "Version 1.2 (30 September 2013) Revision: " + rev.substr(11, 4) + "");
+    ::std::string rev = "$Revision: 106 $";
+    addVersionLine(parser, "Version 1.3 (6 October 2013) Revision: " + rev.substr(11, 4) + "");
 }
 
 int main(int argc, const char *argv[]) {
@@ -99,32 +98,18 @@ int main(int argc, const char *argv[]) {
     ////////////////////////////////////////////////////////////////////
     // Read in Illumina fastq files
     ////////////////////////////////////////////////////////////////////
-    MultiSeqFile multiSeqFile1, multiSeqFile2, multiSeqFile_library;
-    AutoSeqFormat format1, format2, format_library;
-    unsigned seqCount1, seqCount2, seqCount_library;
-    read_in_fastq( multiSeqFile1, format1, file1, seqCount1 );
-    read_in_fastq( multiSeqFile2, format2, file2, seqCount2 );
+    MultiSeqFile  multiSeqFile_library;
+    AutoSeqFormat format_library;
+    unsigned      seqCount_library;
     read_in_fastq( multiSeqFile_library, format_library, file_library, seqCount_library );
 
-    if(seqCount1 != seqCount2 ){
-        std::cout << "MiSeq input files contain different number of sequences" << std::endl;
-        return 1;
-    } else {
-        std::cout << "Total Pairs: " << length(multiSeqFile1) << ":" << length(multiSeqFile2) << std::endl;
-    }
+    std::ifstream fastq1(file1.c_str(), std::ios_base::in | std::ios_base::binary);
+    if (!fastq1.good()) { std::cerr << "Problem with file: " << file1 << std::endl; exit( 0 );}
+    RecordReader<std::ifstream, SinglePass<> > reader1(fastq1);
 
-    // following would be way more memory efficient -- a stream.
-    // however, RecordReader no longer seems to exist in seqan library !?
-
-    // std::ifstream fastq1(file1.c_str(), std::ios_base::in | std::ios_base::binary);
-    // if (!fastq1.good())  return 1;
-    // RecordReader<std::ifstream, SinglePass<> > reader1(fastq1);
-    // if (!checkStreamFormat(reader1, format1))  return 1;
-
-    // std::ifstream fastq1(file2.c_str(), std::ios_base::in | std::ios_base::binary);
-    // if (!fastq2.good())  return 1;
-    // RecordReader<std::ifstream, SinglePass<> > reader2(fastq2);
-    // if (!checkStreamFormat(reader2, format2))  return 1;
+    std::ifstream fastq2(file2.c_str(), std::ios_base::in | std::ios_base::binary);
+    if (!fastq2.good()) { std::cerr << "Problem with file: " << file2 << std::endl; exit( 0 );}
+    RecordReader<std::ifstream, SinglePass<> > reader2(fastq2);
 
 
     //////////////////////////////////////////////
@@ -182,7 +167,7 @@ int main(int argc, const char *argv[]) {
     //    Index<THaystacks> index_expt_ids(haystacks_expt_ids);
     Finder<Index<THaystacks> > finder_expt_id(haystacks_expt_ids);
 
-    std::cout << "Reading MiSEQ, RNA library, primer sequence files took: " << SEQAN_PROTIMEDIFF(loadTime) << " seconds." << std::endl;
+    std::cout << "Setup of MiSEQ, RNA library, primer sequence files took: " << SEQAN_PROTIMEDIFF(loadTime) << " seconds." << std::endl;
 
     // initialize a histogram recording the counts [convenient for plotting in matlab, R, etc.]
     std::vector< double > sequence_counts( max_rna_len+1, 0.0 );
@@ -206,23 +191,10 @@ int main(int argc, const char *argv[]) {
     ////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////
-    //    while (!atEnd(reader1) && !atEnd(reader2)){
+    while (!atEnd(reader1) && !atEnd(reader2)){
 
-    for (unsigned i = start_at_read; i < seqCount1; i += increment_between_reads) {
-
-      // Get the next forward and reverse read...
-      assignSeq(seq1, multiSeqFile1[i], format1);    // read sequence
-      assignQual(qual1, multiSeqFile1[i], format1);  // read ascii quality values
-      assignSeqId(id1, multiSeqFile1[i], format1);   // read sequence id
-
-      assignSeq(seq2, multiSeqFile2[i], format2);    // read sequence
-      assignQual(qual2, multiSeqFile2[i], format2);  // read ascii quality values
-      assignSeqId(id2, multiSeqFile2[i], format2);   // read sequence id
-
-      // following would be way more memory efficient -- a stream.
-      // however, RecordReader no longer seems to exist in seqan library !?
-      // if (readRecord(id1, seq1, reader1, format1) != 0) return 1;
-      // if (readRecord(id2, seq2, reader2, format2) != 0) return 1;
+      if (readRecord(id1, seq1, qual1, reader1, seqan::Fastq()) != 0) return 1;
+      if (readRecord(id2, seq2, qual2, reader2, seqan::Fastq()) != 0) return 1;
 
       reverseComplement(seq1);
 
@@ -430,7 +402,7 @@ int main(int argc, const char *argv[]) {
     }
 
 
-    std::cout << "Aligning " << seqCount1 << " sequences took " << SEQAN_PROTIMEDIFF(alignTime) << " seconds " << std::endl;
+    std::cout << "Aligning " << counter_counts[0] << " sequences took " << SEQAN_PROTIMEDIFF(alignTime) << " seconds " << std::endl;
 
     std::cout << std::endl;
     std::cout << "Purification table" << std::endl;
@@ -794,6 +766,8 @@ figure_out_expt_IDs( std::string const & file_primers,
       exit( 0 );
     }
 }
+
+
 
 
 //////////////////////////////////////////////////
