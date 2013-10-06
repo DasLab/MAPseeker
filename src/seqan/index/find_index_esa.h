@@ -156,7 +156,8 @@ namespace SEQAN_NAMESPACE_MAIN
 			_left = 0;
 			_lSize = 1;
             _iSize = size;
-			for(_xSize = 1; _xSize < size; _xSize <<= 1) ;
+			for(_xSize = 1; _xSize < size; _xSize <<= 1) 
+			  ;
             if (!size) _xSize = 0;
 		}
 

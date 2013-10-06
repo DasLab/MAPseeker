@@ -384,12 +384,13 @@ end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 putSHAPEscores = isempty( find( strcmp( more_options, 'noSHAPEscores' ) ) );
-if (exist( 'put_SHAPEscore_into_RDAT') == 2) & ( size( D{1},2) > 500 ) && putSHAPEscores
+if (exist( 'put_SHAPEscore_into_RDAT') == 2) & ( size( D{1},2) > 500 ) & putSHAPEscores & OUTPUT_RDAT
   print_it( fid, 'Found put_SHAPEscore_into_RDAT, and this looks like a cloud lab run.\n' );
   rdat_filename_with_scores =  strrep( rdat_filename, '.rdat','_WITH_SCORES.rdat' );
   print_it( fid, sprintf('Creating: %s\n', rdat_filename_with_scores) );
   figure(7);
-  put_SHAPEscore_into_RDAT( r, rdat_filename_with_scores );
+  r = MAPseeker_to_rdat( rdat_filename, name, D, D_err, primer_info, RNA_info, comments, annotations );
+  put_SHAPEscore_into_RDAT( r, rdat_filename_with_scores ); 
 end
 
 %r
