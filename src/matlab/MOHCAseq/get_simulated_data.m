@@ -52,6 +52,17 @@ dist_matrix( rad_pos, hit_pos )  = dist_matrix_raw;
 D_sim_a( rad_pos, hit_pos ) = 1 ./ dist_matrix_raw;
 
 
+%%% 5. Detect whether there were any gaps in the pdb sequence and fill them
+%%% in if so - prevents a dimension mismatch during smoothMOHCA
+test = max(rad_res) - min(rad_res);
+if test > length(rad_res)
+    rad_res1 = rad_res;
+    rad_res = min(rad_res):max(rad_res);
+    hit_res1 = hit_res;
+    hit_res = min(hit_res):max(hit_res);
+end
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [xi,yi,zi,pos,res_seq] = get_atoms( pdbstruct, rad_atom );

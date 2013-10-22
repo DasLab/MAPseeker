@@ -36,6 +36,7 @@ if ~exist( 'image_options' ) image_options = {}; end;
 if ~iscell( image_options ); assert( ischar( image_options ) ); image_options = { image_options }; end;
 if ~iscell( rdat_file ) rdat_file = { rdat_file }; end;
 D_sim_a = [];
+dist_matrix = []; rad_res = []; hit_res = [];
 if exist( 'pdb', 'var' );  [D_sim_a, rad_res, hit_res, dist_matrix, pdbstruct] = get_simulated_data( pdb ); end
 
 % show all data sets.
@@ -44,18 +45,17 @@ for i = 1:length( rdat_file )
   [all_D_smooth(:,:,i), seqpos, ligpos, r{i}, all_D_smooth_error(:,:,i), r_name ] = get_D_smooth( rdat_file{i}, MODE );  
   make_plot( squeeze( all_D_smooth(:,:,i) ), ...
 	     squeeze( all_D_smooth_error(:,:,i) ), ...
-	     seqpos, ligpos, r{i}.sequence, r{i}.offset, r_name, dist_matrix, rad_res, hit_res, pdb, ...
+	     seqpos, ligpos, r{i}.sequence, r{i}.offset, r_name, dist_matrix, rad_res, hit_res, ...
 	     MODE, image_options );
   if i > 1; cat_name = [cat_name, '\newline' ]; end
   cat_name = [cat_name, r_name];
   drawnow;
 end
 
-% average across data sets.
 if ( length( rdat_file )  > 1 )
   [D_smooth, D_smooth_error ] = get_weighted_average( all_D_smooth, all_D_smooth_error );
   make_plot( D_smooth, D_smooth_error, seqpos, ligpos, r{1}.sequence, r{1}.offset, ...
-	     cat_name, dist_matrix, rad_res, hit_res, pdb, ...
+	     cat_name, dist_matrix, rad_res, hit_res, ...
 	     MODE, image_options);
   output_combined_rdat_file( r{1}, D_smooth, D_smooth_error, seqpos, cat_name );
 else
@@ -72,7 +72,7 @@ if MODE == 4; fprintf( 'Used repsub. Applied modification correction. \n' ); end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function make_plot( D_smooth, D_smooth_error, ...
 		    seqpos, ligpos, sequence, offset, name, ...
-		    dist_matrix, rad_res, hit_res, pdb, ...
+		    dist_matrix, rad_res, hit_res, ...
 		    MODE, opts )
 
 D_filter = D_smooth;
@@ -102,6 +102,7 @@ axis image;
 contour_levels = [15,30];
 colorcode = [1 0 1; 0 0 1];
 
+legends = {};
 if ~isempty( dist_matrix );
   dist_matrix = smooth2d( dist_matrix );
   for i = 1:length( contour_levels )
@@ -128,7 +129,7 @@ hold off;
 
 axis( [min(seqpos)-0.5 max(seqpos)+0.5 min(ligpos)-0.5 max(ligpos)+0.5 ]);
 
-legend( legends );
+if length( legends ) > 0; legend( legends ); end;
 title( strrep( name,'_','\_') );
 
 if ( ~isempty( strfind( name, '\newline' ) ) ) name = 'COMBINED'; end;
@@ -162,6 +163,7 @@ r.seqpos = seqpos;
 r.comments = [r.comments, cat_name ];
 output_rdat_to_file( 'COMBINED.rdat', r );
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function val = check_option( image_options, option_string );
-val =  ~isempty( find(strcmp( image_options, option_string )) );
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function val = check_option( opts, option_string );
+val = ~isempty( find( strcmp( opts, option_string ) ) );
