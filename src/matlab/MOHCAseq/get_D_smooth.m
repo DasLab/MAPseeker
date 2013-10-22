@@ -4,8 +4,8 @@ if ischar( rdat_file )
   r_name = rdat_file;
 
   % already calculated?
-  iterfit_x_filename = strrep( r_name, '.rdat', '.ITERFITX.rdat' );
-  if MODE == 1 & exist( iterfit_x_filename ) % & false
+  iterfit_x_filename = get_iterfit_filename( rdat_file );
+  if MODE == 1 & exist( iterfit_x_filename ) 
     r = read_rdat_file( iterfit_x_filename );
     Q     = r.reactivity;
     Q_err = r.reactivity_error;

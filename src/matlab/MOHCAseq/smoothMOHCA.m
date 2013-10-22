@@ -34,6 +34,7 @@ set(gcf, 'PaperPositionMode','auto','color','white');
 if ~exist( 'MODE', 'var' ); MODE = 1; end;
 if ~exist( 'image_options' ) image_options = {}; end;
 if ~iscell( image_options ); assert( ischar( image_options ) ); image_options = { image_options }; end;
+if ischar( rdat_file ) & exist( rdat_file, 'dir' ); rdat_file = get_rdats_in_directory( rdat_file ); end;
 if ~iscell( rdat_file ) rdat_file = { rdat_file }; end;
 D_sim_a = [];
 dist_matrix = []; rad_res = []; hit_res = [];
@@ -43,9 +44,10 @@ if exist( 'pdb', 'var' );  [D_sim_a, rad_res, hit_res, dist_matrix, pdbstruct] =
 cat_name = '';
 for i = 1:length( rdat_file )
   [all_D_smooth(:,:,i), seqpos, ligpos, r{i}, all_D_smooth_error(:,:,i), r_name ] = get_D_smooth( rdat_file{i}, MODE );  
+  out_dir = dirname( r_name );
   make_plot( squeeze( all_D_smooth(:,:,i) ), ...
 	     squeeze( all_D_smooth_error(:,:,i) ), ...
-	     seqpos, ligpos, r{i}.sequence, r{i}.offset, r_name, dist_matrix, rad_res, hit_res, ...
+	     seqpos, ligpos, r{i}.sequence, r{i}.offset, r_name, out_dir, dist_matrix, rad_res, hit_res, ...
 	     MODE, image_options );
   if i > 1; cat_name = [cat_name, '\newline' ]; end
   cat_name = [cat_name, r_name];
@@ -55,9 +57,9 @@ end
 if ( length( rdat_file )  > 1 )
   [D_smooth, D_smooth_error ] = get_weighted_average( all_D_smooth, all_D_smooth_error );
   make_plot( D_smooth, D_smooth_error, seqpos, ligpos, r{1}.sequence, r{1}.offset, ...
-	     cat_name, dist_matrix, rad_res, hit_res, ...
+	     cat_name, out_dir, dist_matrix, rad_res, hit_res, ...
 	     MODE, image_options);
-  output_combined_rdat_file( r{1}, D_smooth, D_smooth_error, seqpos, cat_name );
+  output_combined_rdat_file( r{1}, D_smooth, D_smooth_error, seqpos, cat_name, out_dir );
 else
   D_smooth = squeeze(all_D_smooth(:,:,1));
   D_smooth_error = squeeze(all_D_smooth_error(:,:,1));
@@ -71,7 +73,7 @@ if MODE == 4; fprintf( 'Used repsub. Applied modification correction. \n' ); end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function make_plot( D_smooth, D_smooth_error, ...
-		    seqpos, ligpos, sequence, offset, name, ...
+		    seqpos, ligpos, sequence, offset, name, out_dir, ...
 		    dist_matrix, rad_res, hit_res, ...
 		    MODE, opts )
 
@@ -132,8 +134,10 @@ axis( [min(seqpos)-0.5 max(seqpos)+0.5 min(ligpos)-0.5 max(ligpos)+0.5 ]);
 if length( legends ) > 0; legend( legends ); end;
 title( strrep( name,'_','\_') );
 
-if ( ~isempty( strfind( name, '\newline' ) ) ) name = 'COMBINED'; end;
+if ( ~isempty( strfind( name, '\newline' ) ) ) name = [out_dir, 'COMBINED']; end;
 epsfilename = [name,'.eps'];
+epsfilename = strrep( epsfilename, basename( epsfilename ), ['Figures/',basename(epsfilename)] );
+if ~exist( dirname( epsfilename ), 'dir' ) mkdir( dirname( epsfilename ) ); end;
 if ( MODE == 2 ) epsfilename = strrep( epsfilename,'.eps','.ZSCORE.eps'); end
 if ( MODE == 3 ) epsfilename = strrep( epsfilename,'.eps','.REPSUB.eps'); end
 if ( MODE == 4 ) epsfilename = strrep( epsfilename,'.eps','.REPSUB_ALT.eps'); end
@@ -153,17 +157,27 @@ end
 D_smooth = D_smooth_sum ./ weight_sum;
 D_smooth_error = sqrt(1 ./ weight_sum);
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function  output_combined_rdat_file( r, D_smooth, D_smooth_error, seqpos, cat_name );
+function output_combined_rdat_file( r, D_smooth, D_smooth_error, seqpos, cat_name, out_dir );
 
 r.reactivity = D_smooth;
 r.reactivity_error = D_smooth_error;
 r.seqpos = seqpos;
 r.comments = [r.comments, cat_name ];
-output_rdat_to_file( 'COMBINED.rdat', r );
-
+output_rdat_to_file( [out_dir,'COMBINED.rdat'], r );
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function val = check_option( opts, option_string );
 val = ~isempty( find( strcmp( opts, option_string ) ) );
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function rdat_files = get_rdats_in_directory( rdat_dir ); 
+
+rdats_in_dir = dir( [rdat_dir,'/*.RAW.*.rdat'] );
+rdat_files = {};
+for i = 1:length( rdats_in_dir ); 
+  if isempty(strfind(rdats_in_dir(i).name,'FIT')) 
+    rdat_files = [rdat_files, [rdat_dir,'/',rdats_in_dir(i).name ] ]; end
+end;
+
+

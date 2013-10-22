@@ -146,9 +146,9 @@ for q = 1 : NUM_CYCLES
   %Q_out_err = (A_err./A) .* (F ./ A);
   %Q_out_err = sqrt( (F_err./F).^2) .* (F ./ A);
 
-  % not in use...
-  %Q_filter = smooth2d(Q_out,2);
-  %Q_filter( abs(Q_out./Q_out_err) < SIGNAL_TO_NOISE_FILTER_CUTOFF ) = 0;
+  
+  Q_filter = smooth2d(Q_out,2);
+  Q_filter( abs(Q_out./Q_out_err) < SIGNAL_TO_NOISE_FILTER_CUTOFF ) = 0;
 
   
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -187,11 +187,10 @@ for q = 1 : NUM_CYCLES
   title( 'Q' );
 
   subplot(2,2,2);  set(gca,'position',[0.55 0.55 0.4 0.4] );
-  %image( Q_scaling * Q_filter' );
-  %title( sprintf('Q_{filter} (S/N > %3.1f )', SIGNAL_TO_NOISE_FILTER_CUTOFF) );
-
-  image( Q_scaling * Q_out_err' );
-  title( 'Q_{ERROR}' );
+  image( Q_scaling * Q_filter' );
+  title( sprintf('Q_{filter} (S/N > %3.1f )', SIGNAL_TO_NOISE_FILTER_CUTOFF) );
+  %image( Q_scaling * Q_out_err' );
+  %title( 'Q_{ERROR}' );
 
   %image( Q_scaling * -Q_out' );
   %title( '-Q [should be low]' );
@@ -212,7 +211,9 @@ for q = 1 : NUM_CYCLES
 end
 
 if length(rfilename) > 0;
-  outfilename = strrep( rfilename, '.rdat', '.ITERFITX.rdat' );
+  outfilename = get_iterfit_filename( rfilename );
+  outdir = dirname( outfilename );
+  if ~exist( outdir, 'dir' ); mkdir( outdir ); end;
   
   r.reactivity = Q_scaling * Q_out;
   r.reactivity_error = Q_scaling * Q_out_err;
@@ -220,5 +221,7 @@ if length(rfilename) > 0;
   r.data_annotations = r.data_annotations( fit_range );
   r.annotations = [r.annotations, sprintf('scaling:%f',Q_scaling) ];
   output_rdat_to_file( outfilename, r );
+
+  print( [outfilename, '.eps'], '-depsc2' );
 end
 
