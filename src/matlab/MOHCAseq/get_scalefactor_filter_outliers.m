@@ -1,17 +1,26 @@
-function scalefactor = get_scalefactor_filter_outliers( ref, data, PERCENTILE_CUT, UNDERSHOOT );
+function scalefactor = get_scalefactor_filter_outliers( ref, data, ...
+							     PERCENTILE_CUT, UNDERSHOOT,...
+							     ref_err );
 
 if ~exist( 'PERCENTILE_CUT', 'var' ) PERCENTILE_CUT = 0.1; end;
 if ~exist( 'UNDERSHOOT','var') UNDERSHOOT = 1; end;
+if ~exist( 'ref_err','var') ref_err = 0 * ref + 1; end;
 
-scalefactor = 1.0;
+  scalefactor = 1.0;
 if length( ref ) == 0; return; end
 
 gp = 1:length(ref);
 Ncut = max(ceil( length(ref) * PERCENTILE_CUT ),1);
 
+weights = max( (1./ref_err.^2), 0);
+%weights = 0*ref + 1;
+
 niter = 3;
 for i = 1:niter
-  scalefactor  = mean(ref(gp))/mean(data(gp));
+
+  %scalefactor  = sum( ref(gp).*ref(gp).*weights(gp) ) / sum(data(gp).*ref(gp).*weights(gp) );
+  scalefactor  = mean( ref(gp) .* weights(gp)) / mean( data(gp).*weights(gp) );
+
   dev =  (scalefactor * data  - ref) ;
   if ~UNDERSHOOT; dev = abs(dev); end;
 

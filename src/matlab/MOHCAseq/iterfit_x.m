@@ -1,5 +1,5 @@
-function [Q_out, Q_out_err, R, B, F, F_fit] = iterfit_x( r, rfilename );
-% [Q_out, R, B, F, F_fit] = iterfit_x( r );
+function [Q_out, Q_out_err, R, B, F, F_fit, A] = iterfit_x( r, rfilename );
+% [Q_out, R, B, F, F_fit, A] = iterfit_x( r );
 %
 %  Iterative fitting of two-point correlation function
 %   for MOHCA-seq data. Using general 'MOHCA-X' framework
@@ -30,16 +30,16 @@ if ischar( r ) & ~isstruct( r );
 end
 
 rho = 2.5; % surprisingly little dependence on rho
-NUM_CYCLES = 20; % number of iteration cycles.
+NUM_CYCLES = 40; % number of iteration cycles.
 FULL_LENGTH_LIGATION_CORRECTION = 2; % surprisingly little dependence on this (except overall scaling).
-OVERALL_SCALING = 1; % overall counts.
+OVERALL_SCALING = 2; % overall counts.
 INCREMENT_PER_CYCLE = 0.1; % how much to update on each iteration. [max is 1.0; keep low for smooth convergence]
 QFUDGE = 1.0; % 1.0 means no fudge. Keep this at 1.0.
 
 SIGNAL_TO_NOISE_FILTER_CUTOFF = 1.5; % relative error should be better than this number
 
 USE_OUTLIER_FILTER_FOR_PLAID = 1; % in estimating background normalization, don't fit everything (allow outliers)
-PERCENTILE_CUT = 0.2; % in estimating background normalization for each row, what fraction of values to ignore as outliers
+PERCENTILE_CUT = 0.1; % in estimating background normalization for each row, what fraction of values to ignore as outliers
 UNDERSHOOT_PLAID = 1; % can have a big effect... ignore high deviations -- force background R*B to be lower than signal.
 
 REFIT_R = 1; % If 0, keep constant based on reference row. Better to update!
@@ -90,6 +90,7 @@ for q = 1 : NUM_CYCLES
 
   fprintf( 'Starting iteration: %d of %d\n', q, NUM_CYCLES );
   F_attcorrect = F ./ A;
+  F_attcorrect_err = F_err ./ A;
   F_attcorrect_subcontact = max( F_attcorrect - Q, 0);
   
   % Let's create plaid 'background' matrix
@@ -99,7 +100,9 @@ for q = 1 : NUM_CYCLES
       normbins = [2: max(i-5,3)];
       %normbins = [2: i-5];
       if USE_OUTLIER_FILTER_FOR_PLAID
-	B(i) = get_scalefactor_filter_outliers( F_attcorrect_subcontact(normbins,i), R( normbins), PERCENTILE_CUT, UNDERSHOOT_PLAID );
+	B(i) = get_scalefactor_filter_outliers( F_attcorrect_subcontact(normbins,i), ...
+						R( normbins), ...
+						PERCENTILE_CUT, UNDERSHOOT_PLAID );
       else
 	B(i) = mean( D_attcorrect(normbins,i) ) / mean(R( normbins ));
       end   
@@ -108,12 +111,15 @@ for q = 1 : NUM_CYCLES
     if REFIT_R
       R_new = 0 * R;
       for i = 1:N
-	normbins = [(i+3):(N)];
+	%normbins = [(i+3):(N)];
+	normbins = [(i+5):(N)];  % why so sensitive to i+3 vs. i+5?
 	if USE_OUTLIER_FILTER_FOR_PLAID
-	  R_new(i) = get_scalefactor_filter_outliers( F_attcorrect_subcontact(i,normbins)', B( normbins ), PERCENTILE_CUT, UNDERSHOOT_PLAID );
+	  R_new(i) = get_scalefactor_filter_outliers( F_attcorrect_subcontact(i,normbins)', ...
+						      B( normbins ), ...
+						      PERCENTILE_CUT, UNDERSHOOT_PLAID );
 	else
 	  R_new(i) = mean(F_attcorrect_subcontact(i,normbins)) / mean(B( normbins ));
-	end
+	end     	
       end
 
       R = max( R_new, 0);
