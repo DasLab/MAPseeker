@@ -7,14 +7,19 @@ function [D_smooth, D_smooth_error, seqpos, ligpos, r] = smoothMOHCA( rdat_file,
 %% Inputs
 %%  rdat_file   = rdat or cell of rdats (either filenames or actual data objects will work)
 %%  pdb         = filename of pdb (or pdbstruct object from pdbread)
-%%  MODE        = [Default 1] 
-%%                 1. iterfit_x [extraction of two-point correlation function, MOHCA-X style]
+%%  MODE        =  0. iterfit_x [extraction of two-point correlation function, MOHCA-X style], force run.
+%%                 1. iterfit_x [extraction of two-point correlation function, MOHCA-X style], use cached if avail.
 %%                 2. Use Z-score processing of reactivities (note that 
 %%                    this script will apply attenuation correction for you). 
 %%                 3. 'repsub' processing based on subtracting data corresponding
 %%                    to uncleaved RNA.
 %%                 4. 'respub' processing, no 'mod correct'
-%%
+%% image_options = string of cells, e.g., {'smooth'}:
+%%                   filter_RNAse = filter 'vertical' striations caused by RNAse cleavage
+%%                   filter_SN1   = filter points with signal/noise < 1
+%%                   filter_SN1.5 = filter points with signal/noise < 1.5
+%%                   filter_SN2   = filter points with signal/noise < 2
+%%                   smooth = apply 2D smooth
 %% Outputs 
 %%  D_smooth    = matrix of output, averaged over all data sets (weighted by 
 %%                 inverse error^2).
@@ -34,7 +39,7 @@ set(gcf, 'PaperPositionMode','auto','color','white');
 if ~exist( 'MODE', 'var' ); MODE = 1; end;
 if ~exist( 'image_options' ) image_options = {}; end;
 if ~iscell( image_options ); assert( ischar( image_options ) ); image_options = { image_options }; end;
-if ischar( rdat_file ) & exist( rdat_file, 'dir' ); rdat_file = get_rdats_in_directory( rdat_file ); end;
+if ischar( rdat_file ) & exist( rdat_file, 'dir' )==7; rdat_file = get_rdats_in_directory( rdat_file ); end;
 if ~iscell( rdat_file ) rdat_file = { rdat_file }; end;
 D_sim_a = [];
 dist_matrix = []; rad_res = []; hit_res = [];
