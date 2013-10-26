@@ -197,7 +197,7 @@ end
 clf
 cutoff = 0.2 * f_near_diag( end );
 seqsep = min( find( f_near_diag > cutoff ) );
-seqsep = max( seqsep, seqsep_min )
+seqsep = max( seqsep, seqsep_min );
 %plot( f_near_diag );
 %pause;
 
