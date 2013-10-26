@@ -29,6 +29,9 @@ if ischar( r ) & ~isstruct( r );
   r = read_rdat_file( r ); 
 end
 
+seqpos = r.seqpos;
+ligpos = str2num(char(get_tag( r, 'lig_pos' )));
+
 rho = 2.5; % surprisingly little dependence on rho
 NUM_CYCLES = 40; % number of iteration cycles.
 FULL_LENGTH_LIGATION_CORRECTION = 2; % surprisingly little dependence on this (except overall scaling).
@@ -85,6 +88,9 @@ Q = zeros( N, N );
 [A,A_err] = get_attenuation_matrix( R, B, Q, 0*Q, rho );
 Q_out = zeros(N,N);
 Q_out_err = zeros(N,N);
+
+seqsep = figure_out_seqsep( F ); % typically 5 for miseq; 14 for hiseq.
+
 % Main loop
 for q = 1 : NUM_CYCLES
 
@@ -94,58 +100,11 @@ for q = 1 : NUM_CYCLES
   F_attcorrect_subcontact = max( F_attcorrect - Q, 0);
   
   % Let's create plaid 'background' matrix
-  niter = 1;
-  for n = 1 : niter
-    for i = 1:N
-      normbins = [2: max(i-5,3)];
-      %normbins = [2: i-5];
-      if USE_OUTLIER_FILTER_FOR_PLAID
-	B(i) = get_scalefactor_filter_outliers( F_attcorrect_subcontact(normbins,i), ...
-						R( normbins), ...
-						PERCENTILE_CUT, UNDERSHOOT_PLAID );
-      else
-	B(i) = mean( D_attcorrect(normbins,i) ) / mean(R( normbins ));
-      end   
-    end
+  [ R, B, F_plaid ] = estimate_plaid_background( F_attcorrect_subcontact, B, R, R_init, seqsep, USE_OUTLIER_FILTER_FOR_PLAID, UNDERSHOOT_PLAID, PERCENTILE_CUT, REFIT_R );
     
-    if REFIT_R
-      R_new = 0 * R;
-      for i = 1:N
-	%normbins = [(i+3):(N)];
-	normbins = [(i+5):(N)];  % why so sensitive to i+3 vs. i+5?
-	if USE_OUTLIER_FILTER_FOR_PLAID
-	  R_new(i) = get_scalefactor_filter_outliers( F_attcorrect_subcontact(i,normbins)', ...
-						      B( normbins ), ...
-						      PERCENTILE_CUT, UNDERSHOOT_PLAID );
-	else
-	  R_new(i) = mean(F_attcorrect_subcontact(i,normbins)) / mean(B( normbins ));
-	end     	
-      end
-
-      R = max( R_new, 0);
-      R( N-5: N ) = R(N-6); % clean up -- R at end is not defined.
-      
-      % degeneracy in product -- R*B. Set scaling so that R matches R_init.	    
-      normbins = [5 : (N-6)];
-      alpha = mean( R_init( normbins) ) / mean( R(normbins) );
-      R = R * alpha;
-      B = B / alpha;
-      R(1) = 1.0;
-    
-    end
-  end
-  
-  F_plaid = R * B';
-  for i = 1:N;  F_plaid( [i+1:end], i ) = 0.0;  end
-  
   Q = F_attcorrect - F_plaid;
-
-  Q_out = Q; %smooth2d( Q, 2 );
-  %Q_out_err = F_err./A;
+  Q_out = Q;
   Q_out_err = sqrt( (F_err./F).^2 + (A_err./A).^2 ) .* (F ./ A);
-  %Q_out_err = (A_err./A) .* (F ./ A);
-  %Q_out_err = sqrt( (F_err./F).^2) .* (F ./ A);
-
   
   Q_filter = smooth2d(Q_out,2);
   Q_filter( abs(Q_out./Q_out_err) < SIGNAL_TO_NOISE_FILTER_CUTOFF ) = 0;
@@ -153,11 +112,11 @@ for q = 1 : NUM_CYCLES
   
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   % smooth & threshold [for attenuation correction]
-  Q = smooth2d( Q, 2 );
+  %Q = smooth2d( Q, 2 );
   
   % sparsity constraint
-  %Assume each residue can hit 10 other residues.
-  if SPARSIFY
+  % Assume each residue can hit ~10 other residues.
+  if SPARSIFY; 
     Q_out_laidout = reshape( Q_out, 1, N*N);
     [dummy, sortidx ] = sort( Q_out_laidout, 'descend' );
     Q_contact = 0 * Q;
@@ -169,9 +128,8 @@ for q = 1 : NUM_CYCLES
   Q( [1:BLANK_FLANK], : ) = 0;
   Q( :, [N- BLANK_FLANK:N] ) = 0;
     
-  Q = max( Q, 0 ) * QFUDGE;
-  %Q_err = F_err ./ A;
-  Q_err = Q_out_err;
+  Q = max( Q, 0 ) * QFUDGE;  
+  Q_err = Q_out_err; % F_err ./ A;
 
   [A_new, A_err] = get_attenuation_matrix( R, B, Q, Q_err, rho );
 
@@ -183,11 +141,11 @@ for q = 1 : NUM_CYCLES
   subplot(2,2,1); set(gca,'position',[0.05 0.55 0.4 0.4] );
 
   Q_scaling = figure_out_Q_scaling( Q );
-  image( Q_scaling * Q_out' );
+  image( seqpos, ligpos, Q_scaling * Q_out' );
   title( 'Q' );
 
   subplot(2,2,2);  set(gca,'position',[0.55 0.55 0.4 0.4] );
-  image( Q_scaling * Q_filter' );
+  image( seqpos, ligpos, Q_scaling * Q_filter' );
   title( sprintf('Q_{filter} (S/N > %3.1f )', SIGNAL_TO_NOISE_FILTER_CUTOFF) );
   %image( Q_scaling * Q_out_err' );
   %title( 'Q_{ERROR}' );
@@ -196,12 +154,12 @@ for q = 1 : NUM_CYCLES
   %title( '-Q [should be low]' );
 
   subplot(2,2,3);  set(gca,'position',[0.05 0.05 0.4 0.4] );
-  image( image_scaling * F' );
+  image( seqpos, ligpos, image_scaling * F' );
   title( 'Input data' );
 
   subplot(2,2,4);  set(gca,'position',[0.55 0.05 0.4 0.4] );
   F_fit = A_old .* ( F_plaid + Q );
-  image( image_scaling * F_fit'  );
+  image( seqpos, ligpos, image_scaling * F_fit'  );
   title( 'Fit: [ plaid + Q ], with attenuation' );
 
   drawnow;
@@ -225,3 +183,76 @@ if length(rfilename) > 0;
   print( [outfilename, '.eps'], '-depsc2' );
 end
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function seqsep = figure_out_seqsep( F );
+N = size( F, 1 );
+seqsep_min = 5;
+seqsep_max = 20;
+f_near_diag = zeros( 1, seqsep_max );
+for i = 1 : (N - seqsep_max)
+  f_near_diag = f_near_diag + F( i, i+ [1:seqsep_max]);    
+end
+clf
+cutoff = 0.2 * f_near_diag( end );
+seqsep = min( find( f_near_diag > cutoff ) );
+seqsep = max( seqsep, seqsep_min )
+%plot( f_near_diag );
+%pause;
+
+if ( seqsep > seqsep_min ) fprintf( 'WARNING -- minimum insert length looks like %d\n', seqsep_min ); end;
+
+%if seqsep > 10; seqsep = 17; end; 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [ R, B, F_plaid ] = estimate_plaid_background( F_attcorrect_subcontact, B, R, R_init, ...
+						  seqsep, USE_OUTLIER_FILTER_FOR_PLAID,...
+						  UNDERSHOOT_PLAID, PERCENTILE_CUT, REFIT_R );
+
+
+N = size( F_attcorrect_subcontact, 1 );
+
+niter = 1;
+for n = 1 : niter
+  for i = 1:N
+    normbins = [2: max( i-seqsep, 3 )];
+    %normbins = [2: i-5];
+    if USE_OUTLIER_FILTER_FOR_PLAID
+      B(i) = get_scalefactor_filter_outliers( F_attcorrect_subcontact(normbins,i), ...
+					      R( normbins), ...
+					      PERCENTILE_CUT, UNDERSHOOT_PLAID );
+    else
+      B(i) = mean( D_attcorrect(normbins,i) ) / mean(R( normbins ));
+    end   
+  end
+  
+  if REFIT_R
+    R_new = 0 * R;
+    for i = 1:N
+      %normbins = [(i+3):(N)];
+      normbins = [(i+seqsep):(N)];  % why so sensitive to i+3 vs. i+5?
+      if USE_OUTLIER_FILTER_FOR_PLAID
+	R_new(i) = get_scalefactor_filter_outliers( F_attcorrect_subcontact(i,normbins)', ...
+						    B( normbins ), ...
+						    PERCENTILE_CUT, UNDERSHOOT_PLAID );
+      else
+	R_new(i) = mean(F_attcorrect_subcontact(i,normbins)) / mean(B( normbins ));
+      end     	
+    end
+    
+    R = max( R_new, 0);
+    R( (N-seqsep) : N ) = R(N - seqsep - 1); % clean up -- R at end is not defined.
+    
+    % degeneracy in product -- R*B. Set scaling so that R matches R_init.	    
+    normbins = [ seqsep : (N-seqsep - 1)];
+    alpha = mean( R_init( normbins) ) / mean( R(normbins) );
+    R = R * alpha;
+    B = B / alpha;
+    R(1) = 1.0;
+    
+  end
+end
+
+F_plaid = R * B';
+for i = 1:N;  F_plaid( [ max(i-seqsep,1) : end], i ) = 0.0;  end
