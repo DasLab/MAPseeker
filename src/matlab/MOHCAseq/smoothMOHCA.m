@@ -9,11 +9,12 @@ function [D_smooth, D_smooth_error, seqpos, ligpos, r] = smoothMOHCA( rdat_file,
 %%  pdb         = filename of pdb (or pdbstruct object from pdbread)
 %%  MODE        =  0. iterfit_x [extraction of two-point correlation function, MOHCA-X style], force run.
 %%                 1. iterfit_x [extraction of two-point correlation function, MOHCA-X style], use cached if avail.
-%%                 2. Use Z-score processing of reactivities (note that 
+%%                 2. LAHTTE analysis [Likelihood Analysis of Hydroxyl-damage revealed TerTiary contact Estimation -- general model of the data assuming independence of background (random cleavage and RT stoppage) and source location]
+%%                 3. Use Z-score processing of reactivities (note that 
 %%                    this script will apply attenuation correction for you). 
-%%                 3. 'repsub' processing based on subtracting data corresponding
+%%                 4. 'repsub' processing based on subtracting data corresponding
 %%                    to uncleaved RNA.
-%%                 4. 'respub' processing, no 'mod correct'
+%%                 5. 'respub' processing, no 'mod correct'
 %% image_options = string of cells, e.g., {'smooth'}:
 %%                   filter_RNAse = filter 'vertical' striations caused by RNAse cleavage
 %%                   filter_SN1   = filter points with signal/noise < 1
@@ -72,9 +73,10 @@ end
 
 if MODE == 0; fprintf( 'Applied iterfitX (overwrite any previous iterfit.rdat). \n' ); end;
 if MODE == 1; fprintf( 'Used iterfitX. \n' ); end;
-if MODE == 2; fprintf( 'Used Z-score\n' ); end;
-if MODE == 3; fprintf( 'Used repsub. Applied modification correction. \n' ); end
+if MODE == 2; fprintf( 'Used LAHTTE. \n' ); end;
+if MODE == 3; fprintf( 'Used Z-score\n' ); end;
 if MODE == 4; fprintf( 'Used repsub. Applied modification correction. \n' ); end
+if MODE == 5; fprintf( 'Used repsub. Applied modification correction. \n' ); end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function make_plot( D_smooth, D_smooth_error, ...

@@ -48,7 +48,16 @@ if ( MODE == 1 | MODE == 0)
   threshold = 0.0;
   seqpos = seqpos( 1:length(ligpos) );
 
-elseif ( MODE == 2)
+elseif (MODE == 2)
+  [ D_show, D_err ] = latte(r);
+  % Some data thresholding and scaling mainly for compatibility with plotting.
+  D_scaling = 50;
+  cutoff = mean(mean(D_show)) + 0.0*std(std(D_show));
+  D_show(D_show < cutoff) = 0;
+  D_show = D_show * D_scaling;
+  D_err = D_err * D_scaling;
+  threshold = 0.0;
+elseif ( MODE == 3)
 
   % Use Clarence's Z-score pipeline, which takes in reactivities.
   %D_err = r.reactivity_error;
@@ -56,7 +65,7 @@ elseif ( MODE == 2)
   D_show = get_MOHCAseq_zscores( D_correct, D_correct_err, 0.0 );
   threshold = 0.5;
 
-elseif ( MODE == 3 | MODE == 4)
+elseif ( MODE == 4 | MODE == 5)
 
   % 'repsub' pipeline.
   N_RNA = size(D,2);
@@ -83,7 +92,7 @@ elseif ( MODE == 3 | MODE == 4)
 
   % reweights so that data from regions that are radical-source-rich are pushed back down
   % to the level of other regions.
-  if MODE == 4
+  if MODE == 5
     mod_profile = repmat( smooth( ref_profile ), 1, N_RNA);
     mod_profile = mod_profile / mean( mod_profile(  find( ~isnan( mod_profile) ) ) );
     D_correct_for_mod = D_backsub ./ mod_profile; 
