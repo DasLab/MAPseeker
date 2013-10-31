@@ -5,7 +5,6 @@ function stair_plot( D, sequence, structure, colorcode, D_err, tag, seqpos );
 
 if nargin==0; help( mfilename ); return; end;
 
-
 if ~iscell( D );  D = { D }; end
 if exist( 'D_err' ) && length( D_err ) > 0 && ~iscell( D_err );  D_err = { D_err }; end
 
@@ -53,15 +52,15 @@ if ymax>0; ylim([0 ymax]); end;
 
 xmax = Nres;
 if length( sequence ) > 0; xmax = length(sequence); end;
-xlim( [-0.5 xmax+1] );
-    
+xlim( [-0.5+min(seqpos) max(seqpos)+1] );
+
 for j = 1:(Nres-1); 
   if ( j > length( sequence ) ); continue; end;
   seqchar = sprintf('%s', sequence(j) );
   if ( length( structure ) > 0 ) 
     seqchar = sprintf( '%s\n%s', seqchar,structure(j) );
   end
-  h = text( j, 0, seqchar);
+  h = text( seqpos(j), 0, seqchar);
   set(h,'HorizontalAlignment','center','VerticalAlignment','top','fontw','bold');
 end
 hold off;

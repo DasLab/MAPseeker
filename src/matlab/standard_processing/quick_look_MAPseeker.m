@@ -96,7 +96,6 @@ if ~exist( [inpath,library_file], 'file' ) & exist( 'MOHCA.fasta','file' );
     get_frag_library; 
 end
 
-
 RNA_info = fastaread_structures( library_file );
 primer_info = fastaread( primer_file );
 N_primers = length( primer_info );
@@ -126,7 +125,6 @@ for i = 1:N_primers;
   D_raw{i} = load( stats_file )'; 
 end
 Nidx = size( D_raw{1}, 2 );
-
 
 combine_mode_RNA = 0; 
 if ~isempty( find( strcmp( more_options, 'no_combine_primer' ) ) )   combine_mode_primer = 1; end
@@ -269,6 +267,7 @@ end
 
 
 figure_ysize = min( N_RNA*150, 800);
+drawnow;
 %pause;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -277,6 +276,7 @@ FigHandle = figure(4);
 set(FigHandle, 'Position', [250,250,800,figure_ysize], 'name', 'Counts (normalized per primer)');
 clf;
 make_image_plot( D_raw, RNA_info, primer_info, most_common_sequences , 'raw counts');
+drawnow;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Make 2D gray of all reactivities, corrected
@@ -284,12 +284,13 @@ FigHandle = figure(5);
 set(FigHandle, 'Position', [300,300,800,figure_ysize], 'name', 'Reactivity');
 clf;
 make_image_plot( D_correct, RNA_info, primer_info, most_common_sequences, 'correct', 1000 );
+drawnow;
 
 BOXPLOT_NORMALIZATION = 0;
 NORM = isempty( find( strcmp( more_options, 'no_norm' ) ) );
 if NORM
   if REFERENCE_INCLUDED
-    [D_final, D_final_err] = apply_reference_normalization( D_final, D_final_err, ref_idx, ref_segment, RNA_info, fid );
+    [D_final, D_final_err] = apply_reference_normalization( D_final, D_final_err, ref_idx, ref_segment, RNA_info, primer_info, fid );
   else
     [D_final, D_final_err] = apply_boxplot_normalization( D_final, D_final_err, fid );
     BOXPLOT_NORMALIZATION = 1;
@@ -307,7 +308,6 @@ if BACKGD_SUB
 end
 
 
-
 MAKE_STAIR_PLOTS = isempty( find( strcmp( more_options, 'no_stair_plots' ) ) );
 
 if MAKE_STAIR_PLOTS  
@@ -316,12 +316,14 @@ if MAKE_STAIR_PLOTS
   FigHandle = figure(2);
   set(FigHandle, 'Position', [150,150,600,figure_ysize], 'name', 'Counts [Most Common RNAs]');
   make_stair_plots( D_raw, most_common_sequences, RNA_info, primer_info, colorcode );
+  drawnow;
   
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   %  Make 1D plots of most common sequences, apply correction
   FigHandle = figure(3);
   set(FigHandle, 'Position', [200,200,600,figure_ysize],'name','Reactivity [Most Common RNAs]');
   make_stair_plots( D_correct, most_common_sequences, RNA_info, primer_info, colorcode, D_correct_err );
+drawnow;
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -334,11 +336,17 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % extract data for reference RNA (if available) into separate variable.
 D_ref = {};  D_ref_err = {}; RNA_info_ref = [];
+D_raw_err = cell_sqrt( D_raw );
 if REFERENCE_INCLUDED; 
-  [D, D_err, D_ref, D_ref_err, RNA_info, RNA_info_ref ] = separate_out_reference( D, D_err, RNA_info, ref_idx );
+  [D_raw, D_raw_err, D_raw_ref, D_raw_ref_err ]         = separate_out_reference( D_raw, D_raw_err, RNA_info, ref_idx );
+  [D,     D_err,     D_ref,     D_ref_err, RNA_info, RNA_info_ref ] = separate_out_reference( D, D_err, RNA_info, ref_idx );
 end
 [D,D_err]         = truncate_based_on_zeros( D    , D_err);
 [D_ref,D_ref_err] = truncate_based_on_zeros( D_ref, D_ref_err);
+if REFERENCE_INCLUDED; 
+  [D_raw,D_raw_err]         = truncate_based_on_zeros( D_raw    , D_raw_err);
+  [D_raw_ref,D_raw_ref_err] = truncate_based_on_zeros( D_raw_ref, D_raw_ref_err);
+end
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -350,6 +358,7 @@ output_signal_to_noise_ratio( D, D_err, fid );
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % output RDAT
 OUTPUT_RDAT = isempty( find( strcmp( more_options, 'no_output_rdat' ) ) );
+OUTPUT_RAW = ~isempty( find( strcmp( more_options, 'output_raw_rdat' ) ) ) || MOHCA;
 
 if OUTPUT_RDAT
   print_it( fid, sprintf(  '\nAbout to create RDAT files ... may take a while...\n' ) );
@@ -366,20 +375,24 @@ if OUTPUT_RDAT
   if REFERENCE_INCLUDED;    annotations = [ annotations, ['processing:normalization:',ref_segment] ]; 
   elseif BOXPLOT_NORMALIZATION;  annotations = [ annotations, ['processing:normalization:boxplot'] ]; 
   end
-  
-  OUTPUT_RAW = ~isempty( find( strcmp( more_options, 'output_raw_rdat' ) ) ) || MOHCA;
+
+  if REFERENCE_INCLUDED
+    ref_name = RNA_info_ref(1).Header;
+    if OUTPUT_RAW
+      rdat_raw_filename_reference = [ dirname, '_REFERENCE.RAW.rdat' ];
+      MAPseeker_to_rdat_by_primer( rdat_raw_filename_reference, ref_name, D_raw_ref, D_raw_ref_err, primer_info, RNA_info_ref, comments, annotations, 1 );
+    end
+    rdat_filename_reference = [ dirname, '_REFERENCE.rdat' ];
+    MAPseeker_to_rdat_by_primer( rdat_filename_reference, ref_name, D_ref, D_ref_err, primer_info, RNA_info_ref, comments, annotations );
+  end
+
   if OUTPUT_RAW
     rdat_raw_filename = [ dirname, '.RAW.rdat' ];
-    MAPseeker_to_rdat_by_primer( rdat_raw_filename, name, D_raw, cell_sqrt( D_raw ), primer_info, RNA_info, comments, annotations, 1 );
+    MAPseeker_to_rdat_by_primer( rdat_raw_filename, name, D_raw, D_raw_err, primer_info, RNA_info, comments, annotations, 1 );
   end
   
   r = MAPseeker_to_rdat_by_primer( rdat_filename, name, D, D_err, primer_info, RNA_info, comments, annotations );
-  
-  if REFERENCE_INCLUDED
-    rdat_filename_reference = [ dirname, '_REFERENCE.rdat' ];
-    name = RNA_info_ref(1).Header;
-    MAPseeker_to_rdat_by_primer( rdat_filename_reference, name, D_ref, D_ref_err, primer_info, RNA_info_ref, comments, annotations );
-  end
+
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -418,12 +431,13 @@ if PRINT_STUFF;
       print_save_figure(figure(3), ['Figure3_StairReactivity'], '', 1);
       print_save_figure(figure(4), ['Figure4_2DCounts'], '', 1);
       print_save_figure(figure(5), ['Figure5_2DReactivity'], '', 1);
+      if  BACKGD_SUB; print_save_figure( figure(6), ['Figure6_BackgroundSubtracted'], '', 1 ); end;
       break;
     else
       print_fig( k, output_tag, fid );
+      if  BACKGD_SUB; print_fig( 6, output_tag, fid ); end;
     end
   end;
-  if  BACKGD_SUB; print_fig( 6, output_tag, fid ); end;
 end
 print_it( fid, sprintf('\nCreated: %s\n\n', output_text_file_name) );
 fclose( fid );
@@ -708,7 +722,7 @@ full_length_correction_factor = mean( all_factors(gp) );
 print_it( fid, sprintf(  'Estimated full length correction factor [AVERAGE]: %8.3f\n', full_length_correction_factor ) );
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function  [D_norm, D_norm_err] = apply_reference_normalization( D, D_err, ref_idx, ref_segment, RNA_info, fid );
+function  [D_norm, D_norm_err] = apply_reference_normalization( D, D_err, ref_idx, ref_segment, RNA_info, primer_info, fid );
 
 sequence = RNA_info(ref_idx).Sequence;
 gp = strfind( sequence, ref_segment ); % double reference
@@ -721,7 +735,20 @@ for i = 1:length( D )
   D_ref = D{i}(:, ref_idx)'; 
   D_ref_err = D_err{i}(:, ref_idx)'; 
 
-  ref_pos =  [ gp(1) + [1:length(ref_segment)], gp(2) + [1:length(ref_segment)] ];
+  % note that this is offset by one.
+  ref_pos_in =  [ gp(1) + [1:length(ref_segment)], gp(2) + [1:length(ref_segment)] ];
+  
+  % special -- check if this is DMS or CMCT
+  ref_pos = ref_pos_in;
+  if ~isempty( strfind( primer_info(i).Header, 'DMS' ) )
+    ref_pos = [];
+    for m = ref_pos_in; if( sequence(m-1) == 'A' | sequence(m-1) == 'C' ) ref_pos = [ref_pos, m ]; end; end;
+  end
+  if ~isempty( strfind( primer_info(i).Header, 'CMCT' ) )
+    ref_pos = [];
+    for m = ref_pos_in; if( sequence(m-1) == 'U' ) ref_pos = [ref_pos, m ]; end; end;
+  end
+  
   scalefactor = mean( D_ref( ref_pos ) );
   if scalefactor > 0
     print_it( fid, sprintf(  'Mean reactivity at reference positions for primer %d: %8.4f\n', i,  scalefactor ) );
