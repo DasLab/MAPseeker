@@ -1,0 +1,9 @@
+.ninja_log
+CMakeCache.txt
+CMakeFiles/
+apps/CMakeFiles/
+apps/MAPseeker
+apps/cmake_install.cmake
+build.ninja
+cmake_install.cmake
+rules.ninja
