@@ -1,4 +1,4 @@
- function [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_ref ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, more_options );
+function [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_ref ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, more_options );
 %
 % [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_ref ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, more_options );
 %
@@ -482,13 +482,7 @@ N_primers = length( primer_info );
 sequence_lengths = [];
 for k = 1:N_RNA;  sequence_lengths(k) = length( RNA_info(k).Sequence ); end;
 sequence_lengths = sort( sequence_lengths );
-
-% following was meant to remove crazy outliers.
-%L = sequence_lengths( round( 0.9*N_RNA ) );
-m = mean( sequence_lengths );
-s = std( sequence_lengths );
-gp = find( (sequence_lengths - m) < 5 * s );
-L = max( gp );
+L = sequence_lengths( round( 0.9*N_RNA ) );
 
 STRUCTURES_DEFINED = ( length( RNA_info(1).Structure ) > 0 );
 N_plots = N_primers + STRUCTURES_DEFINED;
