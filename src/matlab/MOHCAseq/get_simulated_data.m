@@ -1,4 +1,4 @@
-function [D_sim_a, rad_res, hit_res, dist_matrix, pdbstruct] = get_simulated_data( pdb );
+function [D_sim_a, rad_res, hit_res, dist_matrix, pdbstruct] = get_simulated_data( pdb, rad_atom, hit_atom );
 %%% [D_sim_a, rad_res, hit_res, dist_matrix, pdbstruct] = get_simulated_data( pdb );
 %%%
 %%% Script for simulating MOHCA contact maps (O2' to C4'), with vectorized distance 
@@ -34,8 +34,9 @@ D_sim_a = [];
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% 2. Figure out atoms.
-
-[rad_atom, hit_atom] = figure_out_atoms( pdbstruct );
+if ~exist( 'rad_atom' ) rad_atom = 'O2'''; end;
+if ~exist( 'hit_atom' ) hit_atom = 'C4'''; end;
+[rad_atom, hit_atom] = figure_out_atoms( pdbstruct, rad_atom, hit_atom );
 [rad_x, rad_y, rad_z, rad_pos, rad_res ] = get_atoms( pdbstruct, rad_atom );
 [hit_x, hit_y, hit_z, hit_pos, hit_res ] = get_atoms( pdbstruct, hit_atom );
 
@@ -91,23 +92,19 @@ dist2 = dist2'; % some silly meshgrid thing.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [rad_atom, hit_atom] = figure_out_atoms( pdbstruct );
+function [rad_atom, hit_atom] = figure_out_atoms( pdbstruct, rad_atom, hit_atom );
 
 for i = 1:20
-  if strcmp(pdbstruct.Model.Atom(1,i).AtomName, 'O2''')
+  if strcmp(pdbstruct.Model.Atom(1,i).AtomName, rad_atom)
     atomname = 1;
-  elseif strcmp(pdbstruct.Model.Atom(1,i).AtomName, 'O2*')
+  elseif strcmp(pdbstruct.Model.Atom(1,i).AtomName, strrep( rad_atom, '''', '*' ) );
     atomname = 2;
   end
 end
 
-if atomname == 1;
-  rad_atom = 'O2''';
-  hit_atom = 'C4''';
-  %fprintf('2''-OH atom name: %s\n\n', 'O2''');
-elseif atomname == 2;
-  rad_atom = 'O2*';
-  hit_atom = 'C4*';
+if atomname == 2;
+  rad_atom = strrep( rad_atom, '''', '*' );
+  hit_atom = strrep( hit_atom, '''', '*' );
   %fprintf('2''-OH atom name: %s\n\n', 'O2*');
 end
 

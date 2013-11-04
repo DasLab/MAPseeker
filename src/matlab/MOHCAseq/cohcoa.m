@@ -1,5 +1,5 @@
-function [Q_out, Q_out_err, R, B, F, F_fit, A] = iterfit_x( r, rfilename );
-% [Q_out, R, B, F, F_fit, A] = iterfit_x( r );
+function [Q_out, Q_out_err, R, B, F, F_fit, A] = cohcoa( r, rfilename );
+% [Q_out, R, B, F, F_fit, A] = cohcoa( r );
 %
 %  Iterative fitting of two-point correlation function
 %   for MOHCA-seq data. Using general 'MOHCA-X' framework
@@ -169,7 +169,7 @@ for q = 1 : NUM_CYCLES
 end
 
 if length(rfilename) > 0;
-  outfilename = get_iterfit_filename( rfilename );
+  outfilename = get_cohcoa_filename( rfilename );
   outdir = dirname( outfilename );
   if ~exist( outdir, 'dir' ); mkdir( outdir ); end;
   

@@ -7,8 +7,8 @@ function [D_smooth, D_smooth_error, seqpos, ligpos, r] = smoothMOHCA( rdat_file,
 %% Inputs
 %%  rdat_file   = rdat or cell of rdats (either filenames or actual data objects will work)
 %%  pdb         = filename of pdb (or pdbstruct object from pdbread)
-%%  MODE        =  0. iterfit_x [extraction of two-point correlation function, MOHCA-X style], force run.
-%%                 1. iterfit_x [extraction of two-point correlation function, MOHCA-X style], use cached if avail.
+%%  MODE        =  0. COHCOA [extraction of two-point correlation function, MOHCA-X style], force run.
+%%                 1. COHCOA [extraction of two-point correlation function, MOHCA-X style], use cached if avail.
 %%                 2. LAHTTE analysis [Likelihood Analysis of Hydroxyl-damage revealed TerTiary contact Estimation -- general model of the data assuming independence of background (random cleavage and RT stoppage) and source location]
 %%                 3. Use Z-score processing of reactivities (note that 
 %%                    this script will apply attenuation correction for you). 
@@ -71,8 +71,8 @@ else
   D_smooth_error = squeeze(all_D_smooth_error(:,:,1));
 end
 
-if MODE == 0; fprintf( 'Applied iterfitX (overwrite any previous iterfit.rdat). \n' ); end;
-if MODE == 1; fprintf( 'Used iterfitX. \n' ); end;
+if MODE == 0; fprintf( 'Applied COHCOA (overwrite any previous COHCOA.rdat). \n' ); end;
+if MODE == 1; fprintf( 'Used COHCOA. \n' ); end;
 if MODE == 2; fprintf( 'Used LAHTTE. \n' ); end;
 if MODE == 3; fprintf( 'Used Z-score\n' ); end;
 if MODE == 4; fprintf( 'Used repsub. Applied modification correction. \n' ); end
@@ -145,9 +145,11 @@ if ( ~isempty( strfind( name, '\newline' ) ) ) name = [out_dir, 'COMBINED']; end
 epsfilename = [name,'.eps'];
 epsfilename = strrep( epsfilename, basename( epsfilename ), ['Figures/',basename(epsfilename)] );
 if ~exist( dirname( epsfilename ), 'dir' ) mkdir( dirname( epsfilename ) ); end;
-if ( MODE == 2 ) epsfilename = strrep( epsfilename,'.eps','.ZSCORE.eps'); end
-if ( MODE == 3 ) epsfilename = strrep( epsfilename,'.eps','.REPSUB.eps'); end
-if ( MODE == 4 ) epsfilename = strrep( epsfilename,'.eps','.REPSUB_ALT.eps'); end
+if ( MODE == 0 | MODE == 1 ) epsfilename = strrep( epsfilename,'.eps','.COHCOA.eps'); end
+if ( MODE == 2 ) epsfilename = strrep( epsfilename,'.eps','.LAHTTE.eps'); end
+if ( MODE == 3 ) epsfilename = strrep( epsfilename,'.eps','.ZSCORE.eps'); end
+if ( MODE == 4 ) epsfilename = strrep( epsfilename,'.eps','.REPSUB.eps'); end
+if ( MODE == 5 ) epsfilename = strrep( epsfilename,'.eps','.REPSUB_ALT.eps'); end
 fprintf( 'Outputting: %s\n', epsfilename );
 print( '-depsc2', epsfilename);
 
