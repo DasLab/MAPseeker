@@ -150,8 +150,14 @@ if ( MODE == 2 ) epsfilename = strrep( epsfilename,'.eps','.LAHTTE.eps'); end
 if ( MODE == 3 ) epsfilename = strrep( epsfilename,'.eps','.ZSCORE.eps'); end
 if ( MODE == 4 ) epsfilename = strrep( epsfilename,'.eps','.REPSUB.eps'); end
 if ( MODE == 5 ) epsfilename = strrep( epsfilename,'.eps','.REPSUB_ALT.eps'); end
-fprintf( 'Outputting: %s\n', epsfilename );
-print( '-depsc2', epsfilename);
+if exist( 'export_fig' ) == 2;
+  %if exist( epsfilename, 'file' ); delete( epsfilename ); end;
+  epsfilename = strrep( epsfilename, '.eps','.pdf' );
+  export_fig( GetFullPath(epsfilename) );
+else
+  print( '-depsc2', epsfilename);
+end
+fprintf( 'Outputted: %s\n', epsfilename );
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [D_smooth, D_smooth_error ] = get_weighted_average( all_D_smooth, all_D_smooth_error );
