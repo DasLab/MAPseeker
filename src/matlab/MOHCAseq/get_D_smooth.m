@@ -41,7 +41,8 @@ if ( MODE == 1 | MODE == 0)
   if ~exist( 'Q', 'var' )
     h = gcf;
     figure(2)
-    [Q, Q_err ] = cohcoa( r, r_name );
+    %[Q, Q_err ] = cohcoa_from_reactivity( r, r_name );
+    [Q, Q_err ] = cohcoa_classic( r, r_name );
     figure(h);clf;
   end
 

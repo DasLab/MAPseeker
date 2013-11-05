@@ -8,7 +8,7 @@ n = 8;
 if ~exist( 'align_all' ) align_all = 0; end;
   
 % look for MAPseeker executable
-MAPseeker_EXE = [dirname( which( mfilename ) ), '/../cmake/apps/MAPseeker' ]
+MAPseeker_EXE = [dirname( which( mfilename ) ), '/../../cmake/apps/MAPseeker' ]
 if ~exist( MAPseeker_EXE, 'file' );  fprintf( 'Could not find compiled executable MAPseeker! Not running MAPseeker \n' ); return; end;
 if ( align_all ) MAPseeker_EXE = [ MAPseeker_EXE, ' --align_all']; end;
 

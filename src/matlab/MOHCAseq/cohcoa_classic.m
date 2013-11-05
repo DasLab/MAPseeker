@@ -1,4 +1,4 @@
-function [Q_out, Q_out_err, R, B, F, F_fit, A] = cohcoa( r, rfilename );
+function [Q_out, Q_out_err, R, B, F, F_fit, A] = cohcoa_classic( r, rfilename, NUM_CYCLES );
 % [Q_out, R, B, F, F_fit, A] = cohcoa( r );
 %
 %  Iterative fitting of two-point correlation function
@@ -33,7 +33,7 @@ seqpos = r.seqpos;
 ligpos = str2num(char(get_tag( r, 'lig_pos' )));
 
 rho = 2.5; % surprisingly little dependence on rho
-NUM_CYCLES = 40; % number of iteration cycles.
+if ~exist( 'NUM_CYCLES' ); NUM_CYCLES = 40; end; % number of iteration cycles.
 FULL_LENGTH_LIGATION_CORRECTION = 2; % surprisingly little dependence on this (except overall scaling).
 OVERALL_SCALING = 2; % overall counts.
 INCREMENT_PER_CYCLE = 0.1; % how much to update on each iteration. [max is 1.0; keep low for smooth convergence]

@@ -17,10 +17,8 @@ function [zscores, zscores_err, zscores_mask, zscores_mask_err] = get_MOHCAseq_z
 %%%
 %%% (C) Clarence Cheng, 2013
 
-
-if ~exist('thresh');
-    thresh = 1;
-end
+if ~exist('data_err','var') data_err = 0 * data; end;
+if ~exist('thresh');    thresh = 1; end
 
 [x, y] = size(data);
 

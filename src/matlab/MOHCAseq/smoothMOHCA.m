@@ -65,7 +65,7 @@ if ( length( rdat_file )  > 1 )
   make_plot( D_smooth, D_smooth_error, seqpos, ligpos, r{1}.sequence, r{1}.offset, ...
 	     cat_name, out_dir, dist_matrix, rad_res, hit_res, ...
 	     MODE, image_options);
-  output_combined_rdat_file( r{1}, D_smooth, D_smooth_error, seqpos, cat_name, out_dir );
+  output_combined_rdat_file( r{1}, D_smooth, D_smooth_error, seqpos, cat_name, out_dir, MODE );
 else
   D_smooth = squeeze(all_D_smooth(:,:,1));
   D_smooth_error = squeeze(all_D_smooth_error(:,:,1));
@@ -145,13 +145,10 @@ if ( ~isempty( strfind( name, '\newline' ) ) ) name = [out_dir, 'COMBINED']; end
 epsfilename = [name,'.eps'];
 epsfilename = strrep( epsfilename, basename( epsfilename ), ['Figures/',basename(epsfilename)] );
 if ~exist( dirname( epsfilename ), 'dir' ) mkdir( dirname( epsfilename ) ); end;
-if ( MODE == 0 | MODE == 1 ) epsfilename = strrep( epsfilename,'.eps','.COHCOA.eps'); end
-if ( MODE == 2 ) epsfilename = strrep( epsfilename,'.eps','.LAHTTE.eps'); end
-if ( MODE == 3 ) epsfilename = strrep( epsfilename,'.eps','.ZSCORE.eps'); end
-if ( MODE == 4 ) epsfilename = strrep( epsfilename,'.eps','.REPSUB.eps'); end
-if ( MODE == 5 ) epsfilename = strrep( epsfilename,'.eps','.REPSUB_ALT.eps'); end
+
+epsfilename = strrep( epsfilename, '.eps',['.',get_mode_tag( MODE ),'.eps'] );
 if exist( 'export_fig' ) == 2;
-  %if exist( epsfilename, 'file' ); delete( epsfilename ); end;
+  if exist( epsfilename, 'file' ); delete( epsfilename ); end;
   epsfilename = strrep( epsfilename, '.eps','.pdf' );
   export_fig( GetFullPath(epsfilename) );
 else
@@ -173,13 +170,17 @@ D_smooth = D_smooth_sum ./ weight_sum;
 D_smooth_error = sqrt(1 ./ weight_sum);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function output_combined_rdat_file( r, D_smooth, D_smooth_error, seqpos, cat_name, out_dir );
+function output_combined_rdat_file( r, D_smooth, D_smooth_error, seqpos, cat_name, out_dir, MODE );
 
 r.reactivity = D_smooth;
 r.reactivity_error = D_smooth_error;
 r.seqpos = seqpos;
 r.comments = [r.comments, cat_name ];
-output_rdat_to_file( [out_dir,'COMBINED.rdat'], r );
+
+if exist( [out_dir, 'COMBINED.rdat'], 'file' ) delete( [out_dir, 'COMBINED.rdat'] ); end; % some cleanup
+
+out_file = [out_dir,'COMBINED.',get_mode_tag( MODE ),'.rdat'];
+output_rdat_to_file( out_file, r );
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function val = check_option( opts, option_string );
@@ -191,8 +192,28 @@ function rdat_files = get_rdats_in_directory( rdat_dir );
 rdats_in_dir = dir( [rdat_dir,'/*.RAW.*.rdat'] );
 rdat_files = {};
 for i = 1:length( rdats_in_dir ); 
-  if isempty(strfind(rdats_in_dir(i).name,'FIT')) 
+  if isempty(strfind(rdats_in_dir(i).name,'COMB')) 
     rdat_files = [rdat_files, [rdat_dir,'/',rdats_in_dir(i).name ] ]; end
 end;
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function mode_tag = get_mode_tag( MODE );
+
+mode_tag = '';
+switch MODE
+ case {0,1}
+  mode_tag = 'COHCOA';
+ case 2
+  mode_tag = 'LATTE';
+ case 3
+  mode_tag = 'ZSCORE';
+ case 4
+  mode_tag = 'REPSUB';
+ case 5
+  mode_tag = 'REPSUB_ALT';
+end
+
+if length(mode_tag) == 0;
+  error( ['unrecognized mode: ', MODE] );
+end

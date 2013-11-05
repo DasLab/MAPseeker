@@ -525,7 +525,8 @@ MOHCA = isMOHCA( RNA_info );
 if MOHCA
   offset_to_conventional = str2num( get_tag_from_string( RNA_info( end ).Header, 'offset' ) );
 end
-
+if isempty( offset_to_conventional ) offset_to_conventional = 0; end;
+  
 for i = 1:N_primers
 
   bound_offset = (i+STRUCTURES_DEFINED-1)*L;
