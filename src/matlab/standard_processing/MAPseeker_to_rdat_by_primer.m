@@ -15,6 +15,7 @@ function rdat = MAPseeker_to_rdat_by_primer( filename, name, D, D_err, primer_in
 
 if nargin == 0; help( mfilename ); return; end;
 if ~exist( 'INCLUDE_ZERO_IN_SEQPOS' ) INCLUDE_ZERO_IN_SEQPOS = 0; end;
+rdat = {};
 
 for i = 1:length(D)
   filename_by_primer = strrep( filename, '.rdat', sprintf( '.%d.rdat', i) );

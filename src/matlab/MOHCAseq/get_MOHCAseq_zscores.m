@@ -17,10 +17,8 @@ function [zscores, zscores_err, zscores_mask, zscores_mask_err] = get_MOHCAseq_z
 %%%
 %%% (C) Clarence Cheng, 2013
 
-
-if ~exist('thresh');
-    thresh = 1;
-end
+if ~exist('data_err','var') data_err = 0 * data; end;
+if ~exist('thresh');    thresh = 1; end
 
 [x, y] = size(data);
 
@@ -44,6 +42,7 @@ for i = 1:x;
     stdev = std(nonzeros);
     zscorei = data(i,:);
     zscorei_err = data_err(i,:);
+    b = [1:size(data,2)]; % new... calc Z-score everywhere.
     for j = 1:length(b);
         zscorei(b(j)) = (data(i,b(j)) - ave)/stdev;
         zscorei_err(b(j)) = (1/stdev) * data_err(i,b(j));       % propagate errors
@@ -56,6 +55,7 @@ for i = 1:x;
     stdev2 = std(nonzeros2);
     zscorei_mask = data2(i,:);
     zscorei_mask_err = data_err(i,:);
+    d = [1:size(data,2)]; % new... calc Z-score everywhere.
     for j = 1:length(d);
         zscorei_mask(d(j)) = (data2(i,d(j)) - ave2)/stdev2;
         zscorei_mask_err(d(j)) = (1/stdev2) * data_err(i,d(j));

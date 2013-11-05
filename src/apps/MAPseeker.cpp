@@ -317,6 +317,7 @@ int main(int argc, const char *argv[]) {
 	if ( align_all  ) mpos_max = try_exact_match( seq_from_library, cseq ) - 1;
 	if ( align_null ) mpos_max = try_exact_match( seq_from_library, cseq ) - 1;  	  // allows for null ligations!
 	if ( mpos_max < 0 ) mpos_max = length( seq_from_library );  //to catch boundary cases -- no match to constant sequence.
+	if ( mpos_max > max_rna_len ) mpos_max = max_rna_len;
 
 	if ( match_DP ){
 	  //Set options for match, mismatch, gap. Again, should make these variables.

@@ -1,12 +1,16 @@
 function [ D_smooth, seqpos, ligpos, r, D_smooth_error, r_name ]  = get_D_smooth( rdat_file, MODE );
 
+% [ D_smooth, seqpos, ligpos, r, D_smooth_error, r_name ]  = get_D_smooth( rdat_file, MODE );
+%
+%
+
 if ischar( rdat_file )
   r_name = rdat_file;
 
   % already calculated?
-  iterfit_x_filename = get_iterfit_filename( rdat_file );
-  if MODE == 1 & exist( iterfit_x_filename ) 
-    r = read_rdat_file( iterfit_x_filename );
+  cohcoa_filename = get_cohcoa_filename( rdat_file );
+  if MODE == 1 & exist( cohcoa_filename ) 
+    r = read_rdat_file( cohcoa_filename );
     Q     = r.reactivity;
     Q_err = r.reactivity_error;
   else
@@ -37,7 +41,8 @@ if ( MODE == 1 | MODE == 0)
   if ~exist( 'Q', 'var' )
     h = gcf;
     figure(2)
-    [Q, Q_err ] = iterfit_x( r, r_name );
+    %[Q, Q_err ] = cohcoa_from_reactivity( r, r_name );
+    [Q, Q_err ] = cohcoa_classic( r, r_name );
     figure(h);clf;
   end
 
@@ -55,15 +60,19 @@ elseif (MODE == 2)
   cutoff = mean(mean(D_show)) + std(std(D_show));
   D_show(D_show < cutoff) = 0;
   D_show = D_show * D_scaling;
-  D_err = D_err * D_scaling;
+  D_show_error = D_err * D_scaling;
   threshold = 0.0;
 elseif ( MODE == 3)
 
   % Use Clarence's Z-score pipeline, which takes in reactivities.
   %D_err = r.reactivity_error;
   [ D_correct, D_correct_err ] = determine_corrected_reactivity( D, 1.0);
-  D_show = get_MOHCAseq_zscores( D_correct, D_correct_err, 0.0 );
-  threshold = 0.5;
+  [D_show, D_show_error] = get_MOHCAseq_zscores( D_correct, D_correct_err, 0.0 );
+  %clf
+  %errorbar( D_show(:,170), D_show_error(:,170) );
+  %pause
+  %threshold = 0.5;
+  threshold = 0.0;
 
 elseif ( MODE == 4 | MODE == 5)
 

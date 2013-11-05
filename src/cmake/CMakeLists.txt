@@ -202,6 +202,8 @@ if (MSVC)
   #set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Za")
 endif (MSVC)
 
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O4" )
+
 ################################################################################
 # Set Default Build Type
 ################################################################################

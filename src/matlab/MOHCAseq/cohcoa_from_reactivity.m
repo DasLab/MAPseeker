@@ -1,5 +1,5 @@
-function [Q_out, Q_out_err, R, B, F, F_fit, A] = iterfit_x( r, rfilename );
-% [Q_out, R, B, F, F_fit, A] = iterfit_x( r );
+function [Q_out, Q_out_err, R, B, F, F_fit, A] = cohcoa( r, rfilename );
+% [Q_out, R, B, F, F_fit, A] = cohcoa( r );
 %
 %  Iterative fitting of two-point correlation function
 %   for MOHCA-seq data. Using general 'MOHCA-X' framework
@@ -34,8 +34,8 @@ ligpos = str2num(char(get_tag( r, 'lig_pos' )));
 
 rho = 2.5; % surprisingly little dependence on rho
 NUM_CYCLES = 40; % number of iteration cycles.
-FULL_LENGTH_LIGATION_CORRECTION = 2; % surprisingly little dependence on this (except overall scaling).
-OVERALL_SCALING = 2; % overall counts.
+FULL_LENGTH_LIGATION_CORRECTION = 5; % surprisingly little dependence on this (except overall scaling).
+OVERALL_SCALING = 0.5; % overall counts.
 INCREMENT_PER_CYCLE = 0.1; % how much to update on each iteration. [max is 1.0; keep low for smooth convergence]
 QFUDGE = 1.0; % 1.0 means no fudge. Keep this at 1.0.
 
@@ -46,8 +46,8 @@ PERCENTILE_CUT = 0.1; % in estimating background normalization for each row, wha
 UNDERSHOOT_PLAID = 1; % can have a big effect... ignore high deviations -- force background R*B to be lower than signal.
 
 REFIT_R = 1; % If 0, keep constant based on reference row. Better to update!
-SPARSIFY = 0; % Explicitly keep only strongest hits in estimating Q. Not necessary
-SPARSITY_HITS_PER_RES = 20; % This (times N) is number of strong hits to keep in Q, if sparsifying
+SPARSIFY = 1; % Explicitly keep only strongest hits in estimating Q. Not necessary
+SPARSITY_HITS_PER_RES = 5; % This (times N) is number of strong hits to keep in Q, if sparsifying
 
 BLANK_FLANK = 5; % suppress Q to zero at this many residues at 5' and 3' ends.
 set(gcf, 'PaperPositionMode','auto','color','white');
@@ -66,9 +66,9 @@ F_err = F_err(1:N,1:N);
 % this sets overall scale of 'reactivity' R, which is stopping probability here.
 F(1,:) = F(1,:) * FULL_LENGTH_LIGATION_CORRECTION;
 F_err(1,:) = F_err(1,:) * FULL_LENGTH_LIGATION_CORRECTION;
-image_scaling = 30/mean( mean( F)); % for plotting
 
 [ F_correct, F_correct_err ] = determine_corrected_reactivity( F, 1.0);
+image_scaling = 30/mean( mean( F_correct )); % for plotting
 
 % get rid of NaNs too
 ref_row = N - 1; % kind of arbitrary. Need a row where there won't be any contact map hits.
@@ -78,14 +78,18 @@ R = max( F_correct( 1:N, ref_row), 0 );
 fit_range = [1:N];
 %fit_range = [10:N-10];
 F = F( fit_range, fit_range );
+F_correct = F_correct( fit_range, fit_range );
 N = length( fit_range );
 R = R( fit_range );
 
 % initial conditions
-B = 0 * R; 
+B = sum( F, 1 );
+%plot( B ); ylim([0 0.1]);pause
+Bgrid = repmat( B, N, 1 );
+
 R_init = R;
 Q = zeros( N, N );
-[A,A_err] = get_attenuation_matrix( R, B, Q, 0*Q, rho );
+[A,A_err] = get_Q_over_R_attenuation_matrix( R, B, Q, 0*Q, rho );
 Q_out = zeros(N,N);
 Q_out_err = zeros(N,N);
 
@@ -95,25 +99,27 @@ seqsep = figure_out_seqsep( F ); % typically 5 for miseq; 14 for hiseq.
 for q = 1 : NUM_CYCLES
 
   fprintf( 'Starting iteration: %d of %d\n', q, NUM_CYCLES );
-  F_attcorrect = F ./ A;
-  F_attcorrect_err = F_err ./ A;
-  F_attcorrect_subcontact = max( F_attcorrect - Q, 0);
+  F_attcorrect = F_correct ./ A;
+  F_attcorrect_err = F_correct_err ./ A;
+  F_attcorrect_sub = F_attcorrect - (Q ./ Bgrid);
   
-  % Let's create plaid 'background' matrix
-  [ R, B, F_plaid ] = estimate_plaid_background( F_attcorrect_subcontact, B, R, R_init, seqsep, USE_OUTLIER_FILTER_FOR_PLAID, UNDERSHOOT_PLAID, PERCENTILE_CUT, REFIT_R );
-    
-  Q = F_attcorrect - F_plaid;
+  Q = [];
+  for j = 1:N
+    Q(:,j) = ( F_attcorrect(:,j) - R ) * B(j);
+  end
+  Q = zero_out( Q, seqsep );
+
+  if REFIT_R; R = estimate_R( F_attcorrect_sub, seqsep ); end;
+
+  Q( [1:BLANK_FLANK], : ) = 0;
+  Q( :, [N- BLANK_FLANK:N] ) = 0;
+ 
   Q_out = Q;
   Q_out_err = sqrt( (F_err./F).^2 + (A_err./A).^2 ) .* (F ./ A);
   
   Q_filter = smooth2d(Q_out,2);
   Q_filter( abs(Q_out./Q_out_err) < SIGNAL_TO_NOISE_FILTER_CUTOFF ) = 0;
-
-  
-  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  % smooth & threshold [for attenuation correction]
-  %Q = smooth2d( Q, 2 );
-  
+    
   % sparsity constraint
   % Assume each residue can hit ~10 other residues.
   if SPARSIFY; 
@@ -125,17 +131,16 @@ for q = 1 : NUM_CYCLES
     Q = Q_contact;  
   end
 
-  Q( [1:BLANK_FLANK], : ) = 0;
-  Q( :, [N- BLANK_FLANK:N] ) = 0;
-    
   Q = max( Q, 0 ) * QFUDGE;  
+
+  Q = smooth2d(Q);
   Q_err = Q_out_err; % F_err ./ A;
 
-  [A_new, A_err] = get_attenuation_matrix( R, B, Q, Q_err, rho );
+  [A_new,A_err] = get_Q_over_R_attenuation_matrix( R, B, Q, 0*Q, rho );
 
   A_old = A;
   A = INCREMENT_PER_CYCLE * A_new + (1 - INCREMENT_PER_CYCLE) * A_old;
-
+  
   %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   colormap( 1 - gray(100));
   subplot(2,2,1); set(gca,'position',[0.05 0.55 0.4 0.4] );
@@ -154,11 +159,14 @@ for q = 1 : NUM_CYCLES
   %title( '-Q [should be low]' );
 
   subplot(2,2,3);  set(gca,'position',[0.05 0.05 0.4 0.4] );
-  image( seqpos, ligpos, image_scaling * F' );
+  image( seqpos, ligpos, image_scaling * F_correct' );
   title( 'Input data' );
 
   subplot(2,2,4);  set(gca,'position',[0.55 0.05 0.4 0.4] );
-  F_fit = A_old .* ( F_plaid + Q );
+  %plot( seqpos(1:N), [rho * Q( :, [170 190])] ) ; ylim([0 0.2]);
+  %plot( seqpos(1:N), [R , R.*A_new( :, [164]),  R.*A_new(:,195)] ) ; ylim([0 0.2]);pause;
+  %plot( seqpos(1:N), [ F_attcorrect( :, [164 190]), R] ) ; ylim([0 0.2]); pause;
+  F_fit = A_new .* ( zero_out( repmat( R, 1, N), seqsep ) + (Q ./ Bgrid) );
   image( seqpos, ligpos, image_scaling * F_fit'  );
   title( 'Fit: [ plaid + Q ], with attenuation' );
 
@@ -169,7 +177,7 @@ for q = 1 : NUM_CYCLES
 end
 
 if length(rfilename) > 0;
-  outfilename = get_iterfit_filename( rfilename );
+  outfilename = get_cohcoa_filename( rfilename );
   outdir = dirname( outfilename );
   if ~exist( outdir, 'dir' ); mkdir( outdir ); end;
   
@@ -205,54 +213,26 @@ if ( seqsep > seqsep_min ) fprintf( 'WARNING -- minimum insert length looks like
 
 %if seqsep > 10; seqsep = 17; end; 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [ R, B, F_plaid ] = estimate_plaid_background( F_attcorrect_subcontact, B, R, R_init, ...
-						  seqsep, USE_OUTLIER_FILTER_FOR_PLAID,...
-						  UNDERSHOOT_PLAID, PERCENTILE_CUT, REFIT_R );
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function  Q = zero_out( Q, seqsep );
 
-
-N = size( F_attcorrect_subcontact, 1 );
-
-niter = 1;
-for n = 1 : niter
-  for i = 1:N
-    normbins = [2: max( i-seqsep, 3 )];
-    %normbins = [2: i-5];
-    if USE_OUTLIER_FILTER_FOR_PLAID
-      B(i) = get_scalefactor_filter_outliers( F_attcorrect_subcontact(normbins,i), ...
-					      R( normbins), ...
-					      PERCENTILE_CUT, UNDERSHOOT_PLAID );
-    else
-      B(i) = mean( D_attcorrect(normbins,i) ) / mean(R( normbins ));
-    end   
-  end
-  
-  if REFIT_R
-    R_new = 0 * R;
-    for i = 1:N
-      %normbins = [(i+3):(N)];
-      normbins = [(i+seqsep):(N)];  % why so sensitive to i+3 vs. i+5?
-      if USE_OUTLIER_FILTER_FOR_PLAID
-	R_new(i) = get_scalefactor_filter_outliers( F_attcorrect_subcontact(i,normbins)', ...
-						    B( normbins ), ...
-						    PERCENTILE_CUT, UNDERSHOOT_PLAID );
-      else
-	R_new(i) = mean(F_attcorrect_subcontact(i,normbins)) / mean(B( normbins ));
-      end     	
-    end
-    
-    R = max( R_new, 0);
-    R( (N-seqsep) : N ) = R(N - seqsep - 1); % clean up -- R at end is not defined.
-    
-    % degeneracy in product -- R*B. Set scaling so that R matches R_init.	    
-    normbins = [ seqsep : (N-seqsep - 1)];
-    alpha = mean( R_init( normbins) ) / mean( R(normbins) );
-    R = R * alpha;
-    B = B / alpha;
-    R(1) = 1.0;
-    
+N = size( Q, 1 );
+for i = 1:N
+  for j = 1:min( i+seqsep, N )
+    Q(i,j) = 0.0;
   end
 end
 
-F_plaid = R * B';
-for i = 1:N;  F_plaid( [ max(i-seqsep,1) : end], i ) = 0.0;  end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function R = estimate_R( F_attcorrect_subcontact, seqsep );
+N = size( F_attcorrect_subcontact, 1 );
+R = ones(N,1);
+for i = 1:N
+  %for j = ( i+seqsep: N )
+  %plot( F_attcorrect_subcontact(i,: ) ); pause;
+  %end
+  d = F_attcorrect_subcontact(i, (i+seqsep:N) ) ;
+  R(i) = mean(d);
+end
