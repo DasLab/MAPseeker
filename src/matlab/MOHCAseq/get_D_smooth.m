@@ -56,8 +56,8 @@ if ( MODE == 1 | MODE == 0)
 elseif (MODE == 2)
   [ D_show, D_err ] = latte(r);
   % Some data thresholding and scaling mainly for compatibility with plotting.
-  D_scaling = 50;
-  cutoff = mean(mean(D_show)) + 0.0*std(std(D_show));
+  D_scaling = 60;
+  cutoff = mean(mean(D_show)) + std(std(D_show));
   D_show(D_show < cutoff) = 0;
   D_show = D_show * D_scaling;
   D_show_error = D_err * D_scaling;

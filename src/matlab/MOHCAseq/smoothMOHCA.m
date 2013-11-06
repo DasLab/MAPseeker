@@ -1,36 +1,36 @@
 function [D_smooth, D_smooth_error, seqpos, ligpos, r] = smoothMOHCA( rdat_file, pdb, MODE, image_options );
-%% [D_smooth,seqpos, ligpos, r] = smoothMOHCA( rdat_file, pdb, USE_Z_SCORE, MOD_CORRECT );
-%%
-%% One-shot script to take MOHCA raw data (in rdat format) and any known 
-%%  reference structure, and make a nice summary plot.
-%% 
-%% Inputs
-%%  rdat_file   = rdat or cell of rdats (either filenames or actual data objects will work)
-%%  pdb         = filename of pdb (or pdbstruct object from pdbread)
-%%  MODE        =  0. COHCOA [extraction of two-point correlation function, MOHCA-X style], force run.
-%%                 1. COHCOA [extraction of two-point correlation function, MOHCA-X style], use cached if avail.
-%%                 2. LAHTTE analysis [Likelihood Analysis of Hydroxyl-damage revealed TerTiary contact Estimation -- general model of the data assuming independence of background (random cleavage and RT stoppage) and source location]
-%%                 3. Use Z-score processing of reactivities (note that 
-%%                    this script will apply attenuation correction for you). 
-%%                 4. 'repsub' processing based on subtracting data corresponding
-%%                    to uncleaved RNA.
-%%                 5. 'respub' processing, no 'mod correct'
-%% image_options = string of cells, e.g., {'smooth'}:
-%%                   filter_RNAse = filter 'vertical' striations caused by RNAse cleavage
-%%                   filter_SN1   = filter points with signal/noise < 1
-%%                   filter_SN1.5 = filter points with signal/noise < 1.5
-%%                   filter_SN2   = filter points with signal/noise < 2
-%%                   smooth = apply 2D smooth
-%% Outputs 
-%%  D_smooth    = matrix of output, averaged over all data sets (weighted by 
-%%                 inverse error^2).
-%%  seqpos      = MOHCA stop positions of 5' ends (x-axis)
-%%  ligpos      = MOHCA ligation positions at 3' ends (these are the cleavage 
-%%                 positions + 1, corresponding to the sites actually attacked).
-%%  r           = cell of rdats
-%%
-%% (C) R. Das, C. Cheng, 2013
-%%
+%%% [D_smooth,seqpos, ligpos, r] = smoothMOHCA( rdat_file, pdb, USE_Z_SCORE, MOD_CORRECT );
+%%%
+%%% One-shot script to take MOHCA raw data (in rdat format) and any known 
+%%%  reference structure, and make a nice summary plot.
+%%% 
+%%% Inputs
+%%%  rdat_file   = rdat or cell of rdats (either filenames or actual data objects will work)
+%%%  pdb         = filename of pdb (or pdbstruct object from pdbread)
+%%%  MODE        =  0. COHCOA [extraction of two-point correlation function, MOHCA-X style], force run.
+%%%                 1. COHCOA [extraction of two-point correlation function, MOHCA-X style], use cached if avail.
+%%%                 2. LAHTTE analysis [Likelihood Analysis of Hydroxyl-damage revealed TerTiary contact Estimation -- general model of the data assuming independence of background (random cleavage and RT stoppage) and source location]
+%%%                 3. Use Z-score processing of reactivities (note that 
+%%%                    this script will apply attenuation correction for you). 
+%%%                 4. 'repsub' processing based on subtracting data corresponding
+%%%                    to uncleaved RNA.
+%%%                 5. 'respub' processing, no 'mod correct'
+%%% image_options = string of cells, e.g., {'smooth'}:
+%%%                   filter_RNAse = filter 'vertical' striations caused by RNAse cleavage
+%%%                   filter_SN1   = filter points with signal/noise < 1
+%%%                   filter_SN1.5 = filter points with signal/noise < 1.5
+%%%                   filter_SN2   = filter points with signal/noise < 2
+%%%                   smooth = apply 2D smooth
+%%% Outputs 
+%%%  D_smooth    = matrix of output, averaged over all data sets (weighted by 
+%%%                 inverse error^2).
+%%%  seqpos      = MOHCA stop positions of 5' ends (x-axis)
+%%%  ligpos      = MOHCA ligation positions at 3' ends (these are the cleavage 
+%%%                 positions + 1, corresponding to the sites actually attacked).
+%%%  r           = cell of rdats
+%%%
+%%% (C) R. Das, C. Cheng, 2013
+%%%
 
 if nargin < 1; help( mfilename ); return; end;
 
