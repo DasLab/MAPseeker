@@ -32,6 +32,11 @@ elseif isstruct(pdb)
 end
 D_sim_a = []; 
 
+rad_res = [];
+hit_res = [];
+dist_matrix = [];
+if isempty( pdbstruct) return; end;
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% 2. Figure out atoms.
 if ~exist( 'rad_atom' ) rad_atom = 'O2'''; end;
