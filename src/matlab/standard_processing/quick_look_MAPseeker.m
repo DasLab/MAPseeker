@@ -488,7 +488,7 @@ sequence_lengths = sort( sequence_lengths );
 m = mean( sequence_lengths );
 s = std( sequence_lengths );
 gp = find( (sequence_lengths - m) < 5 * s );
-L = max( gp );
+L = max( sequence_lengths(gp) );
 
 STRUCTURES_DEFINED = ( length( RNA_info(1).Structure ) > 0 );
 N_plots = N_primers + STRUCTURES_DEFINED;

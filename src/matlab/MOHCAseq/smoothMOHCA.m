@@ -147,7 +147,7 @@ epsfilename = strrep( epsfilename, basename( epsfilename ), ['Figures/',basename
 if ~exist( dirname( epsfilename ), 'dir' ) mkdir( dirname( epsfilename ) ); end;
 
 epsfilename = strrep( epsfilename, '.eps',['.',get_mode_tag( MODE ),'.eps'] );
-if exist( 'export_fig' ) == 2;
+if exist( 'export_fig' ) == 2 & system( 'which ghostscript' ) == 0
   if exist( epsfilename, 'file' ); delete( epsfilename ); end;
   epsfilename = strrep( epsfilename, '.eps','.pdf' );
   export_fig( GetFullPath(epsfilename) );
