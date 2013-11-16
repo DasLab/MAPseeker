@@ -1,5 +1,5 @@
 function [D_smooth, D_smooth_error, seqpos, ligpos, r] = smoothMOHCA( rdat_file, pdb, MODE, image_options );
-%%% [D_smooth,seqpos, ligpos, r] = smoothMOHCA( rdat_file, pdb, USE_Z_SCORE, MOD_CORRECT );
+%%% [D_smooth,seqpos, ligpos, r] = smoothMOHCA( rdat_file, pdb, MODE );
 %%%
 %%% One-shot script to take MOHCA raw data (in rdat format) and any known 
 %%%  reference structure, and make a nice summary plot.

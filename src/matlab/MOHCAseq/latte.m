@@ -15,7 +15,23 @@ else
 end
 
 data = r.reactivity;
-[epsilon, alpha, gamma] = calculate_background_vars(data, rbg);
+
+fprintf(1, '\nDone reading data, starting background sparsity optimization\n');
+options = optimset('Display', 'iter-detailed');
+xopt = fminsearch(@(x) score_fun(x, data, rbg), [0.05, 0.05], options);
+fprintf(1, '\nDone!\n');
+[P, P_err] = get_P(data, rbg, xopt(1), xopt(2));
+
+
+end
+
+function score = score_fun(x, data, rbg)
+[P, P_err] = get_P(data, rbg, x(1), x(2));
+score = sum(sum(abs(P)));
+end
+
+function [P, P_err] = get_P(data, rbg, x, y)
+[epsilon, alpha, gamma] = calculate_background_vars(data, rbg, x, y);
 P = zeros(size(data));
 P_err = zeros(size(data));
 A = zeros(size(data));
@@ -42,10 +58,9 @@ for j=1:size(data,1)
 		end
 	end
 end
-
 end
 
-function [epsilon, alpha, gamma]  = calculate_background_vars(data, rbg)
+function [epsilon, alpha, gamma]  = calculate_background_vars(data, rbg, x, y, z)
 epsilon = zeros(size(data, 1));
 alpha = zeros(size(data, 1));
 gamma = zeros(size(data, 1));
@@ -61,8 +76,8 @@ if rbg ~= -1
 	epsilon = epsilon./sum(epsilon);
 	alpha = alpha./sum(alpha);
 else
-	alpha(:) = 0.1;
-	epsilon(:) = 0.1;
+	alpha(:) = x;
+	epsilon(:) = y;
 end
 gamma = 0.01*epsilon;
 epsilon = 0.9*epsilon;
