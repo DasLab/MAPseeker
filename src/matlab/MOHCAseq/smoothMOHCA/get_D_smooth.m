@@ -25,7 +25,7 @@ end
 clf;
 
 D        = r.reactivity;
-ligpos   = str2num( char(get_tag( r, 'lig_pos' )) );
+ligpos = get_ligpos( r );
 seqpos   = r.seqpos;
 sequence = r.sequence;
 
