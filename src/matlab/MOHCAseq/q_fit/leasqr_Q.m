@@ -1,8 +1,25 @@
-function [f, g, h, Qpred ] = leasqr_Q( params, index_into_params, left_right_idx, epsilon_profile, Q, gamma, lambda, seqpos, CALC_HESSIAN );
-% [f, g, h, Qpred ] = leasqr_Q( params, index_into_params, left_right_idx, epsilon_profile, Q, gamma, lambda, seqpos );
+function [f, g, h, Qpred ] = leasqr_Q( params, index_into_params, left_right_idx, epsilon_profile, Q, Q_err, gamma, lambda, seqpos, CALC_HESSIAN );
+% [f, g, h, Qpred ] = leasqr_Q( params, index_into_params, left_right_idx, epsilon_profile, Q, Q_err, gamma, lambda, seqpos );
 %
+% Function that computes 'secondary' contact map given primary contact map 
+%  encoded in params. Called by q_fit. There is a faster version (leasqr_Q_fast); this
+%  version allows computation of hessians.
 %
+% Note that Q_err is not in use here, but it was tested out in leasqr_Q_fast.
 %
+% Inputs:
+%  params             = optimization parameters -- can be a subset of the primary map
+%  index_into_params  = getting from (i,j) in primary map matrix into vector of parameters.
+%  left_right_idx     = going back from parameters to (i,j).
+%  epsilon_profile    = fraction at nucleotide i that has source.
+%  Q                  = Observed secondary map from e.g., COHCOA of MOHCAseq data
+%  Q_err              = NOT ACTUALLY IN USE.
+%  gamma              = regularization strength on Laplacian prior
+%  lambda             = regularization strength on smoothness term - quadratic penalization of map nearest-neighbor deviations.
+%
+% (C) R. Das, Stanford University, 2013
+%
+
 if ~exist( 'CALC_HESSIAN' ) CALC_HESSIAN = 1; end;
 
 f = 0; g = []; Qpred = [];
