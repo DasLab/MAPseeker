@@ -66,7 +66,7 @@ elseif ( MODE == 3)
 
   % Use Clarence's Z-score pipeline, which takes in reactivities.
   %D_err = r.reactivity_error;
-  [ D_correct, D_correct_err ] = determine_corrected_reactivity( D, 1.0);
+  [ D_correct, D_correct_err ] = determine_corrected_reactivity( D, 0.33);
   [D_show, D_show_error] = get_MOHCAseq_zscores( D_correct, D_correct_err, 0.0 );
   %clf
   %errorbar( D_show(:,170), D_show_error(:,170) );

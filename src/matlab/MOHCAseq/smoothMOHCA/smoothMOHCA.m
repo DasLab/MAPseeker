@@ -38,7 +38,7 @@ if nargin < 1; help( mfilename ); return; end;
 clf;
 set(gcf, 'PaperPositionMode','auto','color','white');
 if ~exist( 'MODE', 'var' ); MODE = 1; end;
-if ~exist( 'image_options' ) image_options = {}; end;
+if ~exist( 'image_options' ) image_options = {'smooth','filter_SN1'}; end;
 if ~iscell( image_options ); assert( ischar( image_options ) ); image_options = { image_options }; end;
 if ischar( rdat_file ) & exist( rdat_file, 'dir' )==7; rdat_file = get_rdats_in_directory( rdat_file ); end;
 if ~iscell( rdat_file ) rdat_file = { rdat_file }; end;
