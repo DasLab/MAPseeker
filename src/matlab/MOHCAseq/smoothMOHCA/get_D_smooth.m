@@ -1,6 +1,6 @@
-function [ D_smooth, seqpos, ligpos, r, D_smooth_error, r_name ]  = get_D_smooth( rdat_file, MODE );
+function [ D_show, seqpos, ligpos, r, D_show_error, r_name ]  = get_D_smooth( rdat_file, MODE );
 
-% [ D_smooth, seqpos, ligpos, r, D_smooth_error, r_name ]  = get_D_smooth( rdat_file, MODE );
+% [ D_show, seqpos, ligpos, r, D_show_error, r_name ]  = get_D_smooth( rdat_file, MODE );
 %
 %
 
@@ -46,33 +46,42 @@ if ( MODE == 1 | MODE == 0)
     figure(h);clf;
   end
 
-  Q_scaling = figure_out_Q_scaling( Q ) / 20;
-
+  Q_scaling = figure_out_Q_scaling( Q ) / 30;
   D_show         = Q_scaling * Q;
   D_show_error   = Q_scaling * Q_err;
-  threshold = 0.0;
   seqpos = seqpos( 1:length(ligpos) );
 
+  %[D_show, D_show_error, seqpos ] = resculpt_map( r );
+  %D_show = D_show/4;
+  %D_show_error = D_show_error/4;  
+  %Q_scaling = figure_out_Q_scaling( D_show )/60;
+  %D_show         = Q_scaling * D_show;
+  %D_show_error   = Q_scaling * D_show_error;
+
+  ligpos = seqpos';
+  
 elseif (MODE == 2)
   [ D_show, D_err ] = latte(r);
   % Some data thresholding and scaling mainly for compatibility with plotting.
-  D_scaling = 60;
-  cutoff = mean(mean(D_show)) + std(std(D_show));
+  D_scaling = 120;
+  cutoff = 0.5 * ( mean(mean(D_show)) + std(std(D_show)) );
   D_show(D_show < cutoff) = 0;
   D_show = D_show * D_scaling;
   D_show_error = D_err * D_scaling;
-  threshold = 0.0;
 elseif ( MODE == 3)
 
   % Use Clarence's Z-score pipeline, which takes in reactivities.
   %D_err = r.reactivity_error;
   [ D_correct, D_correct_err ] = determine_corrected_reactivity( D, 1.0);
+  
   [D_show, D_show_error] = get_MOHCAseq_zscores( D_correct, D_correct_err, 0.0 );
+
+  %D_show = 4 * D_correct;
+  %D_show_err = 4 * D_correct_err;
+  
   %clf
   %errorbar( D_show(:,170), D_show_error(:,170) );
   %pause
-  %threshold = 0.5;
-  threshold = 0.0;
 
 elseif ( MODE == 4 | MODE == 5)
 
@@ -110,11 +119,8 @@ elseif ( MODE == 4 | MODE == 5)
   
   D_show_ref = max(D_show(:,refcols ),0);
   threshold = mean( std( D_show_ref ) );
+  D_show = D_show - 0.1*threshold;
 else
   error( sprintf('Unrecognized MODE: %d\n', MODE) );
 end
 
-% Removing noise for pretty plots. Note that this will have negative values, but
-% those will not be displayed on image.
-D_smooth = D_show - 0.1*threshold;
-D_smooth_error = D_show_error;

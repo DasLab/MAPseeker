@@ -109,7 +109,7 @@ axis image;
 %contour_levels = [10, 15, 25, 35];
 %colorcode = [0 0 1; 0.3 0.3 1; 0.6 0.6 1; 0.8 0.8 1];
 contour_levels = [15,30];
-colorcode = [1 0 1; 0 0 1];
+colorcode = [1 0.5 1; 0.5 0.5 1];
 
 legends = {};
 if ~isempty( dist_matrix );
@@ -118,7 +118,7 @@ if ~isempty( dist_matrix );
     [c,h]=contour(rad_res, hit_res, tril(dist_matrix), ...
 		  contour_levels(i) * [1 1],...
 		  'color',colorcode(i,:),...
-		  'linewidth',1.5 );
+		  'linewidth',0.5 );
     legends{i} = sprintf( '%d Angstrom', contour_levels(i) );
   end
 end

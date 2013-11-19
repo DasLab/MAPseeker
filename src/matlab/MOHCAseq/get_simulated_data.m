@@ -99,13 +99,16 @@ dist2 = dist2'; % some silly meshgrid thing.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [rad_atom, hit_atom] = figure_out_atoms( pdbstruct, rad_atom, hit_atom );
 
-for i = 1:20
+atomname = 0;
+for i = 1:50
   if strcmp(pdbstruct.Model.Atom(1,i).AtomName, rad_atom)
-    atomname = 1;
+    atomname = 1; break;
   elseif strcmp(pdbstruct.Model.Atom(1,i).AtomName, strrep( rad_atom, '''', '*' ) );
-    atomname = 2;
+    atomname = 2; break;
   end
 end
+
+assert( atomname > 0 );
 
 if atomname == 2;
   rad_atom = strrep( rad_atom, '''', '*' );
