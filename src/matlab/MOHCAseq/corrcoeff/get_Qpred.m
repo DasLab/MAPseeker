@@ -1,6 +1,10 @@
 function [Q, rad_res, D_out] = get_Qpred( pdb, epsilon_file, HRF_file );
 % Q = get_Qpred( pdb, epsilon_file, HRF_file );
 %
+% pdb          = pdb file
+% epsilon_file = supply 'A' for uniform sources at 'A', or filename that has
+%                  residue, source fraction pairs.
+% HRF_file     = [NOT IN USE CURRENTLY] filename that has hydroxyl reactivity.
 %
 %pdb = '../P4P6/combined_analysis/1GIDA.pdb';
 

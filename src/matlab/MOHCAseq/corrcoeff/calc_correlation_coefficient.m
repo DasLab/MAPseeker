@@ -1,4 +1,11 @@
 function [c,chi2] = calc_correlation_coefficient( r, Qpred, seqpos_Q, D_out );
+% [c,chi2] = calc_correlation_coefficient( r, Qpred, seqpos_Q, D_out );
+%
+% Inputs:
+%  r        = rdat object
+%  Qpred    = predicted secondary contact map (from get_Qpred )
+%  seqpos_Q = sequence positions that go with Qpred 
+%  D_out    = [optional] predicted primary contact map, linear combination with Qpred will be fit to data.
 
 if ~exist( 'D_out', 'var' )
   D_out = 0 * Qpred;
