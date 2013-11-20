@@ -14,13 +14,13 @@ function [D_smooth, D_smooth_error, seqpos, ligpos, r] = smoothMOHCA( rdat_file,
 %%%                    this script will apply attenuation correction for you). 
 %%%                 4. 'repsub' processing based on subtracting data corresponding
 %%%                    to uncleaved RNA.
-%%%                 5. 'respub' processing, no 'mod correct'
+%%%                 5. 'repsub' processing, no 'mod correct'
 %%% image_options = string of cells, e.g., {'smooth'}:
-%%%                   filter_RNAse = filter 'vertical' striations caused by RNAse cleavage
-%%%                   filter_SN1   = filter points with signal/noise < 1
+%%%                   no_smooth    = do not apply 2D smooth in image.
+%%%                   no_filter    = do not filter points with signal/noise < 1
 %%%                   filter_SN1.5 = filter points with signal/noise < 1.5
 %%%                   filter_SN2   = filter points with signal/noise < 2
-%%%                   smooth = apply 2D smooth
+%%%                   filter_RNAse = filter 'vertical' striations caused by RNAse cleavage
 %%% Outputs 
 %%%  D_smooth    = matrix of output, averaged over all data sets (weighted by 
 %%%                 inverse error^2).
@@ -60,16 +60,24 @@ for i = 1:length( rdat_file )
   drawnow;
 end
 
-if ( length( rdat_file )  > 1 )
+if length( rdat_file ) > 1
   [D_smooth, D_smooth_error ] = get_weighted_average( all_D_smooth, all_D_smooth_error );
-  make_plot( D_smooth, D_smooth_error, seqpos, ligpos, r{1}.sequence, r{1}.offset, ...
-	     cat_name, out_dir, dist_matrix, rad_res, hit_res, ...
-	     MODE, image_options);
-  output_combined_rdat_file( r{1}, D_smooth, D_smooth_error, seqpos, cat_name, out_dir, MODE );
 else
   D_smooth = squeeze(all_D_smooth(:,:,1));
   D_smooth_error = squeeze(all_D_smooth_error(:,:,1));
 end
+
+r = r{1};
+if check_option( image_options, 'crossZ' );
+  r.reactivity = D_smooth; r.reactivity_error = D_smooth_error;
+  [D_smooth, D_smooth_error ] = crossZscore( r ); fprintf( 'APPLIED CROSS-ZSCORE!\n' );
+end
+
+
+make_plot( D_smooth, D_smooth_error, seqpos, ligpos, r.sequence, r.offset, ...
+	   cat_name, out_dir, dist_matrix, rad_res, hit_res, ...
+	   MODE, image_options);
+output_combined_rdat_file( r, D_smooth, D_smooth_error, seqpos, cat_name, out_dir, MODE, image_options );
 
 if MODE == 0; fprintf( 'Applied COHCOA (overwrite any previous COHCOA.rdat). \n' ); end;
 if MODE == 1; fprintf( 'Used COHCOA. \n' ); end;
@@ -78,20 +86,31 @@ if MODE == 3; fprintf( 'Used Z-score\n' ); end;
 if MODE == 4; fprintf( 'Used repsub. Applied modification correction. \n' ); end
 if MODE == 5; fprintf( 'Used repsub. Applied modification correction. \n' ); end
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function make_plot( D_smooth, D_smooth_error, ...
 		    seqpos, ligpos, sequence, offset, name, out_dir, ...
 		    dist_matrix, rad_res, hit_res, ...
-		    MODE, opts )
+		    MODE, image_options )
 
 D_filter = D_smooth;
-if check_option( opts, 'filter_RNAse' );  D_filter = filter_RNAse_striations( D_filter );end
+if check_option( image_options, 'filter_RNAse' );  D_filter = filter_RNAse_striations( D_filter );end
 if size( D_smooth,2) == size( D_smooth_error, 2 );
-  if check_option( opts, 'filter_SN1' )  D_filter( find( (D_smooth./D_smooth_error) < 1 ) ) = 0.0;   end
-  if check_option( opts, 'filter_SN1.5' )  D_filter( find( (D_smooth./D_smooth_error) < 1.5 ) ) = 0.0;   end
-  if check_option( opts, 'filter_SN2' )  D_filter( find( (D_smooth./D_smooth_error) < 2 ) ) = 0.0;   end
+  if check_option( image_options, 'filter_SN1.5' )  
+    D_filter( find( (D_smooth./D_smooth_error) < 1.5 ) ) = 0.0;   
+  elseif check_option( image_options, 'filter_SN2' )  
+      D_filter( find( (D_smooth./D_smooth_error) < 2 ) ) = 0.0;  
+  elseif ~check_option( image_options, 'filter_SN1' )  
+      D_filter( find( (D_smooth./D_smooth_error) < 1 ) ) = 0.0;   
+  end
 end
-if check_option( opts, 'smooth' )  D_filter = smooth2d( D_filter ); end
+if ~check_option( image_options, 'no_smooth' )  D_filter = smooth2d( D_filter ); end
+
+% auto scale
+if ~check_option( image_options, 'no_autoscale' )
+  scalefactor = (1/8)/mean(mean(max(D_filter,0)));
+  D_filter = D_filter * scalefactor;
+end
 
 image( seqpos, ligpos, 80 * D_filter' );
 
@@ -110,6 +129,7 @@ axis image;
 %colorcode = [0 0 1; 0.3 0.3 1; 0.6 0.6 1; 0.8 0.8 1];
 contour_levels = [15,30];
 colorcode = [1 0.5 1; 0.5 0.5 1];
+
 
 legends = {};
 if ~isempty( dist_matrix );
@@ -147,6 +167,7 @@ epsfilename = strrep( epsfilename, basename( epsfilename ), ['Figures/',basename
 if ~exist( dirname( epsfilename ), 'dir' ) mkdir( dirname( epsfilename ) ); end;
 
 epsfilename = strrep( epsfilename, '.eps',['.',get_mode_tag( MODE ),'.eps'] );
+if check_option( image_options, 'crossZ' ); epsfilename = strrep( epsfilename, '.eps','.Z.eps' ); end;
 if exist( 'export_fig' ) == 2;
   if exist( epsfilename, 'file' ); delete( epsfilename ); end;
   epsfilename = strrep( epsfilename, '.eps','.pdf' );
@@ -170,21 +191,22 @@ D_smooth = D_smooth_sum ./ weight_sum;
 D_smooth_error = sqrt(1 ./ weight_sum);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function output_combined_rdat_file( r, D_smooth, D_smooth_error, seqpos, cat_name, out_dir, MODE );
+function output_combined_rdat_file( r, D_smooth, D_smooth_error, seqpos, cat_name, out_dir, MODE, image_options );
 
 r.reactivity = D_smooth;
 r.reactivity_error = D_smooth_error;
 r.seqpos = seqpos;
-r.comments = [r.comments, cat_name ];
+r.comments = [r.comments, split_string(cat_name,'\newline') ];
 
 if exist( [out_dir, 'COMBINED.rdat'], 'file' ) delete( [out_dir, 'COMBINED.rdat'] ); end; % some cleanup
 
 out_file = [out_dir,'COMBINED.',get_mode_tag( MODE ),'.rdat'];
+if check_option( image_options, 'crossZ' ); out_file = strrep( out_file, '.rdat','.Z.rdat' ); end;
 output_rdat_to_file( out_file, r );
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function val = check_option( opts, option_string );
-val = ~isempty( find( strcmp( opts, option_string ) ) );
+function val = check_option( image_options, option_string );
+val = ~isempty( find( strcmp( image_options, option_string ) ) );
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function rdat_files = get_rdats_in_directory( rdat_dir ); 

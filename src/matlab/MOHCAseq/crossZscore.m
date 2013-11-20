@@ -16,17 +16,17 @@ function [Z, Z_err, seqpos, D_symm] = crossZscore( r, ok_res );
 % (C) Rhiju Das, 2013.
 
 if ischar( r ); r = read_rdat_file( r ); end;
-if ~exist( 'ok_res', 'var' ) ok_res = r.seqpos; end;
+if ~exist( 'ok_res', 'var' ) ok_res = r.seqpos( 11:end-10) ; end;
 
 seqpos = r.seqpos;
 ligpos = get_ligpos( r );
 
 D     = max(r.reactivity, 0);
 D_err = r.reactivity_error;
-symmetrize( D, seqpos, ligpos );
-symmetrize( D_err, seqpos, ligpos );
+D     = symmetrize( D, seqpos, ligpos );
+D_err = symmetrize( D_err, seqpos, ligpos );
 
-SEQ_SEP = 5;
+SEQ_SEP = 7;
 [max_i, mean_i, std_i, points_i ] = get_comparison_point_info( D,  seqpos, ligpos, ok_res, SEQ_SEP );
 [max_j, mean_j, std_j, points_j ] = get_comparison_point_info( D', ligpos, seqpos, ok_res, SEQ_SEP );
 
@@ -38,7 +38,7 @@ for i = 1:length(seqpos)
     m = mean( comparison_points );
     s = std( comparison_points );
     Z(i,j)     = ( D(i,j) - m )/s;
-    Z_err(i,j) = ( D_err(i,j) - m )/s;
+    Z_err(i,j) = ( D_err(i,j) )/s;
     
     %Z_i = ( D(i,j) - mean_i(i) )/std_i(i);
     %Z_j = ( D(i,j) - mean_j(j) )/std_j(j);
@@ -48,6 +48,8 @@ for i = 1:length(seqpos)
     %Z(i,j) = D(i,j) / max( max_i(i), max_j(j) );
   end
 end
+
+%Z = max( Z, 0 );
 
 image( seqpos, ligpos, 10 * Z' );
 colormap( 1 - gray(100));
@@ -67,14 +69,20 @@ function [max_i, mean_i, std_i, points_i ] = get_comparison_point_info( D, seqpo
 ok_pos = [];
 for i = ok_res; ok_pos = [ok_pos, find( ligpos == i ) ]; end;
 
+max_i  = zeros(length(seqpos),1);
+mean_i = zeros(length(seqpos),1);
+std_i  = zeros(length(seqpos),1);
 for i = 1:length( seqpos )
   gp = find( abs( ligpos - i ) > SEQ_SEP );
   gp = intersect( gp, ok_pos );
-
+  gp = intersect( gp, find( ~isnan(D(i,:)) ) );
   p = D(i,gp);
-  max_i(i)    = max( p );
-  mean_i(i)   = mean( p );
-  std_i(i)    = std( p );
+  if ~isempty( p )
+    max_i(i)    = max( p );
+    mean_i(i)   = mean( p );
+    std_i(i)    = std( p );
+  end
   points_i{i} = p;
+    
 end
 

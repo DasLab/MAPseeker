@@ -51,7 +51,7 @@ if ( MODE == 1 | MODE == 0)
   D_show_error   = Q_scaling * Q_err;
   seqpos = seqpos( 1:length(ligpos) );
 
-  %[D_show, D_show_error, seqpos ] = resculpt_map( r );
+  %[D_show, D_show_error, seqpos ] = crossZscore( r );
   %D_show = D_show/4;
   %D_show_error = D_show_error/4;  
   %Q_scaling = figure_out_Q_scaling( D_show )/60;

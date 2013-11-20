@@ -11,15 +11,16 @@ function D_symm = symmetrize( D, seqpos, ligpos );
 %
 % (C) R. Das, Stanford University, 2013
 
-D_symm = D;
+D_symm = D*0 + NaN;
 
 for i = 1:length( seqpos )
   for j = 1:length( ligpos )
     if ( seqpos(i) <= ligpos(j) ) continue; end;
     m = find( seqpos == ligpos(j) );
-    if isempty( m ); continue; end;
     n = find( ligpos == seqpos(i) );
-    if isempty( n ); continue; end;
-    D(i,j)     = D(m,n);
+    if ~isempty( m ) & ~isempty(n) 
+      D_symm(i,j) = D(m,n);
+      D_symm(m,n) = D(m,n);
+    end
   end
 end
