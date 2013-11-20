@@ -18,6 +18,7 @@ function [D_smooth, D_smooth_error, seqpos, ligpos, r] = smoothMOHCA( rdat_file,
 %%% image_options = string of cells, e.g., {'smooth'}:
 %%%                   no_smooth    = do not apply 2D smooth in image.
 %%%                   no_filter    = do not filter points with signal/noise < 1
+%%%                   no_autoscale = for plotting, do not scale automatically.
 %%%                   filter_SN1.5 = filter points with signal/noise < 1.5
 %%%                   filter_SN2   = filter points with signal/noise < 2
 %%%                   filter_RNAse = filter 'vertical' striations caused by RNAse cleavage
