@@ -1,4 +1,4 @@
-function [D_smooth, D_smooth_error, seqpos, ligpos, r] = smoothMOHCA( rdat_file, pdb, MODE, image_options );
+function [D_smooth, D_smooth_error, seqpos, ligpos, r] = smoothMOHCA( rdat_file, pdb, MODE, SQUARIFY, image_options );
 %%% [D_smooth,seqpos, ligpos, r] = smoothMOHCA( rdat_file, pdb, MODE );
 %%%
 %%% One-shot script to take MOHCA raw data (in rdat format) and any known 
@@ -15,6 +15,7 @@ function [D_smooth, D_smooth_error, seqpos, ligpos, r] = smoothMOHCA( rdat_file,
 %%%                 4. 'repsub' processing based on subtracting data corresponding
 %%%                    to uncleaved RNA.
 %%%                 5. 'repsub' processing, no 'mod correct'
+%%% SQUARIFY     = option to crop data so that rdat and plots display as square with identical axis limits; default 1 (on) 
 %%% image_options = string of cells, e.g., {'smooth'}:
 %%%                   no_smooth    = do not apply 2D smooth in image.
 %%%                   no_filter    = do not filter points with signal/noise < 1
@@ -22,6 +23,7 @@ function [D_smooth, D_smooth_error, seqpos, ligpos, r] = smoothMOHCA( rdat_file,
 %%%                   filter_SN1.5 = filter points with signal/noise < 1.5
 %%%                   filter_SN2   = filter points with signal/noise < 2
 %%%                   filter_RNAse = filter 'vertical' striations caused by RNAse cleavage
+%%%                   crossZ       = apply a 2-dimensional Z-score-based correction to the data 
 %%% Outputs 
 %%%  D_smooth    = matrix of output, averaged over all data sets (weighted by 
 %%%                 inverse error^2).
@@ -41,21 +43,40 @@ set(gcf, 'PaperPositionMode','auto','color','white');
 if ~exist( 'MODE', 'var' ); MODE = 1; end;
 if ~exist( 'image_options' ) image_options = {}; end;
 if ~iscell( image_options ); assert( ischar( image_options ) ); image_options = { image_options }; end;
-if ischar( rdat_file ) & exist( rdat_file, 'dir' )==7; rdat_file = get_rdats_in_directory( rdat_file ); end;
+if ischar( rdat_file ) & exist( rdat_file, 'dir' )==7; rdat_file = get_rdats_in_directory( rdat_file ); end;                % rdat_file = {'~/.../RNA.RAW.1.rdat','...'}
 if ~iscell( rdat_file ) rdat_file = { rdat_file }; end;
 D_sim_a = [];
 dist_matrix = []; rad_res = []; hit_res = [];
 if exist( 'pdb', 'var' );  [D_sim_a, rad_res, hit_res, dist_matrix, pdbstruct] = get_simulated_data( pdb ); end
+if ~exist( 'SQUARIFY' ); SQUARIFY = 1; end
 
 % show all data sets.
 cat_name = '';
 for i = 1:length( rdat_file )
-  [all_D_smooth(:,:,i), seqpos, ligpos, r{i}, all_D_smooth_error(:,:,i), r_name ] = get_D_smooth( rdat_file{i}, MODE );  
-  out_dir = dirname( r_name );
+  [store_D_smooth(:,:,i), seqpos, ligpos, r{i}, store_D_smooth_error(:,:,i), r_name ] = get_D_smooth( rdat_file{i}, MODE ); % r_name = '~/.../RNA.RAW.1.rdat'
+  out_dir = dirname( r_name );                                                                                              % out_dir = '~/.../'
+
+  if SQUARIFY
+      [r{i}, out_file_temp] = squarifier( r{i}, store_D_smooth(:,:,i), store_D_smooth_error(:,:,i), r_name, MODE );         % out_file_temp = '~/.../RNA.RAW.1.method.SQR.rdat'
+      
+      % set variables to squarified data
+      all_D_smooth(:,:,i) = r{i}.reactivity;
+      all_D_smooth_error(:,:,i) = r{i}.reactivity_error;
+      ligpos = get_ligpos(r{i});
+      seqpos = r{i}.seqpos;
+
+      % save squarified rdat
+      output_rdat_to_file( out_file_temp, r{i} );
+  else
+      all_D_smooth(:,:,i) = store_D_smooth(:,:,i);
+      all_D_smooth_error(:,:,i) = store_D_smooth_error(:,:,i);      
+  end
+  
   make_plot( squeeze( all_D_smooth(:,:,i) ), ...
-	     squeeze( all_D_smooth_error(:,:,i) ), ...
-	     seqpos, ligpos, r{i}.sequence, r{i}.offset, r_name, out_dir, dist_matrix, rad_res, hit_res, ...
-	     MODE, image_options );
+       squeeze( all_D_smooth_error(:,:,i) ), ...
+       seqpos, ligpos, r{i}.sequence, r{i}.offset, r_name, out_dir, dist_matrix, rad_res, hit_res, ...
+       MODE, image_options, SQUARIFY );
+
   if i > 1; cat_name = [cat_name, '\newline' ]; end
   cat_name = [cat_name, r_name];
   drawnow;
@@ -77,8 +98,8 @@ end
 
 make_plot( D_smooth, D_smooth_error, seqpos, ligpos, r.sequence, r.offset, ...
 	   cat_name, out_dir, dist_matrix, rad_res, hit_res, ...
-	   MODE, image_options);
-output_combined_rdat_file( r, D_smooth, D_smooth_error, seqpos, cat_name, out_dir, MODE, image_options );
+	   MODE, image_options, SQUARIFY);
+output_combined_rdat_file( r, D_smooth, D_smooth_error, seqpos, cat_name, out_dir, MODE, image_options, SQUARIFY );
 
 if MODE == 0; fprintf( 'Applied COHCOA (overwrite any previous COHCOA.rdat). \n' ); end;
 if MODE == 1; fprintf( 'Used COHCOA. \n' ); end;
@@ -92,7 +113,7 @@ if MODE == 5; fprintf( 'Used repsub. Applied modification correction. \n' ); end
 function make_plot( D_smooth, D_smooth_error, ...
 		    seqpos, ligpos, sequence, offset, name, out_dir, ...
 		    dist_matrix, rad_res, hit_res, ...
-		    MODE, image_options )
+		    MODE, image_options, SQUARIFY )
 
 D_filter = D_smooth;
 if check_option( image_options, 'filter_RNAse' );  D_filter = filter_RNAse_striations( D_filter );end
@@ -123,13 +144,13 @@ set(gca,'xgrid','on','ygrid','on','fonts',12,'fontw','bold');
 xlabel( 'Stop pos [5'']' ); ylabel( 'Lig pos [3'']');
 hold on;
 
-colormap( 1 - gray(100));
+colormap( jet ); % colormap( 1-gray(100) );
 axis image;
 
 %contour_levels = [10, 15, 25, 35];
 %colorcode = [0 0 1; 0.3 0.3 1; 0.6 0.6 1; 0.8 0.8 1];
 contour_levels = [15,30];
-colorcode = [1 0.5 1; 0.5 0.5 1];
+colorcode = [1 0 1; 0.75 0.6 0.9];
 
 
 legends = {};
@@ -139,7 +160,7 @@ if ~isempty( dist_matrix );
     [c,h]=contour(rad_res, hit_res, tril(dist_matrix), ...
 		  contour_levels(i) * [1 1],...
 		  'color',colorcode(i,:),...
-		  'linewidth',0.5 );
+		  'linewidth', 1 );
     legends{i} = sprintf( '%d Angstrom', contour_levels(i) );
   end
 end
@@ -163,11 +184,14 @@ if length( legends ) > 0; legend( legends ); end;
 title( strrep( name,'_','\_') );
 
 if ( ~isempty( strfind( name, '\newline' ) ) ) name = [out_dir, 'COMBINED']; end;
-epsfilename = [name,'.eps'];
-epsfilename = strrep( epsfilename, basename( epsfilename ), ['Figures/',basename(epsfilename)] );
+    epsfilename = [name,'.eps'];
+    epsfilename = strrep( epsfilename, basename( epsfilename ), ['Figures/',basename(epsfilename)] );
 if ~exist( dirname( epsfilename ), 'dir' ) mkdir( dirname( epsfilename ) ); end;
 
 epsfilename = strrep( epsfilename, '.eps',['.',get_mode_tag( MODE ),'.eps'] );
+
+if SQUARIFY; epsfilename = strrep( epsfilename, '.eps', '.SQR.eps' ); end
+
 if check_option( image_options, 'crossZ' ); epsfilename = strrep( epsfilename, '.eps','.Z.eps' ); end;
 if exist( 'export_fig' ) == 2;
   if exist( epsfilename, 'file' ); delete( epsfilename ); end;
@@ -177,6 +201,16 @@ else
   print( '-depsc2', epsfilename);
 end
 fprintf( 'Outputted: %s\n', epsfilename );
+
+% save as MATLAB figure
+  figfilename = [name,'.fig'];
+  figfilename = strrep( figfilename, basename( figfilename ), ['Figures/',basename(figfilename)] );
+  figfilename = strrep( figfilename, '.fig',['.',get_mode_tag( MODE ),'.fig'] );
+
+  if SQUARIFY; figfilename = strrep( figfilename, '.fig', '.SQR.fig' ); end
+
+  hgsave(gcf, figfilename);
+  fprintf( 'Outputted: %s\n', figfilename );
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function [D_smooth, D_smooth_error ] = get_weighted_average( all_D_smooth, all_D_smooth_error );
@@ -192,7 +226,7 @@ D_smooth = D_smooth_sum ./ weight_sum;
 D_smooth_error = sqrt(1 ./ weight_sum);
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function output_combined_rdat_file( r, D_smooth, D_smooth_error, seqpos, cat_name, out_dir, MODE, image_options );
+function output_combined_rdat_file( r, D_smooth, D_smooth_error, seqpos, cat_name, out_dir, MODE, image_options, SQUARIFY );
 
 r.reactivity = D_smooth;
 r.reactivity_error = D_smooth_error;
@@ -201,7 +235,12 @@ r.comments = [r.comments, split_string(cat_name,'\newline') ];
 
 if exist( [out_dir, 'COMBINED.rdat'], 'file' ) delete( [out_dir, 'COMBINED.rdat'] ); end; % some cleanup
 
-out_file = [out_dir,'COMBINED.',get_mode_tag( MODE ),'.rdat'];
+if SQUARIFY;
+    out_file = [out_dir,'COMBINED.',get_mode_tag( MODE ),'.SQR.rdat'];
+else
+    out_file = [out_dir,'COMBINED.',get_mode_tag( MODE ),'.rdat'];
+end       
+
 if check_option( image_options, 'crossZ' ); out_file = strrep( out_file, '.rdat','.Z.rdat' ); end;
 output_rdat_to_file( out_file, r );
 

@@ -25,7 +25,7 @@ end
 clf;
 
 D        = r.reactivity;
-ligpos = get_ligpos( r );
+ligpos   = get_ligpos( r );
 seqpos   = r.seqpos;
 sequence = r.sequence;
 
@@ -57,8 +57,6 @@ if ( MODE == 1 | MODE == 0)
   %Q_scaling = figure_out_Q_scaling( D_show )/60;
   %D_show         = Q_scaling * D_show;
   %D_show_error   = Q_scaling * D_show_error;
-
-  ligpos = seqpos';
   
 elseif (MODE == 2)
   [ D_show, D_err ] = latte(r);
