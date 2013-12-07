@@ -141,11 +141,11 @@ for q = 1 : NUM_CYCLES
   subplot(2,2,1); set(gca,'position',[0.05 0.55 0.4 0.4] );
 
   Q_scaling = figure_out_Q_scaling( Q );
-  image( seqpos, ligpos, Q_scaling * Q_out' );
+  image( seqpos, ligpos, Q_scaling * Q_out' ); axis image;
   title( 'Q' );
 
   subplot(2,2,2);  set(gca,'position',[0.55 0.55 0.4 0.4] );
-  image( seqpos, ligpos, Q_scaling * Q_filter' );
+  image( seqpos, ligpos, Q_scaling * Q_filter' ); axis image;
   title( sprintf('Q_{filter} (S/N > %3.1f )', SIGNAL_TO_NOISE_FILTER_CUTOFF) );
   %image( Q_scaling * Q_out_err' );
   %title( 'Q_{ERROR}' );
@@ -154,12 +154,12 @@ for q = 1 : NUM_CYCLES
   %title( '-Q [should be low]' );
 
   subplot(2,2,3);  set(gca,'position',[0.05 0.05 0.4 0.4] );
-  image( seqpos, ligpos, image_scaling * F' );
+  image( seqpos, ligpos, image_scaling * F' ); axis image;
   title( 'Input data' );
 
   subplot(2,2,4);  set(gca,'position',[0.55 0.05 0.4 0.4] );
   F_fit = A_old .* ( F_plaid + Q );
-  image( seqpos, ligpos, image_scaling * F_fit'  );
+  image( seqpos, ligpos, image_scaling * F_fit'  ); axis image;
   title( 'Fit: [ plaid + Q ], with attenuation' );
 
   drawnow;

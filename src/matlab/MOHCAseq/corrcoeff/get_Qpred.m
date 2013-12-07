@@ -16,7 +16,7 @@ clf;
 D_sim_in = []; D_sim_comp = [];
 %rad_atoms = {'C5''', 'O2'''};
 rad_atoms = {'O2'''};
-hit_atoms = {'C3''','C5''','C4'''};
+hit_atoms = {'C3''','C5''','C4'''};     % atoms likely to lead to strand scission
 
 MAX_D = (1 / 8.0);
 for j = 1:length( rad_atoms )
@@ -94,10 +94,12 @@ for i = 1:N
     D_out(i,j) = D_sim_convolve_epsilon_profile(i,j);
   end
 end
-image( rad_res, hit_res, D_out' * 5000);
+figure(1);
+image( rad_res, hit_res, D_out' * 5000); axis image;
 title( 'predicted hits [1/distance]' );
 xlabel( 'source')
 ylabel( 'cleavage')
+colormap( 1 - gray(100))
 
 hold on
 contour_levels = [15,30];
@@ -140,7 +142,7 @@ Z_Q = get_MOHCAseq_zscores( Q, 0*Q, 0.0 );
 
 %image( rad_res, hit_res, Z_Q' * 32 );
 
-image( rad_res, hit_res, (Q-mean(mean(Q')))' * 40 /mean(mean(Q')) );
+figure(2); image( rad_res, hit_res, (Q-mean(mean(Q')))' * 40 /mean(mean(Q')) ); axis image;
 
 %title( 'predicted Q = correlation function' );
 ylabel( 'stop' );
@@ -160,3 +162,6 @@ for i = 1:length( contour_levels )
 end
 
 drawnow;
+
+
+
