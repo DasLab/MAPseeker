@@ -34,7 +34,7 @@ if ~ischar(string_name)
     error('string_name must be a string.');
 end
 % Create the full filename
-string_name = fullfile(fileparts(mfilename('fullpath')), '.ignore', [string_name '.txt']);
+string_name = fullfile(fileparts(mfilename('fullpath')), [string_name '.txt']); % delete .ignore so user should specify location of gs in ghostscript.txt -- C. Cheng 12/2013
 if nargin > 1
     % Set string
     if ~ischar(string)

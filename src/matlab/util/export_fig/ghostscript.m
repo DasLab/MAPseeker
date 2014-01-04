@@ -6,7 +6,7 @@
 % Attempts to locate a ghostscript executable, finally asking the user to
 % specify the directory ghostcript was installed into. The resulting path
 % is stored for future reference.
-% 
+%
 % Once found, the executable is called with the input command string.
 %
 % This function requires that you have Ghostscript installed on your
@@ -40,6 +40,9 @@ shell_cmd = '';
 if isunix
     shell_cmd = 'export LD_LIBRARY_PATH=""; '; % Avoids an error on Linux with GS 9.07
 end
+if ismac
+    shell_cmd = 'export DYLD_LIBRARY_PATH=""; ';  % Avoids an error on Mac with GS 9.07
+end
 % Call ghostscript
 [varargout{1:nargout}] = system(sprintf('%s"%s" %s', shell_cmd, gs_path, cmd));
 return
@@ -47,7 +50,7 @@ return
 function path_ = gs_path
 % Return a valid path
 % Start with the currently set path
-path_ = user_string('ghostscript');
+path_ = user_string('ghostscript');     % have a file titled 'ghostscript.txt' in same folder as 'user_string.m' with location of gs executable
 % Check the path works
 if check_gs_path(path_)
     return
@@ -69,7 +72,7 @@ if ispc
     default_location = 'C:\Program Files\gs\';
     dir_list = dir(default_location);
     if isempty(dir_list)
-        default_location = 'C:\Program Files (x86)\gs\'; % Possible location on 64-bit systems 
+        default_location = 'C:\Program Files (x86)\gs\'; % Possible location on 64-bit systems
         dir_list = dir(default_location);
     end
     executable = {'\bin\gswin32c.exe', '\bin\gswin64c.exe'};
@@ -141,6 +144,10 @@ return
 
 function good = check_gs_path(path_)
 % Check the path is valid
-[good, message] = system(sprintf('"%s" -h', path_));
+shell_cmd = '';
+if ismac
+    shell_cmd = 'export DYLD_LIBRARY_PATH=""; ';  % Avoids an error on Mac with GS 9.07
+end
+[good, message] = system(sprintf('%s"%s" -h', shell_cmd, path_));
 good = good == 0;
 return
