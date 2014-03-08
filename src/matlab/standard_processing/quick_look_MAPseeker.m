@@ -127,9 +127,8 @@ end
 Nidx = size( D_raw{1}, 2 );
 
 combine_mode_RNA = 0; 
-if ~isempty( find( strcmp( more_options, 'no_combine_primer' ) ) )   combine_mode_primer = 1; end
-
 combine_mode_primer = 1;
+if ~isempty( find( strcmp( more_options, 'no_combine_primer' ) ) )   combine_mode_primer = 0; end
 if ~isempty( find( strcmp( more_options, 'combine_RNA_by_tag' ) ) )  combine_mode_RNA = 1; end
 if ~isempty( find( strcmp( more_options, 'combine_RNA_by_name' ) ) ) combine_mode_RNA = 2; end
 
@@ -488,7 +487,7 @@ sequence_lengths = sort( sequence_lengths );
 m = mean( sequence_lengths );
 s = std( sequence_lengths );
 gp = find( (sequence_lengths - m) < 5 * s );
-L = max( gp );
+L = max( sequence_lengths(gp) );
 
 STRUCTURES_DEFINED = ( length( RNA_info(1).Structure ) > 0 );
 N_plots = N_primers + STRUCTURES_DEFINED;
@@ -756,9 +755,11 @@ for i = 1:length( D )
     for m = ref_pos_in; if( sequence(m-1) == 'U' ) ref_pos = [ref_pos, m ]; end; end;
   end
   
-  scalefactor = mean( D_ref( ref_pos ) );
+  % weight by statistical error.
+  weights = 1./D_ref_err.^2;
+  scalefactor = sum( D_ref(ref_pos) .* weights(ref_pos) )/sum( weights( ref_pos ) );
   if scalefactor > 0
-    print_it( fid, sprintf(  'Mean reactivity at reference positions for primer %d: %8.4f\n', i,  scalefactor ) );
+    print_it( fid, sprintf(  'Mean reactivity at reference positions %s for primer %d: %8.4f\n', make_tag_with_dashes( ref_pos ), i,  scalefactor ) );
     D_norm{i} = D{i} / scalefactor;
     D_norm_err{i} = D_err{i} / scalefactor;
   end
