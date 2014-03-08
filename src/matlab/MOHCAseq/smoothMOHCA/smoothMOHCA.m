@@ -41,7 +41,7 @@ if nargin < 1; help( mfilename ); return; end;
 clf;
 set(gcf, 'PaperPositionMode','auto','color','white');
 if ~exist( 'MODE', 'var' ); MODE = 1; end;
-if ~exist( 'image_options' ) image_options = {}; end;
+if ~exist( 'image_options' ) image_options = {'smooth','filter_SN1'}; end;
 if ~iscell( image_options ); assert( ischar( image_options ) ); image_options = { image_options }; end;
 if ischar( rdat_file ) & exist( rdat_file, 'dir' )==7; rdat_file = get_rdats_in_directory( rdat_file ); end;                % rdat_file = {'~/.../RNA.RAW.1.rdat','...'}
 if ~iscell( rdat_file ) rdat_file = { rdat_file }; end;
@@ -204,7 +204,21 @@ axis( [min(seqpos)-0.5 max(seqpos)+0.5 min(ligpos)-0.5 max(ligpos)+0.5 ]);
 
 if length( legends ) > 0; legend( legends ); end;
 
-% add title
+
+if ( ~isempty( strfind( name, '\newline' ) ) ) name = [out_dir, 'COMBINED']; end;
+epsfilename = [name,'.eps'];
+epsfilename = strrep( epsfilename, basename( epsfilename ), ['Figures/',basename(epsfilename)] );
+if ~exist( dirname( epsfilename ), 'dir' ) mkdir( dirname( epsfilename ) ); end;
+
+epsfilename = strrep( epsfilename, '.eps',['.',get_mode_tag( MODE ),'.eps'] );
+if exist( 'export_fig' ) == 2 & system( 'which ghostscript' ) == 0
+  if exist( epsfilename, 'file' ); delete( epsfilename ); end;
+  epsfilename = strrep( epsfilename, '.eps','.pdf' );
+  export_fig( GetFullPath(epsfilename) );
+else
+  print( '-depsc2', epsfilename);
+end
+
 title_name = strrep( name{1},'_','\_' );
 for i = 2:length( name )
     title_name = [title_name, '\newline', strrep( name{i},'_','\_' ) ];

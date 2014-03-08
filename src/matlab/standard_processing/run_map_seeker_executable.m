@@ -27,7 +27,7 @@ if length( fastqs ) > 2;
   fprintf( '%s\n,More than two fastq files -- not sure what to do! Not running MAPseeker \n',pwd()); return; 
 end
 
- command = sprintf( 'time %s -1 %s  -2 %s  -l %s  -p %s -n %d', MAPseeker_EXE, fastqs(1).name, fastqs(2).name, library_file, primer_file, n );
+command = sprintf( 'time %s -1 %s  -2 %s  -l %s  -p %s -n %d', MAPseeker_EXE, fastqs(1).name, fastqs(2).name, library_file, primer_file, n )
 %command = sprintf( 'time %s -1 %s  -2 %s  -l %s  -p %s -n %d', MAPseeker_EXE, fastqs(1).name, fastqs(2).name, library_file, primer_file);
 system( command );
 
