@@ -113,7 +113,9 @@ if STRICT_STATS; stats_prefix = 'strict_stats'; end;
 stats_file = sprintf( '%s/%s_ID%d.txt', inpath,stats_prefix, 1);
 if ~exist( stats_file, 'file' )
   align_all = MOHCA;
-  run_map_seeker_executable( library_file, primer_file, inpath, align_all );
+  library_file_just_sequences = library_file;
+  if exist( 'RNA_sequences.fasta' ) library_file_just_sequences = 'RNA_sequences.fasta'; end;
+  run_map_seeker_executable( library_file_just_sequences, primer_file, inpath, align_all );
 end
 
 for i = 1:N_primers;    
@@ -251,6 +253,7 @@ if REFERENCE_INCLUDED & ~FULL_LENGTH_CORRECTION_FACTOR_SPECIFIED
 end
 
 [ D_correct, D_correct_err ] = determine_corrected_reactivity( D_raw, full_length_correction_factor );
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % background subtraction
