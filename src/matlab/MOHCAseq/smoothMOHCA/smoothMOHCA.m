@@ -1,4 +1,4 @@
-function [D_smooth, D_smooth_error, seqpos, ligpos, r] = smoothMOHCA( rdat_file, pdb, MODE, SQUARIFY, image_options );
+function [D_smooth, D_smooth_error, seqpos, ligpos, r] = smoothMOHCA( rdat_file, MODE, pdb, SQUARIFY, image_options );
 %%% [D_smooth,seqpos, ligpos, r] = smoothMOHCA( rdat_file, pdb, MODE );
 %%%
 %%% One-shot script to take MOHCA raw data (in rdat format) and any known 
@@ -47,7 +47,7 @@ if ischar( rdat_file ) & exist( rdat_file, 'dir' )==7; rdat_file = get_rdats_in_
 if ~iscell( rdat_file ) rdat_file = { rdat_file }; end;
 D_sim_a = [];
 dist_matrix = []; rad_res = []; hit_res = [];
-if exist( 'pdb', 'var' );  [D_sim_a, rad_res, hit_res, dist_matrix, pdbstruct] = get_simulated_data( pdb ); end
+if exist( 'pdb', 'var' ); [D_sim_a, rad_res, hit_res, dist_matrix, pdbstruct] = get_simulated_data( pdb ); end
 if ~exist( 'SQUARIFY' ); SQUARIFY = 1; end
 m_tag = get_mode_tag( MODE );
 
@@ -133,7 +133,6 @@ function make_plot( D_smooth, D_smooth_error, ...
 		    seqpos, ligpos, sequence, offset, name, out_dir, ...
 		    dist_matrix, rad_res, hit_res, ...
 		    MODE, image_options, SQUARIFY )
-%%%%%% make square upper subplot, lower rectangle tilted 3D
         
         
 D_filter = D_smooth;
@@ -162,9 +161,26 @@ gp = find( mod(seqpos,10) == 0 );
 set(gca,'xtick',seqpos(gp) )
 gp = find( mod(ligpos,10) == 0 );
 set(gca,'ytick',ligpos(gp) )
-set(gca,'xgrid','on','ygrid','on','fonts',12,'fontw','bold');
-xlabel( 'Stop pos [5'']' ); ylabel( 'Lig pos [3'']');
+set(gca,'TickDir','out');
+set(gca,'xgrid','on','ygrid','on','fonts',15,'fontw','bold');
+xlabel( 'Reverse transcription stop position [5'']','fontsize',20,'fontweight','bold' );
+ylabel( 'Cleaved and ligated position [3'']','fontsize',20,'fontweight','bold' );
 hold on;
+
+% Rotate labels
+xticklabel = get(gca,'XTickLabel');
+set(gca,'XTickLabel','');
+hxLabel=get(gca,'XLabel');
+set(hxLabel,'Units','data');
+xLabelPosition=get(hxLabel,'Position');
+y=xLabelPosition(2) - 7;
+XTick=str2num(xticklabel)+1;
+y=repmat(y,length(XTick),1);
+fs = get(gca,'fonts');
+hText=text(XTick,y,xticklabel,'fonts',15,'fontw','bold');
+set(hText,'Rotation',90,'HorizontalAlignment','right');
+xlab=get(gca,'XLabel');
+set(xlab,'Position',get(xlab,'Position') + [0 7 0]);
 
 colormap( jet ); % colormap( 1-gray(100) );
 axis image;
@@ -219,12 +235,14 @@ else
   print( '-depsc2', epsfilename);
 end
 
-title_name = strrep( name{1},'_','\_' );
-for i = 2:length( name )
-    title_name = [title_name, '\newline', strrep( name{i},'_','\_' ) ];
-end
-title( title_name );
+% Add title
+% title_name = strrep( name{1},'_','\_' );
+% for i = 2:length( name )
+%     title_name = [title_name, '\newline', strrep( name{i},'_','\_' ) ];
+% end
+% title( title_name );
 
+% If multiple datasets analyzed at once, note this in filenames
 if length( name ) > 2
     name{1} = [out_dir, 'COMBINED']; end;
 

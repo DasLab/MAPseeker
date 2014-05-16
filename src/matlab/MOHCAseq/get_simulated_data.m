@@ -5,15 +5,17 @@ function [D_sim_a, rad_res, hit_res, dist_matrix, pdbstruct] = get_simulated_dat
 %%%     computation 
 %%%
 %%%  INPUT
-%%%     pdb      : PDB file name or pdbstruct object from pdbread.
+%%%     pdb         = PDB file name or pdbstruct object from pdbread.
+%%%     rad_atom    = 'Radical source' atom to be read for distance calculation, e.g. 'O2''' for O2' atom 
+%%%     hit_atom    = 'Hit' atom to be read for distance calculation, e.g. 'C4''' for C4' atom
 %%%
 %%%  OUTPUTS
-%%%     D_sim_a:       Data of simulated contact probabilities
-%%%     rad_res:       Residue numbers corresponding to radical source positions [5' stops]
-%%%     hit_res:       Residue numbers corresponding to ligation positions [3' ends + 1,
+%%%     D_sim_a     = Data of simulated contact probabilities
+%%%     rad_res     = Residue numbers corresponding to radical source positions [5' stops]
+%%%     hit_res     = Residue numbers corresponding to ligation positions [3' ends + 1,
 %%%                        i.e., the sites actually hit by radicals.]
-%%%     dist_matrix:   Matrix of O2' (rad_res) to C4' (hit_res) distances.
-%%%     pdbstruct:     Object form pdbread
+%%%     dist_matrix = Matrix of O2' (rad_res) to C4' (hit_res) distances.
+%%%     pdbstruct	= Object form pdbread
 %%%
 %%%
 %%% (C) Clarence Cheng, R. Das, 2013
