@@ -3,15 +3,15 @@ function mohcaplot( D, seqpos, ligpos, titl, ticksize, save_path, secstr, pdb_pa
 % Plots 2D maps in MOHCA style
 %
 % INPUTS:
-%       D       = matrix of data to be plotted
-%       seqpos  = x-axis values, RT stop positions
-%       ligpos  = y-axis values, ligation positions
-%       titl    = desired plot title, string
-%       ticksize  = font size of tick labels
-%       save_path = path to save file (including filename)
-%       secstr    = cell array with {sequence, secstr, offset, data_types, numlanes}
-%       pdb_path  = path of PDB file, provides axis limits for showing ROI only 
-%       contours  = enter 1 if want to plot contours from pdb file; default does not plot contours 
+%       D         req  = matrix of data to be plotted
+%       seqpos    req  = x-axis values, RT stop positions
+%       ligpos    req  = y-axis values, ligation positions
+%       titl      opt  = desired plot title, string
+%       ticksize  opt  = font size of tick labels (default 25, enter '' for default) 
+%       save_path opt  = path to save file (including filename) (if none, enter '') 
+%       secstr    opt  = cell array with {sequence, secstr, offset, data_types, numlanes} 
+%       pdb_path  opt  = path of PDB file, provides axis limits for showing ROI only 
+%       contours  opt  = enter 1 if want to plot contours from pdb file; default does not plot contours 
 %
 % Clarence Cheng, 2014
 %
@@ -58,7 +58,7 @@ set(xlab,'Position',get(xlab,'Position') + [0 7 0]);
 
 % Make colorbar legend
 hc = colorbar('location','eastoutside');
-hcm = max(get(hc,'YLim'))
+hcm = max(get(hc,'YLim'));
 set(hc,'YTick',[0.5 hcm-0.5]);
 set(hc,'YTickLabel',{'0.0','1.0'});
 hcp = get(hc,'pos');
@@ -70,7 +70,7 @@ if exist( 'secstr', 'var' )
     seq = secstr{1};
     str = secstr{2};
     for i = 1:length(secstr{1})
-        data_types{i} = i;
+        data_types{i} = num2str(i);
     end
     area_pred = generate_area_pred(seq, str, 0, data_types, length(secstr{1}));
         % in future, use sequence and secstruct from rdat and crop to correct size
