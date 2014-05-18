@@ -39,7 +39,7 @@ ylabel( 'Cleaved and ligated position [3'']','fontsize',25,'fontweight','bold' )
 hold on;
 
 % Add title
-title( titl, 'fonts', 15, 'fontw', 'bold' );
+title( titl, 'fonts', 15, 'fontw', 'bold','interp','none' );
 
 % Rotate xticklabels and reposition
 xticklabel = get(gca,'XTickLabel');

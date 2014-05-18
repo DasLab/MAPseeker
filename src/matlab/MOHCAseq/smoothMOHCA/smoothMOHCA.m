@@ -133,8 +133,7 @@ function make_plot( D_smooth, D_smooth_error, ...
 		    seqpos, ligpos, sequence, offset, name, out_dir, ...
 		    dist_matrix, rad_res, hit_res, ...
 		    MODE, image_options, SQUARIFY )
-        
-        
+                
 D_filter = D_smooth;
 if check_option( image_options, 'filter_RNAse' );  D_filter = filter_RNAse_striations( D_filter );end
 if size( D_smooth,2) == size( D_smooth_error, 2 );
@@ -220,7 +219,6 @@ axis( [min(seqpos)-0.5 max(seqpos)+0.5 min(ligpos)-0.5 max(ligpos)+0.5 ]);
 
 if length( legends ) > 0; legend( legends ); end;
 
-
 if ( ~isempty( strfind( name, '\newline' ) ) ) name = [out_dir, 'COMBINED']; end;
 epsfilename = [name,'.eps'];
 epsfilename = strrep( epsfilename, basename( epsfilename ), ['Figures/',basename(epsfilename)] );
@@ -243,43 +241,44 @@ end
 % title( title_name );
 
 % If multiple datasets analyzed at once, note this in filenames
-if length( name ) > 2
-    name{1} = [out_dir, 'COMBINED']; end;
+%if length( name ) > 2
+% name{1} = [out_dir, 'COMBINED']; 
+%end;
 
 % save figures as .eps or .pdf 
-  epsfilename = [name{1},'.eps'];
-  epsfilename = strrep( epsfilename, basename( epsfilename ), ['Figures/',basename(epsfilename)] );
+epsfilename = [name,'.eps'];
+epsfilename = strrep( epsfilename, basename( epsfilename ), ['Figures/',basename(epsfilename)] );
 
-  if ~exist( dirname( epsfilename ), 'dir' ) mkdir( dirname( epsfilename ) ); end;
+if ~exist( dirname( epsfilename ), 'dir' ) mkdir( dirname( epsfilename ) ); end;
 
-  epsfilename = strrep( epsfilename, '.eps',['.',get_mode_tag( MODE ),'.eps'] );
+epsfilename = strrep( epsfilename, '.eps',['.',get_mode_tag( MODE ),'.eps'] );
 
-  if SQUARIFY; epsfilename = strrep( epsfilename, '.eps', '.SQR.eps' ); end
+if SQUARIFY; epsfilename = strrep( epsfilename, '.eps', '.SQR.eps' ); end
 
-  if strfind(name{1}, 'COMBINED')
-      if check_option( image_options, 'crossZ' ); epsfilename = strrep( epsfilename, '.eps','.Z.eps' ); end;
-  end
-  if exist( 'export_fig' ) == 2;
-    if exist( epsfilename, 'file' ); delete( epsfilename ); end;
-    epsfilename = strrep( epsfilename, '.eps','.pdf' );
-    export_fig( GetFullPath(epsfilename) );
-  else
-    print( '-depsc2', epsfilename);
-  end
-  fprintf( 'Outputted: %s\n', epsfilename );
+if strfind(name, 'COMBINED')
+  if check_option( image_options, 'crossZ' ); epsfilename = strrep( epsfilename, '.eps','.Z.eps' ); end;
+end
+if exist( 'export_fig' ) == 2;
+  if exist( epsfilename, 'file' ); delete( epsfilename ); end;
+  epsfilename = strrep( epsfilename, '.eps','.pdf' );
+  export_fig( GetFullPath(epsfilename) );
+else
+  print( '-depsc2', epsfilename);
+end
+fprintf( 'Outputted: %s\n', epsfilename );
 
 % save figures as .fig
-  figfilename = [name{1},'.fig'];
-  figfilename = strrep( figfilename, basename( figfilename ), ['Figures/',basename(figfilename)] );
-  figfilename = strrep( figfilename, '.fig',['.',get_mode_tag( MODE ),'.fig'] );
-  if strfind(name{1}, 'COMBINED')
-      if check_option( image_options, 'crossZ' ); figfilename = strrep( epsfilename, '.eps','.Z.eps' ); end;
-  end
+figfilename = [name,'.fig'];
+figfilename = strrep( figfilename, basename( figfilename ), ['Figures/',basename(figfilename)] );
+figfilename = strrep( figfilename, '.fig',['.',get_mode_tag( MODE ),'.fig'] );
+if strfind(name, 'COMBINED')
+  if check_option( image_options, 'crossZ' ); figfilename = strrep( epsfilename, '.eps','.Z.eps' ); end;
+end
 
-  if SQUARIFY; figfilename = strrep( figfilename, '.fig', '.SQR.fig' ); end
+if SQUARIFY; figfilename = strrep( figfilename, '.fig', '.SQR.fig' ); end
 
-  hgsave(gcf, figfilename);
-  fprintf( 'Outputted: %s\n', figfilename );
+hgsave(gcf, figfilename);
+fprintf( 'Outputted: %s\n', figfilename );
 
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

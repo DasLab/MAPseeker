@@ -1,12 +1,14 @@
-function [D_un, D_bi, avg_r] = rebalance( unbias_r, bias_r )
-
+function [r_weight, D_un, D_bi ] = rebalance( r_unbias, r_bias, output_file )
+%  [ r_weight, D_un, D_bi ] = rebalance( r_unbias, r_bias, output_file )
+%
 % Function to accept oligo-C' (unbiased) and AMPure XP (biased) purified 
 % COHCOA-analyzed raw counts from MAPseeker analysis of MOHCA-seq data 
 % and combine them.
 % 
 % INPUTS:
-%       unbias_r = rdat or structure array containing raw counts from sequencing of oligo-C' purified sample 
-%       bias_r   = rdat or structure array containing raw counts from sequencing of AMPure XP purified sample 
+%       r_unbias = rdat or structure array containing raw counts from sequencing of oligo-C' purified sample 
+%         r_bias = rdat or structure array containing raw counts from sequencing of AMPure XP purified sample 
+%    output_file = [optional] filename for RDAT output.
 %
 % OUTPUTS:
 %       avg_r    = rdat containing rebalanced raw counts, to be input to COHCOA analysis
@@ -21,8 +23,8 @@ function [D_un, D_bi, avg_r] = rebalance( unbias_r, bias_r )
 figure(1);     % preload a figure for later plots
 
 % Read in RDAT file to structure arrays
-if ischar( unbias_r );  r_un = read_rdat_file(unbias_r); else r_un = unbias_r; end
-if ischar( bias_r );    r_bi = read_rdat_file(bias_r);   else r_bi = bias_r;   end
+if ischar( r_unbias );  r_un = read_rdat_file(r_unbias); else r_un = r_unbias; end
+if ischar( r_bias );    r_bi = read_rdat_file(r_bias);   else r_bi = r_bias;   end
 
 % Get data and other parameters from structure arrays
 D_un = r_un.reactivity;
@@ -36,8 +38,6 @@ seqpos_bi = r_bi.seqpos;
 ligpos_bi = get_ligpos(r_bi);
 
 % Use mohcaplot to plot data
-% D_un_filt = prepdata(D_un, D_un_err);
-% D_bi_filt = prepdata(D_bi, D_bi_err);
 mohcaplot(D_un/10, seqpos_un, ligpos_un, {'Unbiased: oligo-C'' bead purification'; r_un.name}, 15);
 mohcaplot(D_bi/10, seqpos_bi, ligpos_bi, {'Biased: AMPure XP bead purification'; r_bi.name}, 15);
 
@@ -94,15 +94,21 @@ figure; plot(fit2exp, seprng, matrat); xlabel('Sequence separation'); ylabel('Si
 
 % Multiply each pixel by sigmoidal correction factor
 coeffs = coeffvalues(fit2exp);
-maxrat = coeffs(1);
+maxrat = 1.0; %coeffs(1);
 fitrat = feval(fit2exp, 1:size(D_bi,1));
 D_rebal = D_bi*0;
 for i = 1:size(D_bi,1)
     for j = 1:size(D_bi,2)
         sep = abs(i-j);
         if sep >= 1 && sep <= max(seprng)
-            D_rebal(i,j) = maxrat / fitrat(sep) * D_bi(i,j);
-            D_rebal2(i,j) = maxrat / matrat(sep) * D_bi(i,j);
+
+	    % Use fitted smooth curve.
+	    D_rebal(i,j)  = maxrat / fitrat(sep) * D_bi(i,j);
+            D_rebal_err(i,j)  = maxrat / fitrat(sep) * D_bi(i,j);
+
+	    % Use actual value.
+            D_rebal2(i,j) = maxrat / matrat(sep) * D_bi_err(i,j);
+            D_rebal2_err(i,j) = maxrat / matrat(sep) * D_bi_err(i,j);
         end
     end
 end
@@ -148,15 +154,16 @@ title('Signal vs sequence separation');
 %% Combine unbiased and biased-rebalanced data
 % Calculate weighted mean of oligo-C' and rebalanced AMPure data
 weight_un = max( 1 ./ D_un_err.^2, 0 );
-weight_bi = max( 1 ./ D_bi_err.^2, 0 );
-D_weight_sum = D_un .* weight_un + D_rebal .* weight_bi;
-D_weight = D_weight_sum ./ (weight_un + weight_bi);
-D_weight_err = sqrt( 1 ./ (weight_un + weight_bi) );
+weight_rebal = max( 1 ./ D_rebal_err.^2, 0 );
+D_weight_sum = D_un .* weight_un + D_rebal .* weight_rebal;
+D_weight = D_weight_sum ./ (weight_un + weight_rebal);
+D_weight_err = sqrt( 1 ./ (weight_un + weight_rebal) );
 D_weight(find(isnan(D_weight))) = 0;
 
-D_weight2_sum = D_un .* weight_un + D_rebal2 .* weight_bi;
-D_weight2 = D_weight2_sum ./ (weight_un + weight_bi);
-D_weight2_err = sqrt( 1 ./ (weight_un + weight_bi) );
+weight_rebal2 = max( 1 ./ D_rebal2_err.^2, 0 );
+D_weight2_sum = D_un .* weight_un + D_rebal2 .* weight_rebal2;
+D_weight2 = D_weight2_sum ./ (weight_un + weight_rebal2);
+D_weight2_err = sqrt( 1 ./ (weight_un + weight_rebal2) );
 D_weight2(find(isnan(D_weight2))) = 0;
 
 mohcaplot(D_weight/10, seqpos_bi, ligpos_bi, 'Weighted mean of rebalanced (w/fit) and unbiased', 15);
@@ -181,15 +188,16 @@ r_weight.reactivity = D_weight;
 r_weight.reactivity_error = D_weight_err;
 r_weight2.reactivity = D_weight2;
 r_weight2.reactivity_error = D_weight2_err;
-% r_rebal.name = 'A9D; rebal w/fit';
-% r_rebal2.name = 'A9D; rebal w/ratios';
-% r_weight.name = 'A9D; rebal w/fit + unbiased';
-% r_weight2.name = 'A9D; rebal w/ratios + unbiased';
 
-output_rdat_to_file('r_rebal.rdat', r_rebal);
-output_rdat_to_file('r_rebal2.rdat', r_rebal2);
-output_rdat_to_file('r_weight.rdat', r_weight);
-output_rdat_to_file('r_weight2.rdat', r_weight2);
+if exist(  'output_file' )
+  fprintf( ['Outputting rebalanced data (using actual ratios, not fit) to', output_file,'.\n' ] );
+  output_rdat_to_file( output_file, r_weight2 );
+end
+
+%output_rdat_to_file('r_rebal.rdat', r_rebal);
+%output_rdat_to_file('r_rebal2.rdat', r_rebal2);
+%output_rdat_to_file('r_weight.rdat', r_weight);
+%output_rdat_to_file('r_weight2.rdat', r_weight2);
 
 % Apply COHCOA
 %%%%% RECOMMENDED to run these separately; need to fix some minor errors in smoothMOHCA running these rdats
