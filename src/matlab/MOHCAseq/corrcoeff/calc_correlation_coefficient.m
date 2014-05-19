@@ -1,4 +1,4 @@
-function [c,chi2] = calc_correlation_coefficient( rdat, Qpred, seqpos_Q, D_out );
+function [c,chi2] = calc_correlation_coefficient( rdat, Qpred, seqpos_Q, D_out, SEQSEP );
 % [c,chi2] = calc_correlation_coefficient( rdat, Qpred, seqpos_Q, D_out );
 %
 % Inputs:
@@ -19,8 +19,10 @@ end
 
 D = r.reactivity;
 
-SEQSEP = 4;                             % exclude diagonal
-%SEQSEP = 7;
+if ~exist( 'SEQSEP', 'var' )
+    SEQSEP = 8;                         % based on empirical plotting of c and chi^2 versus seqsep
+end
+% SEQSEP = 4;                             % exclude diagonal
 
 N = size(r.reactivity,2);
 ligpos = get_ligpos(r);
@@ -50,12 +52,18 @@ fit = pred * X;
 
 chi2 = mean((fit - data ).^2 ./data_err.^2 );    % calculate chi-squared
 
+% plot fit versus data
+% figure; plot(data, pred(:,1), 'ob');   
+% hold on; plot(data, pred(:,2), 'o','Color',[0 0.75 0]);
+% hold on; plot(data, fit, 'or');
+% legend('Qpred','D\_out','Fit');
+
 %plot( [data, fit] );
 c = corrcoef( [data,fit] );                     % calculate correlation coefficient
 c = c(1,2);
 
 scalefactor = 10/mean(mean(max(r.reactivity',0)));
-figure(gcf);
+figure;
 image( seqpos, ligpos, r.reactivity' * scalefactor ); axis image;
 
 fit2d = scalefactor * ( Qpred * X(1) + D_out * X(2) );

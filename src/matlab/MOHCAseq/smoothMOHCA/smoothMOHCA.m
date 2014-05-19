@@ -1,4 +1,4 @@
-function [D_smooth, D_smooth_error, seqpos, ligpos, r] = smoothMOHCA( rdat_file, pdb, MODE, SQUARIFY, image_options );
+function [D_smooth, D_smooth_error, seqpos, ligpos, r] = smoothMOHCA( rdat_file, MODE, pdb, SQUARIFY, image_options );
 %%% [D_smooth,seqpos, ligpos, r] = smoothMOHCA( rdat_file, pdb, MODE );
 %%%
 %%% One-shot script to take MOHCA raw data (in rdat format) and any known 
@@ -133,9 +133,7 @@ function make_plot( D_smooth, D_smooth_error, ...
 		    seqpos, ligpos, sequence, offset, name, out_dir, ...
 		    dist_matrix, rad_res, hit_res, ...
 		    MODE, image_options, SQUARIFY )
-%%%%%% make square upper subplot, lower rectangle tilted 3D
-        
-        
+                
 D_filter = D_smooth;
 if check_option( image_options, 'filter_RNAse' );  D_filter = filter_RNAse_striations( D_filter );end
 if size( D_smooth,2) == size( D_smooth_error, 2 );
@@ -162,9 +160,26 @@ gp = find( mod(seqpos,10) == 0 );
 set(gca,'xtick',seqpos(gp) )
 gp = find( mod(ligpos,10) == 0 );
 set(gca,'ytick',ligpos(gp) )
-set(gca,'xgrid','on','ygrid','on','fonts',12,'fontw','bold');
-xlabel( 'Stop pos [5'']' ); ylabel( 'Lig pos [3'']');
+set(gca,'TickDir','out');
+set(gca,'xgrid','on','ygrid','on','fonts',15,'fontw','bold');
+xlabel( 'Reverse transcription stop position [5'']','fontsize',20,'fontweight','bold' );
+ylabel( 'Cleaved and ligated position [3'']','fontsize',20,'fontweight','bold' );
 hold on;
+
+% Rotate labels
+xticklabel = get(gca,'XTickLabel');
+set(gca,'XTickLabel','');
+hxLabel=get(gca,'XLabel');
+set(hxLabel,'Units','data');
+xLabelPosition=get(hxLabel,'Position');
+y=xLabelPosition(2) - 7;
+XTick=str2num(xticklabel)+1;
+y=repmat(y,length(XTick),1);
+fs = get(gca,'fonts');
+hText=text(XTick,y,xticklabel,'fonts',15,'fontw','bold');
+set(hText,'Rotation',90,'HorizontalAlignment','right');
+xlab=get(gca,'XLabel');
+set(xlab,'Position',get(xlab,'Position') + [0 7 0]);
 
 colormap( jet ); % colormap( 1-gray(100) );
 axis image;
@@ -204,7 +219,6 @@ axis( [min(seqpos)-0.5 max(seqpos)+0.5 min(ligpos)-0.5 max(ligpos)+0.5 ]);
 
 if length( legends ) > 0; legend( legends ); end;
 
-
 if ( ~isempty( strfind( name, '\newline' ) ) ) name = [out_dir, 'COMBINED']; end;
 epsfilename = [name,'.eps'];
 epsfilename = strrep( epsfilename, basename( epsfilename ), ['Figures/',basename(epsfilename)] );
@@ -242,11 +256,11 @@ if iscell(name) && length( name ) > 2
   epsfilename = [fname,'.eps'];
   epsfilename = strrep( epsfilename, basename( epsfilename ), ['Figures/',basename(epsfilename)] );
 
-  if ~exist( dirname( epsfilename ), 'dir' ) mkdir( dirname( epsfilename ) ); end;
+if ~exist( dirname( epsfilename ), 'dir' ) mkdir( dirname( epsfilename ) ); end;
 
-  epsfilename = strrep( epsfilename, '.eps',['.',get_mode_tag( MODE ),'.eps'] );
+epsfilename = strrep( epsfilename, '.eps',['.',get_mode_tag( MODE ),'.eps'] );
 
-  if SQUARIFY; epsfilename = strrep( epsfilename, '.eps', '.SQR.eps' ); end
+if SQUARIFY; epsfilename = strrep( epsfilename, '.eps', '.SQR.eps' ); end
 
   if strfind(fname, 'COMBINED')
       if check_option( image_options, 'crossZ' ); epsfilename = strrep( epsfilename, '.eps','.Z.eps' ); end;
@@ -268,10 +282,10 @@ if iscell(name) && length( name ) > 2
       if check_option( image_options, 'crossZ' ); figfilename = strrep( epsfilename, '.eps','.Z.eps' ); end;
   end
 
-  if SQUARIFY; figfilename = strrep( figfilename, '.fig', '.SQR.fig' ); end
+if SQUARIFY; figfilename = strrep( figfilename, '.fig', '.SQR.fig' ); end
 
-  hgsave(gcf, figfilename);
-  fprintf( 'Outputted: %s\n', figfilename );
+hgsave(gcf, figfilename);
+fprintf( 'Outputted: %s\n', figfilename );
 
   
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
