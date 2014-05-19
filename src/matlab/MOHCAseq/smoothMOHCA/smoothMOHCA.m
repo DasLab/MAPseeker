@@ -47,7 +47,7 @@ if ischar( rdat_file ) & exist( rdat_file, 'dir' )==7; rdat_file = get_rdats_in_
 if ~iscell( rdat_file ) rdat_file = { rdat_file }; end;
 D_sim_a = [];
 dist_matrix = []; rad_res = []; hit_res = [];
-if exist( 'pdb', 'var' );  [D_sim_a, rad_res, hit_res, dist_matrix, pdbstruct] = get_simulated_data( pdb ); end
+if exist( 'pdb', 'var' ) & length(pdb) > 0; [D_sim_a, rad_res, hit_res, dist_matrix, pdbstruct] = get_simulated_data( pdb ); end
 if ~exist( 'SQUARIFY' ); SQUARIFY = 1; end
 m_tag = get_mode_tag( MODE );
 
@@ -189,7 +189,7 @@ end
 
 % add sequence to axes and diagonal
 %plot( ligpos([1 end]), ligpos( [1 end] ),'color',[0.5 0.5 0.5],'linew',1.5 );
-for i = seqpos
+for i = seqpos'
   text( i, max(ligpos)+0.5, sequence( i - offset ),'horizontalalign','center','verticalalign','top','fontsize',6 );
 end
 for j = ligpos'
@@ -211,7 +211,7 @@ epsfilename = strrep( epsfilename, basename( epsfilename ), ['Figures/',basename
 if ~exist( dirname( epsfilename ), 'dir' ) mkdir( dirname( epsfilename ) ); end;
 
 epsfilename = strrep( epsfilename, '.eps',['.',get_mode_tag( MODE ),'.eps'] );
-if exist( 'export_fig' ) == 2 & system( 'which ghostscript' ) == 0
+if exist( 'export_fig' ) == 2 && system( 'which ghostscript' ) == 0
   if exist( epsfilename, 'file' ); delete( epsfilename ); end;
   epsfilename = strrep( epsfilename, '.eps','.pdf' );
   export_fig( GetFullPath(epsfilename) );
@@ -219,17 +219,27 @@ else
   print( '-depsc2', epsfilename);
 end
 
-title_name = strrep( name{1},'_','\_' );
-for i = 2:length( name )
-    title_name = [title_name, '\newline', strrep( name{i},'_','\_' ) ];
+if iscell(name)
+    fname = name{1};
+else
+    fname = name;
+end
+
+if iscell(name) && length(name) > 1
+    title_name = strrep( fname,'_','\_' );
+    for i = 2:length( name )
+        title_name = [title_name, '\newline', strrep( name{i},'_','\_' ) ];
+    end
+else
+    title_name = strrep( fname,'_','\_' );
 end
 title( title_name );
 
-if length( name ) > 2
+if iscell(name) && length( name ) > 2
     name{1} = [out_dir, 'COMBINED']; end;
 
 % save figures as .eps or .pdf 
-  epsfilename = [name{1},'.eps'];
+  epsfilename = [fname,'.eps'];
   epsfilename = strrep( epsfilename, basename( epsfilename ), ['Figures/',basename(epsfilename)] );
 
   if ~exist( dirname( epsfilename ), 'dir' ) mkdir( dirname( epsfilename ) ); end;
@@ -238,7 +248,7 @@ if length( name ) > 2
 
   if SQUARIFY; epsfilename = strrep( epsfilename, '.eps', '.SQR.eps' ); end
 
-  if strfind(name{1}, 'COMBINED')
+  if strfind(fname, 'COMBINED')
       if check_option( image_options, 'crossZ' ); epsfilename = strrep( epsfilename, '.eps','.Z.eps' ); end;
   end
   if exist( 'export_fig' ) == 2;
@@ -251,10 +261,10 @@ if length( name ) > 2
   fprintf( 'Outputted: %s\n', epsfilename );
 
 % save figures as .fig
-  figfilename = [name{1},'.fig'];
+  figfilename = [fname,'.fig'];
   figfilename = strrep( figfilename, basename( figfilename ), ['Figures/',basename(figfilename)] );
   figfilename = strrep( figfilename, '.fig',['.',get_mode_tag( MODE ),'.fig'] );
-  if strfind(name{1}, 'COMBINED')
+  if strfind(fname, 'COMBINED')
       if check_option( image_options, 'crossZ' ); figfilename = strrep( epsfilename, '.eps','.Z.eps' ); end;
   end
 
