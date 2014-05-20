@@ -4,9 +4,9 @@ function mohcaplot( D, seqpos, ligpos, titl, ticksize, save_path, secstr, pdb_pa
 %
 % INPUTS:
 %       D         req  = matrix of data to be plotted
-%       seqpos    req  = x-axis values, RT stop positions
-%       ligpos    req  = y-axis values, ligation positions
-%       titl      opt  = desired plot title, string
+%       seqpos    opt  = x-axis values, RT stop positions (enter '' for default, 1 to length of x-axis data in D) 
+%       ligpos    opt  = y-axis values, ligation positions (enter '' for default, 1 to length of x-axis data in D)
+%       titl      opt  = desired plot title, string (enter '' for default, no title) 
 %       ticksize  opt  = font size of tick labels (default 25, enter '' for default) 
 %       save_path opt  = path to save file (including filename) (if none, enter '') 
 %       secstr    opt  = cell array with {sequence, secstr, offset, data_types, numlanes} 
@@ -16,6 +16,8 @@ function mohcaplot( D, seqpos, ligpos, titl, ticksize, save_path, secstr, pdb_pa
 % Clarence Cheng, 2014
 %
 
+if ~exist( 'seqpos', 'var' ) || isempty( seqpos ); seqpos = 1:size(D,2); end
+if ~exist( 'ligpos', 'var' ) || isempty( ligpos ); ligpos = 1:size(D,1); end
 if ~exist( 'ticksize', 'var' ) || isempty( ticksize ); ticksize = 25; end
 if ~exist( 'titl', 'var' ); titl = ''; end
 % if ~exist( 'contours', 'var' ); contours = ''; end
