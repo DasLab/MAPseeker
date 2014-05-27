@@ -1,15 +1,15 @@
-function [clvg_rates, mdf_rates, clvg_prjcs, mdf_prjcs] = determine_cleavage_modification_percentage (D, primer_info, full_extension_correction_factor, colorcode)
+function [clvg_rates, mdf_rates, clvg_prjcs, mdf_prjcs] = determine_cleavage_modification_percentage (D_raw, primer_info, full_extension_correction_factor, colorcode)
 
-sz_D = min(size(D{1}'));
+sz_D = min(size(D_raw{1}'));
 
-clvg_prjcs = zeros(length(D), sz_D - 2);
-clvg_rates = zeros(2, length(D));
-mdf_prjcs = zeros(length(D), sz_D - 2);
-mdf_rates = zeros(1, length(D));
+clvg_prjcs = zeros(length(D_raw), sz_D - 2);
+clvg_rates = zeros(2, length(D_raw));
+mdf_prjcs = zeros(length(D_raw), sz_D - 2);
+mdf_rates = zeros(1, length(D_raw));
 
-for i = 1:length(D)
+for i = 1:length(D_raw)
     
-    D_sub = D{i}';                                              %mirror by diagonal
+    D_sub = D_raw{i}';                                              %mirror by diagonal
     D_sub = D_sub(1:sz_D,1:sz_D);                               %reomove univ region
     D_sub = D_sub(2:end,1:end-1);                               %remove pos 1 (univ only)
     D_sub(end-1,:) = D_sub(end-1,:) + D_sub(end,1:end);         %sum STAR to full-length
@@ -54,30 +54,33 @@ end;
 clvg_prjcs = clvg_prjcs';
 mdf_prjcs = mdf_prjcs';
 
-lgnd = cell(1, length(D));
+lgnd = cell(1, length(D_raw));
 for i = 1:length(primer_info)
     [tok, rem] = strtok(primer_info(i).Header, char(9));
     tok2 = strtok(rem, char(9));
     lgnd{i} = [tok,'   ',tok2];
 end;
 
-figure(); clf;
+clf;
 set_print_page(gcf, 0, [0 0 800 600]);
 subplot(2,1,1);
-for i = 1:length(D)
-    plot(clvg_prjcs(:,i),'color',colorcode(i,:));
+for i = 1:length(D_raw)
+    stairs(1:length(clvg_prjcs(:,i)), clvg_prjcs(:,i),'color',colorcode(i,:),'linewidth',2);
     hold on;
 end;
+set(gca,'xgrid','on');
 legend(lgnd,'Location','NorthEast');
-ylabel('Cleavage (count)','FontSize',15,'FontWeight','Bold');
+ylabel('Percantage Rates','FontSize',12,'FontWeight','Bold');
+xlabel('Sequence position','FontSize',12,'FontWeight','Bold');
+title('Cleavage Projection');
 subplot(2,1,2);
-for i = 1:length(D)
-    plot(mdf_prjcs(:,i),'color',colorcode(i,:));
+for i = 1:length(D_raw)
+    stairs(1:length(mdf_prjcs(:,i)), mdf_prjcs(:,i),'color',colorcode(i,:),'linewidth',2);
     hold on;
 end;
+set(gca,'xgrid','on');
 legend(lgnd,'Location','NorthEast');
-ylabel('Modification','FontSize',15,'FontWeight','Bold');
-xlabel('Sequence position','FontSize',15,'FontWeight','Bold');
+ylabel('Percantage Rates','FontSize',12,'FontWeight','Bold');
+xlabel('Sequence position','FontSize',12,'FontWeight','Bold');
+title('Modification Projection');
 
-clvg_rates
-mdf_rates
