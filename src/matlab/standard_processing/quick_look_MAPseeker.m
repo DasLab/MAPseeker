@@ -372,7 +372,7 @@ if MOHCA_flag;
         print_it( fid, sprintf(['primer ',num2str(i),':\t\t',num2str(clvg_rates(1,i)),'\t\t\t',num2str(clvg_rates(2,i)),'\n']));
     end;
     print_it( fid, sprintf('\n Modification Rates metrics:\n'));
-    print_it( fid, sprintf('\t\t\tMean Cleavage Events per RNA\n'));
+    print_it( fid, sprintf('\t\t\tMean Modification Events per RNA\n'));
     for i = 1:length(mdf_rates);
         print_it( fid, sprintf(['primer ',num2str(i),':\t\t',num2str(mdf_rates(i)),'\n']));
     end;
