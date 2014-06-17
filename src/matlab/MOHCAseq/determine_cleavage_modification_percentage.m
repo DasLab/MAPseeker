@@ -35,7 +35,7 @@ for i = 1:length(D_raw)
     clvg_rates(:,i) = [nomod_rate, clvg_rate];
     
     if abs(count_clvg-count_clvg_2) > (count_clvg+count_clvg_2)/2/2;
-        fprintf(['WARNING: a1 (',num2str(count_clvg),') and a2(',num2str(count_clvg_2),') do not agree.\n']);
+        fprintf(['WARNING: a1 (',num2str(count_clvg),') and a2 (',num2str(count_clvg_2),') do not agree.\n']);
     end;
 
     %D_mdf = D_sub;
