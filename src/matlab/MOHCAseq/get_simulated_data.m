@@ -41,8 +41,8 @@ if isempty( pdbstruct) return; end;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% 2. Figure out atoms.
-if ~exist( 'rad_atom' ) rad_atom = 'O2'''; end;
-if ~exist( 'hit_atom' ) hit_atom = 'C4'''; end;
+if ~exist( 'rad_atom','var' ) rad_atom = 'O2'''; end;
+if ~exist( 'hit_atom','var' ) hit_atom = 'C4'''; end;
 [rad_atom, hit_atom] = figure_out_atoms( pdbstruct, rad_atom, hit_atom );
 [rad_x, rad_y, rad_z, rad_pos, rad_res ] = get_atoms( pdbstruct, rad_atom );
 [hit_x, hit_y, hit_z, hit_pos, hit_res ] = get_atoms( pdbstruct, hit_atom );
@@ -118,7 +118,7 @@ if atomname == 2;
   %fprintf('2''-OH atom name: %s\n\n', 'O2*');
 end
 
-if ~exist('atomname')
+if ~exist('atomname','var')
   fprintf('Warning! Unable to detect a 2''-OH atom name...\n\n');
   return
 end

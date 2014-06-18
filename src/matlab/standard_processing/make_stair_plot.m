@@ -1,8 +1,8 @@
-function make_stair_plot( idx, D, RNA_info, colorcode, D_err );
+function make_stair_plot( idx, D, RNA_info, colorcode, D_err )
 % make_stair_plot( idx, D, RNA_info, colorcode, D_err );
 %
 
-if ~exist( 'D_err' ) | length( D_err ) == 0
+if ~exist( 'D_err','var' ) || isempty( D_err );
   N = length( D );
   for i = 1:N % assume raw counts, and Poisson error.
     D_err{i} = sqrt( D{i} );

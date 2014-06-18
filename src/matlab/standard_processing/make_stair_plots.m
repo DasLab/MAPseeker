@@ -1,11 +1,11 @@
-function  make_stair_plots( D, most_common_sequences, RNA_info, primer_info, colorcode, D_err );
+function  make_stair_plots( D, most_common_sequences, RNA_info, primer_info, colorcode, D_err )
 %  make_stair_plots( D, most_common_sequences, RNA_info, primer_info, colorcode, D_err );
 
 clf;
 set(gcf, 'PaperPositionMode','auto','color','white');
 N_display = length( most_common_sequences );
 
-if ~exist( 'D_err') D_err = {}; end;
+if ~exist( 'D_err','var'); D_err = {}; end;
 
 for j = 1:N_display;
   subplot(N_display,1,j);
@@ -20,7 +20,7 @@ if (N_primers ~= N ); fprintf( ['Mismatch in primer numbers: ',num2str(N), ' vs.
 
 for i = 1:N_primers; 
   tag_cols = split_string( primer_info(i).Header,'\t' );
-  if ( length( tag_cols ) > 3 ) tag_cols = tag_cols(1:3);end;
+  if ( length( tag_cols ) > 3 ); tag_cols = tag_cols(1:3);end;
   primer_tags{i} = join_string( tag_cols );
 end
 subplot(N_display,1,1);
