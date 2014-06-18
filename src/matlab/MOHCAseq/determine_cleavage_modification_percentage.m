@@ -1,4 +1,18 @@
-function [clvg_rates, mdf_rates, clvg_prjcs, mdf_prjcs] = determine_cleavage_modification_percentage (D_raw, primer_info, full_extension_correction_factor, colorcode)
+function [clvg_rates, mdf_rates, clvg_prjcs, mdf_prjcs] = determine_cleavage_modification_percentage (D_raw, primer_info, full_extension_correction_factor, Noffset, colorcode)
+
+lgnd = cell(1, length(D_raw));
+for i = 1:length(primer_info)
+    [tok, rem] = strtok(primer_info(i).Header, char(9));
+    tok2 = strtok(rem, char(9));
+    lgnd{i} = [tok,'   ',tok2];
+end;
+
+if ~exist('full_extension_correction_factor','var') || isempty(full_extension_correction_factor); full_extension_correction_factor = 0.25; end;
+if ~exist('Noffset','var') || isempty(Noffset); Noffset = 8; end;
+if ~exist('colorcode','var') || isempty(colorcode); colorcode = jet(length(D_raw)); end;
+
+fprintf(['Applied full_extention_correction_factor = ',num2str(full_extension_correction_factor),'.\n']);
+fprintf(['Applied diagonal_cutoff_offset = ',num2str(Noffset),'.\n\n']);
 
 sz_D = min(size(D_raw{1}'));
 
@@ -35,33 +49,28 @@ for i = 1:length(D_raw)
     clvg_rates(:,i) = [nomod_rate, clvg_rate];
     
     if abs(count_clvg-count_clvg_2) > (count_clvg+count_clvg_2)/2/2;
-        fprintf(['WARNING: a1 (',num2str(count_clvg),') and a2 (',num2str(count_clvg_2),') do not agree.\n']);
+        fprintf([lgnd{i}, ':\t a1 (',num2str(count_clvg),') and a2 (',num2str(count_clvg_2),') do not agree,\n']);
+        fprintf(['\t\t\t\tideal full_extension_correction_factor = ', num2str(count_clvg_2/count_clvg),'.\n']);
     end;
 
     %D_mdf = D_sub;
-    mdf_prjc = sum(D_sub,1);
-    mdf_prjc(1) = mdf_prjc(1) / full_extension_correction_factor;
-    for j = 1:sz_D-2
-        mdf_prjc(j) = mdf_prjc(j) / sum(sum(D_sub(j:end,1:j))); %attenuation correction, divided by box sum
-    end;
+    [mdf_prjc, mdf_rate] = get_modification_projection( D_sub', full_extension_correction_factor, Noffset );
+%     mdf_prjc = sum(D_sub,1);
+%     mdf_prjc(1) = mdf_prjc(1) / full_extension_correction_factor;
+%     for j = 1:sz_D-2
+%         mdf_prjc(j) = mdf_prjc(j) / sum(sum(D_sub(j:end,1:j))); %attenuation correction, divided by box sum
+%     end;
     mdf_prjc = [mdf_prjc(2:end), 0];                            %crop out full-length (100%), last-nucleotode reactivity is 0
-    mdf_rate = sum(mdf_prjc);
+%     mdf_rate = sum(mdf_prjc);
     %mdf_rate = sum(sum(D_sub(2:end-1,2:end-1))) / (sum(D_sub(1:end,1) + sum(D_sub(end, 2:end))));
-    mdf_prjcs(i,:) = mdf_prjc;
+    mdf_prjcs(i,:) = [mdf_prjc,zeros(1,sz_D - 2-length(mdf_prjc))];
     mdf_rates(i) = mdf_rate;
 end;
 
 clvg_prjcs = clvg_prjcs';
 mdf_prjcs = mdf_prjcs';
 
-lgnd = cell(1, length(D_raw));
-for i = 1:length(primer_info)
-    [tok, rem] = strtok(primer_info(i).Header, char(9));
-    tok2 = strtok(rem, char(9));
-    lgnd{i} = [tok,'   ',tok2];
-end;
-
-clf;
+figure();clf;
 set_print_page(gcf, 0, [0 0 800 600]);
 subplot(2,1,1);
 for i = 1:length(D_raw)
