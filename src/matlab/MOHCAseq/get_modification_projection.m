@@ -1,6 +1,7 @@
 function [mdf_prjc, mdf_rates] = get_modification_projection( D_sub, full_extension_correction_factor, offset );
 
-if ~exist( 'offset' ) offset = 3; end;
+if ~exist( 'offset' ) offset = 8; end;
+
 Nmod    = size( D_sub, 1 );
 Ncleave = size( D_sub, 2 );
 D_sub(1,:) = D_sub(1,:)/full_extension_correction_factor;
