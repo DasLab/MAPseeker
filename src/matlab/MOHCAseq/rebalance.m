@@ -1,5 +1,5 @@
-function [r_weight, r_rebal ] = rebalance( r_unbias, r_bias, output_file )
-%  [r_weight, r_rebal ] = rebalance( r_unbias, r_bias, output_file )
+function [ r_weight, r_rebal ] = rebalance( r_unbias, r_bias, output_file )
+%  [ r_weight, r_rebal ] = rebalance( r_unbias, r_bias, output_file )
 %
 % Function to accept oligo-C' (unbiased) and AMPure XP (biased) purified 
 % COHCOA-analyzed raw counts from MAPseeker analysis of MOHCA-seq data 
@@ -93,13 +93,13 @@ end
 [D_weight, D_weight_err] = get_weighted_mean( D_un, D_rebal, D_un_err, D_rebal_err );
 
 % Create rdats from biased-rebalanced and final-rebalanced data
-base_name = strrep(r_bi.name, 'TrueAm', '');
+base_name = strrep(r_bi.name, 'TrueAm', '')
 r_rebal = make_rdat_structure( D_rebal, D_rebal_err, r_bi, [base_name, '_Rebalanced'] );
 r_weight = make_rdat_structure( D_weight, D_weight_err, r_bi, [base_name, '_CombinedRebalanced'] );
 
 
 %% Plot everything and output to files
-if ~exist( 'Rebalance', 'dir' ); mkdir( 'Rebalance' ); end
+mkdir( 'Rebalance' );
 
 % Collect data at each sequence separation of rebalanced data and calculate means, ratios
 diagavg{3} = get_diagonals( D_rebal );
@@ -186,6 +186,6 @@ function r_new = make_rdat_structure( D, D_err, r, name );
 r_new = r;
 r_new.reactivity = D;
 r_new.reactivity_error = D_err;
-r.name = name;
+r_new.name = name;
 
 
