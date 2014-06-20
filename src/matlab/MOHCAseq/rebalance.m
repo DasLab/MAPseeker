@@ -1,5 +1,5 @@
-function [r_weight, D_un, D_bi ] = rebalance( r_unbias, r_bias, output_file )
-%  [ r_weight, D_un, D_bi ] = rebalance( r_unbias, r_bias, output_file )
+function [r_weight, r_rebal ] = rebalance( r_unbias, r_bias, output_file )
+%  [r_weight, r_rebal ] = rebalance( r_unbias, r_bias, output_file )
 %
 % Function to accept oligo-C' (unbiased) and AMPure XP (biased) purified 
 % COHCOA-analyzed raw counts from MAPseeker analysis of MOHCA-seq data 
@@ -11,35 +11,20 @@ function [r_weight, D_un, D_bi ] = rebalance( r_unbias, r_bias, output_file )
 %    output_file = [optional] filename for RDAT output.
 %
 % OUTPUTS:
-%       avg_r    = rdat containing rebalanced raw counts, to be input to COHCOA analysis
+%       r_weight = rdat containing rebalanced raw counts, to be input to COHCOA analysis
 %       
-% Clarence Cheng, May 2014
+% Clarence Cheng, 05-06/2014
 %
-
-%%%%% SHOULD ADD IN PROPER ERROR PROPAGATION THROUGH CALCULATIONS/REBALANCING  
 
 
 %% Setup
-figure(1);     % preload a figure for later plots
-
 % Read in RDAT file to structure arrays
 if ischar( r_unbias );  r_un = read_rdat_file(r_unbias); else r_un = r_unbias; end
 if ischar( r_bias );    r_bi = read_rdat_file(r_bias);   else r_bi = r_bias;   end
 
 % Get data and other parameters from structure arrays
-D_un = r_un.reactivity;
-D_un_err = r_un.reactivity_error;
-seqpos_un = r_un.seqpos;
-ligpos_un = get_ligpos(r_un);
-
-D_bi = r_bi.reactivity;
-D_bi_err = r_bi.reactivity_error;
-seqpos_bi = r_bi.seqpos;
-ligpos_bi = get_ligpos(r_bi);
-
-% Use mohcaplot to plot data
-mohcaplot(D_un/10, seqpos_un, ligpos_un, {'Unbiased: oligo-C'' bead purification'; r_un.name}, 15);
-mohcaplot(D_bi/10, seqpos_bi, ligpos_bi, {'Biased: AMPure XP bead purification'; r_bi.name}, 15);
+[D_un, D_un_err, seqpos_un, ligpos_un] = get_data( r_un );
+[D_bi, D_bi_err, seqpos_bi, ligpos_bi] = get_data( r_bi );
 
 if size(D_un) ~= size(D_bi)
     fprintf('Sizes of input datasets must match!\n');
@@ -47,112 +32,147 @@ if size(D_un) ~= size(D_bi)
 end
 
 
-%% Prepare the data
+%% Prepare the data and calculate ratios for rebalancing
 % Collect data at each sequence separation and calculate means, ratios
+diagavg{1} = get_diagonals( D_un );
+diagavg{2} = get_diagonals( D_bi );
+
+% Take ratios directly
 for seqsep = 1:size(D_un,1)-1
-    mat{1}{seqsep} = diag(D_un,seqsep);
-    matavg{1}(seqsep) = mean(mat{1}{seqsep});
+    diagrat(seqsep) = diagavg{2}(seqsep)/diagavg{1}(seqsep);
 end
-for seqsep = 1:size(D_bi,1)-1
-    mat{2}{seqsep} = diag(D_bi,seqsep);
-    matavg{2}(seqsep) = mean(mat{2}{seqsep});
+
+% Bin, then take ratios
+diagavg_bin = {};
+limits = [0 50 100 200 size(D_un,1)];   % set boundaries for splitting bin sizes
+numBins = [50 25 20 ceil((size(D_un,1)-200)/10)];           % set numbers of bins within each pair of boundaries
+for k = 1:2
+    for i = 1:length(limits)-1
+        binEdges = linspace(limits(i), limits(i+1), numBins(i)+1);  % define bin edges within each pair of boundaries
+        [h, whichBin] = histc(1:length(diagavg{k}), binEdges);
+        for j = 1:numBins(i)
+            flagBinMembers = (whichBin == j);
+            binMembers = diagavg{k}(flagBinMembers);                % collect the values in each bin
+            binMembers = remove_nans(binMembers);
+            diagavg_bin{k}(flagBinMembers) = mean(binMembers);      % set all the values in each bin to the average of the bin
+        end
+    end
 end
+
 for seqsep = 1:size(D_un,1)-1
-    matrat(seqsep) = matavg{2}(seqsep)/matavg{1}(seqsep);
-    matratinv(seqsep) = matavg{1}(seqsep)/matavg{2}(seqsep);
-%     matdif(seqsep) = matavg{2}(seqsep)-matavg{1}(seqsep);
+    diagrat_bin(seqsep) = diagavg_bin{2}(seqsep)/diagavg_bin{1}(seqsep);
 end
-matavg{1} = matavg{1}(~isnan(matavg{1}));       % remove NaN values (arise from non-square data matrices)
-matavg{2} = matavg{2}(~isnan(matavg{2}));
-matrat = matrat(~isnan(matrat));
-matratinv = matratinv(~isnan(matratinv));
-% matdif = matdif(~isnan(matdif));
 
-% Plot averaged signal versus sequence separation
-figure(1); hold on; set(gcf, 'PaperPositionMode','auto','color','white');
-col = [rand rand rand];
-scatter(1:1:length(matrat), matavg{1}, 'MarkerEdgeColor', col);
-scatter(1:1:length(matrat), matavg{2}, 'Fill', 'MarkerEdgeColor', col, 'MarkerFaceColor', col);
-% plot(1:1:length(matrat), matrat, 'color', 'b');
-% plot(1:1:length(matrat), matratinv, 'color', 'g');
-% plot(1:1:length(matrat), matdif, 'color', 'r');
-set(gca, 'ylim', [-20 150]);
-xlabel('Sequence separation');
-ylabel('Signal');
-title('Signal vs sequence separation');
+diagavg{1} = remove_nans(diagavg{1});       % remove NaN values (arise from non-square data matrices)
+diagavg{2} = remove_nans(diagavg{2});
+diagavg_bin{1} = remove_nans(diagavg_bin{1});
+diagavg_bin{2} = remove_nans(diagavg_bin{2});
+diagrat = remove_nans(diagrat);
+diagrat_bin = remove_nans(diagrat_bin);
 
 
-%% Fit the data and rebalance
-% Fit with double exponential (gives the best fit)
-seprng = 1:length(matrat);
-[fit2exp, gof, stats] = fit( seprng', matrat', 'exp2');
-figure; plot(fit2exp, seprng, matrat); xlabel('Sequence separation'); ylabel('Signal ratio (oligo-C''/AMPure)');
-% % Sigmoidal (gives poorer fit than double exponential)
-% fittyp = fittype( 'A/(B+exp(C*-x))', 'dependent', {'y'}, 'independent', {'x'}, 'coefficients', {'A','B','C'});
-% [fit_sigmoidal, gof2, stats2] = fit( seprng', matrat', fittyp );
-% figure; plot(fit_sigmoidal, seprng, matrat);
+%% Rebalance the biased data and combine with unbiased data using a weighted mean
+seprng = 1:length(diagrat);
+maxrat = max(diagrat_bin);
 
-% Multiply each pixel by sigmoidal correction factor
-coeffs = coeffvalues(fit2exp);
-maxrat = 1.0; %coeffs(1);
-fitrat = feval(fit2exp, 1:size(D_bi,1));
 D_rebal = D_bi*0;
 for i = 1:size(D_bi,1)
     for j = 1:size(D_bi,2)
         sep = abs(i-j);
         if sep >= 1 && sep <= max(seprng)
 
-	    % Use fitted smooth curve.
-	    D_rebal(i,j)  = maxrat / fitrat(sep) * D_bi(i,j);
-            D_rebal_err(i,j)  = maxrat / fitrat(sep) * D_bi(i,j);
+	    % Use values of ratios from binned and averaged diagonal signals.
+            D_rebal(i,j) = maxrat / diagrat_bin(sep) * D_bi(i,j);
+            D_rebal_err(i,j) = maxrat / diagrat_bin(sep) * D_bi_err(i,j);
 
-	    % Use actual value.
-            D_rebal2(i,j) = maxrat / matrat(sep) * D_bi_err(i,j);
-            D_rebal2_err(i,j) = maxrat / matrat(sep) * D_bi_err(i,j);
         end
     end
 end
 
-% Plot raw counts in 2D
-mohcaplot(D_bi/10, seqpos_bi, ligpos_bi, 'Biased, raw', 15);
-mohcaplot(D_rebal/10, seqpos_bi, ligpos_bi, 'Rebalanced w/fit, raw', 15);
-mohcaplot(D_rebal2/10, seqpos_bi, ligpos_bi, 'Rebalanced w/ratios, raw', 15);
-mohcaplot(D_un/10, seqpos_un, ligpos_un, 'Unbiased, raw', 15);
-% D_bi_filt = prepdata(D_bi, D_bi_err);
-% D_rebal_filt = prepdata(D_rebal, D_bi_err);
-% D_rebal2_filt = prepdata(D_rebal2, D_bi_err);
-% D_un_filt = prepdata(D_un, D_un_err);
-% mohcaplot(D_bi_filt, seqpos_bi, ligpos_bi, 'Biased: filt', 15);
-% mohcaplot(D_rebal_filt, seqpos_bi, ligpos_bi, 'Rebalanced w/fit, filt', 15);
-% mohcaplot(D_rebal2_filt, seqpos_bi, ligpos_bi, 'Rebalanced, filt', 15);
-% mohcaplot(D_un_filt, seqpos_un, ligpos_un, 'Unbiased: filt', 15);
+% Calculate weighted mean of oligo-C' and rebalanced AMPure data
+[D_weight, D_weight_err] = get_weighted_mean( D_un, D_rebal, D_un_err, D_rebal_err );
+
+% Create rdats from biased-rebalanced and final-rebalanced data
+base_name = strrep(r_bi.name, 'TrueAm', '');
+r_rebal = make_rdat_structure( D_rebal, D_rebal_err, r_bi, [base_name, '_Rebalanced'] );
+r_weight = make_rdat_structure( D_weight, D_weight_err, r_bi, [base_name, '_CombinedRebalanced'] );
 
 
-%% Plot the average signal versus sequence separation after rebalancing
-% Collect data at each sequence separation and calculate means, ratios
-for seqsep = 1:size(D_rebal,1)-1
-    mat{3}{seqsep} = diag(D_rebal,seqsep);
-    matavg{3}(seqsep) = mean(mat{3}{seqsep});
-    mat{4}{seqsep} = diag(D_rebal2,seqsep);
-    matavg{4}(seqsep) = mean(mat{4}{seqsep});
-end
-matavg{3} = matavg{3}(~isnan(matavg{3}));       % remove NaN values (arise from non-square data matrices)
-matavg{4} = matavg{4}(~isnan(matavg{4}));       % remove NaN values (arise from non-square data matrices)
+%% Plot everything and output to files
+if ~exist( 'Rebalance', 'dir' ); mkdir( 'Rebalance' ); end
 
-% Plot averaged signal versus sequence separation
+% Collect data at each sequence separation of rebalanced data and calculate means, ratios
+diagavg{3} = get_diagonals( D_rebal );
+diagavg{3} = remove_nans(diagavg{3});
+diagavg{4} = get_diagonals( D_weight );
+diagavg{4} = remove_nans(diagavg{4});
+
+% Plot average signal per diagonal versus sequence separation
 figure; hold on;
-col = [rand rand rand];
-col2 = col*0.2;
-scatter(1:1:length(matrat), matavg{3}, 'Fill', 'MarkerEdgeColor', col, 'MarkerFaceColor', col);
-scatter(1:1:length(matrat), matavg{4}, 'Fill', 'MarkerEdgeColor', col2, 'MarkerFaceColor', col2);
-set(gca, 'ylim', [-20 150]);
+set(gcf, 'PaperPositionMode','auto','color','white');
+scatter(1:1:length(diagavg{1}), diagavg{1}, 'MarkerEdgeColor', 'b');
+scatter(1:1:length(diagavg{2}), diagavg{2}, 'Fill', 'MarkerEdgeColor', 'b', 'MarkerFaceColor', 'b');
+scatter(1:1:length(diagavg_bin{1}), diagavg_bin{1}, 'MarkerEdgeColor', 'r');
+scatter(1:1:length(diagavg_bin{2}), diagavg_bin{2}, 'Fill', 'MarkerEdgeColor', 'r', 'MarkerFaceColor', 'r');
+scatter(1:1:length(diagavg{3}), diagavg{3}, 'MarkerEdgeColor', 'k');
+scatter(1:1:length(diagavg{4}), diagavg{4}, 'Fill', 'MarkerEdgeColor', 'k', 'MarkerFaceColor', 'k');
+set(gca, 'ylim', [-20 300]);
 xlabel('Sequence separation');
 ylabel('Signal');
 title('Signal vs sequence separation');
+legend({'Diagonal signal, unbiased','Diagonal signal, biased', ...
+        'Binned/averaged diagonal signal, unbiased','Binned/averaged diagonal signal, biased', ...
+        'Diagonal signal, rebalanced biased','Diagonal signal, combined rebalanced'});
+% print( gcf, '-depsc2', '-loose', '-r300', ['Rebalance/',base_name,'_SignalvsSeqsep']);
+% fprintf( ['Created: ', ['Rebalance/',base_name,'_SignalvsSeqsep'], '\n'] );
+
+% Plot ratios of signal versus sequence separation
+figure; hold on; set(gcf, 'PaperPositionMode','auto','color','white');
+plot(1:1:length(diagrat), diagrat, 'color', 'b');
+plot(1:1:length(diagrat_bin), diagrat_bin, 'color', 'r');
+xlabel('Sequence separation');
+ylabel('Ratio of biased/unbiased signal');
+title('Ratio of signal vs sequence separation');
+print( gcf, '-depsc2', '-loose', '-r300', ['Rebalance/',base_name,'_RebalanceCurve']);
+fprintf( ['Created: ', ['Rebalance/',base_name,'_RebalanceCurve'], '\n'] );
+
+% Plot raw counts in 2D
+mohcaplot(D_un/10, seqpos_un, ligpos_un, {'Unbiased: oligo-C´ bead purification'; r_un.name}, 15, '', ['Rebalance/',base_name,'_Unbiased']);
+mohcaplot(D_bi/10, seqpos_bi, ligpos_bi, {'Biased: AMPure XP bead purification'; r_bi.name}, 15, '', ['Rebalance/',base_name,'_Biased']);
+% mohcaplot(D_rebal/10, seqpos_bi, ligpos_bi, {'Biased: Rebalanced w/ratios of binned and averaged data'; r_rebal.name}, 15);
+mohcaplot(D_weight/10, seqpos_bi, ligpos_bi, {'Weighted mean of unbiased and rebalanced biased data'; r_weight.name}, 15, '', ['Rebalance/',base_name,'_CombinedRebalanced']);
 
 
-%% Combine unbiased and biased-rebalanced data
-% Calculate weighted mean of oligo-C' and rebalanced AMPure data
+%% Output to file
+if exist(  'output_file' )
+  fprintf( ['Outputting rebalanced data (using ratios of binned and averaged signal) to', output_file,'.\n' ] );
+  output_rdat_to_file( output_file, r_weight );
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [D, D_err, seqpos, ligpos] = get_data( r )
+D = r.reactivity;
+D_err = r.reactivity_error;
+seqpos = r.seqpos;
+ligpos = get_ligpos(r);
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function diagavg = get_diagonals( D );
+for seqsep = 1:size(D,1)-1
+    diagmat{seqsep} = diag(D,seqsep);
+    diagavg(seqsep) = mean(diagmat{seqsep});
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function d_noNans = remove_nans( d_Nans )
+d_noNans = d_Nans(~isnan(d_Nans));
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function [D_weight, D_weight_err] = get_weighted_mean( D_un, D_rebal, D_un_err, D_rebal_err );
 weight_un = max( 1 ./ D_un_err.^2, 0 );
 weight_rebal = max( 1 ./ D_rebal_err.^2, 0 );
 D_weight_sum = D_un .* weight_un + D_rebal .* weight_rebal;
@@ -160,53 +180,12 @@ D_weight = D_weight_sum ./ (weight_un + weight_rebal);
 D_weight_err = sqrt( 1 ./ (weight_un + weight_rebal) );
 D_weight(find(isnan(D_weight))) = 0;
 
-weight_rebal2 = max( 1 ./ D_rebal2_err.^2, 0 );
-D_weight2_sum = D_un .* weight_un + D_rebal2 .* weight_rebal2;
-D_weight2 = D_weight2_sum ./ (weight_un + weight_rebal2);
-D_weight2_err = sqrt( 1 ./ (weight_un + weight_rebal2) );
-D_weight2(find(isnan(D_weight2))) = 0;
 
-mohcaplot(D_weight/10, seqpos_bi, ligpos_bi, 'Weighted mean of rebalanced (w/fit) and unbiased', 15);
-mohcaplot(D_weight2/10, seqpos_bi, ligpos_bi, 'Weighted mean of rebalanced (w/ratios) and unbiased', 15);
-% D_weight_filt = prepdata(D_weight, D_weight_err);
-% D_weight2_filt = prepdata(D_weight2, D_weight2_err);
-% mohcaplot(D_weight_filt/10, seqpos_bi, ligpos_bi, 'Weighted mean of rebalanced (w/fit) and unbiased, filt', 15);
-% mohcaplot(D_weight2_filt/10, seqpos_bi, ligpos_bi, 'Weighted mean of rebalanced and unbiased, filt', 15);
-
-
-%% Analyze the final-rebalanced data using COHCOA
-% Create rdats from biased-rebalanced and final-rebalanced data
-r_rebal = r_bi;
-r_rebal2 = r_bi;
-r_weight = r_bi;
-r_weight2 = r_bi;
-r_rebal.reactivity = D_rebal;
-r_rebal2.reactivity = D_rebal2;
-r_rebal.reactivity_error = D_bi_err;
-r_rebal2.reactivity_error = D_bi_err;
-r_weight.reactivity = D_weight;
-r_weight.reactivity_error = D_weight_err;
-r_weight2.reactivity = D_weight2;
-r_weight2.reactivity_error = D_weight2_err;
-
-if exist(  'output_file' )
-  fprintf( ['Outputting rebalanced data (using actual ratios, not fit) to', output_file,'.\n' ] );
-  output_rdat_to_file( output_file, r_weight2 );
-end
-
-%output_rdat_to_file('r_rebal.rdat', r_rebal);
-%output_rdat_to_file('r_rebal2.rdat', r_rebal2);
-%output_rdat_to_file('r_weight.rdat', r_weight);
-%output_rdat_to_file('r_weight2.rdat', r_weight2);
-
-% Apply COHCOA
-%%%%% RECOMMENDED to run these separately; need to fix some minor errors in smoothMOHCA running these rdats
-% figure;
-% smoothMOHCA(r_un);
-% smoothMOHCA(r_bi);
-% smoothMOHCA(r_rebal);
-% smoothMOHCA(r_rebal2);
-% smoothMOHCA(r_weight);
-% smoothMOHCA(r_weight2);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+function r_new = make_rdat_structure( D, D_err, r, name );
+r_new = r;
+r_new.reactivity = D;
+r_new.reactivity_error = D_err;
+r.name = name;
 
 

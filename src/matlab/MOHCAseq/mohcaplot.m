@@ -1,4 +1,4 @@
-function mohcaplot( D, seqpos, ligpos, titl, ticksize, save_path, secstr, pdb_path, contours, c, c2 )
+function mohcaplot( D, seqpos, ligpos, titl, ticksize, subplt, save_path, secstr, pdb, contours, c, c2 )
 
 % Plots 2D maps in MOHCA style
 %
@@ -8,9 +8,10 @@ function mohcaplot( D, seqpos, ligpos, titl, ticksize, save_path, secstr, pdb_pa
 %       ligpos    opt  = y-axis values, ligation positions (enter '' for default, 1 to length of x-axis data in D)
 %       titl      opt  = desired plot title, string (enter '' for default, no title)
 %       ticksize  opt  = font size of tick labels (default 25, enter '' for default)
+%       subplt    opt  = option to make plots as subplots in a single figure (default is to make a new figure) 
 %       save_path opt  = path to save file (including filename) (if none, enter '')
 %       secstr    opt  = cell array with {sequence, secstr, offset, data_types, numlanes}
-%       pdb_path  opt  = path of PDB file, provides axis limits for showing ROI only
+%       pdb       opt  = path of PDB file or pdbstruct from pdbread, provides axis limits for showing ROI only
 %       contours  opt  = enter 1 if want to plot contours from pdb file; default does not plot contours
 %       c         opt  = colorcode background (1 for jet, 2 for gray)
 %       c2        opt  = colorcode foreground ([0 0 1; 1 0 1] 'm' default)
@@ -18,18 +19,21 @@ function mohcaplot( D, seqpos, ligpos, titl, ticksize, save_path, secstr, pdb_pa
 % Clarence Cheng, 2014
 %
 
-D = D';
 if ~exist( 'seqpos', 'var' ) || isempty( seqpos ); seqpos = 1:size(D,2); end;
 if ~exist( 'ligpos', 'var' ) || isempty( ligpos ); ligpos = 1:size(D,1); end;
 if ~exist( 'ticksize', 'var' ) || isempty( ticksize ); ticksize = 15; end;
 if ~exist( 'titl', 'var' ); titl = ''; end;
 if ~exist( 'contours', 'var' ) || isempty( contours ); contours = 0; end;
-if ~exist( 'c', 'var') || isempty( c ); c = 1; end;
-if ~exist( 'c2','var') || isempty( c2); c2 = [0 0 1; 1 0 1]; end;
+if ~exist( 'c', 'var' ) || isempty( c ); c = 1; end;
+if ~exist( 'c2','var' ) || isempty( c2 ); c2 = [0 0 1; 1 0 1]; end;
+if ~exist( 'subplt', 'var' ) || isempty( subplt ); newfig = 1; else newfig = 0; end
 % c2 = [1 0 1; 0.75 0.6 0.9];
 
+% Transpose matrix for plotting
+D = D';
+
 % Make plot
-figure;
+if newfig; figure; elseif ~newfig; subplot(subplt(1),subplt(2),subplt(3)); end
 set(gcf, 'PaperPositionMode', 'Manual','PaperOrientation', 'Landscape','PaperPosition', [-0.65 0.15 12 8],'color','white','Position', [0 0 800 600]);
 image( seqpos, ligpos, 50 * D );
 hold on; axis image;
@@ -42,12 +46,12 @@ gp = find( mod(ligpos,10) == 0 );
 set(gca,'ytick',ligpos(gp) )
 set(gca,'TickDir','out');
 set(gca,'xgrid','on','ygrid','on','fonts',ticksize);
-xlabel( 'Reverse transcription stop position [5'']','fontsize',15,'fontweight','bold' );
-ylabel( 'Cleaved and ligated position [3'']','fontsize',15,'fontweight','bold' );
+xlabel( 'Reverse transcription stop position [5´]','fontsize',ticksize+5,'fontweight','bold' );
+ylabel( 'Cleaved and ligated position [3´]','fontsize',ticksize+5,'fontweight','bold' );
 hold on;
 
 % Add title
-title( titl, 'fonts', 20, 'fontw', 'bold','interp','none' );
+title( titl, 'fonts', ticksize+5, 'fontw', 'bold','interp','none' );
 
 % Rotate xticklabels and reposition
 %xticklabel_rotate;
@@ -89,8 +93,8 @@ if exist( 'secstr', 'var' ) && ~isempty( secstr );
 end
 
 % Overlay tertiary structure contours
-if exist( 'pdb_path', 'var' ) && ~isempty( pdb_path ) && contours == 1;
-    [D_sim, res_rad, res_hit, dist_matrix, pdbstruct] = get_simulated_data( pdb_path );
+if exist( 'pdb', 'var' ) && ~isempty( pdb ) && contours == 1;
+    [D_sim, res_rad, res_hit, dist_matrix, pdbstruct] = get_simulated_data( pdb );
     
     if exist( 'contours', 'var' )
         % Define contour levels and colors
