@@ -1,4 +1,4 @@
-function [clvg_rates, mdf_rates, clvg_prjcs, mdf_prjcs] = determine_cleavage_modification_percentage (D_raw, primer_info, full_extension_correction_factor, Noffset, colorcode)
+function [clvg_rates, mdf_rates, clvg_prjcs, mdf_prjcs] = determine_cleavage_modification_percentage (D_raw, primer_info, full_extension_correction_factor, Noffset, colorcode, is_diff)
 
 lgnd = cell(1, length(D_raw));
 for i = 1:length(primer_info)
@@ -10,6 +10,7 @@ end;
 if ~exist('full_extension_correction_factor','var') || isempty(full_extension_correction_factor); full_extension_correction_factor = 0.25; end;
 if ~exist('Noffset','var') || isempty(Noffset); Noffset = 8; end;
 if ~exist('colorcode','var') || isempty(colorcode); colorcode = jet(length(D_raw)); end;
+if ~exist('is_diff','var') || isempty(is_diff); is_diff = 0; end;
 
 fprintf(['Applied full_extention_correction_factor = ',num2str(full_extension_correction_factor),'.\n']);
 fprintf(['Applied diagonal_cutoff_offset = ',num2str(Noffset),'.\n\n']);
@@ -23,38 +24,49 @@ mdf_rates = zeros(1, length(D_raw));
 
 for i = 1:length(D_raw)
     
-    D_sub = D_raw{i}';                                              %mirror by diagonal
+    D_sub = D_raw{i}';                                          %mirror by diagonal
     D_sub = D_sub(1:sz_D,1:sz_D);                               %reomove univ region
     D_sub = D_sub(2:end,1:end-1);                               %remove pos 1 (univ only)
     D_sub(end-1,:) = D_sub(end-1,:) + D_sub(end,1:end);         %sum STAR to full-length
     D_sub(end-1,end-1) = D_sub(end-1,end-1) + D_sub(end-1,end);
     D_sub = D_sub(1:end-1,1:end-1);                             %remove last pos (STAR)
     
-    %D_clvg = D_sub([end,1:(end-1)],:);                          %move last pos (full-length) to top
-    %D_clvg = D_sub;
-    clvg_prjc = sum(D_sub,2);                                  %horizontal projection
-    %clvg_prjc(end) = clvg_prjc(end) / full_extension_correction_factor;
-    %clvg_prjc = clvg_prjc ./ cumsum(clvg_prjc);                %attenuation correction, divided by cumulative sum
-    clvg_prjc = clvg_prjc / sum(D_sub(end,2:end));
-    clvg_prjc = [clvg_prjc(1:end-1);0];                         %crop out full-length (100%), last-nucleotode cleavage is 0
+    % Noffset for diaganol
+    for j = 1:size(D_sub,1);
+        D_sub(j,max((j-Noffset+1),1):j) = 0;
+    end;
     
     count_unclvg = D_sub(end,1);                                %c
     count_clvg = sum(D_sub(end,2:end));                         %a1
     count_clvg_2 = sum(D_sub(1:end-1,1));                       %a2
     count_new_frag = sum(sum(D_sub(1:end-1,:)));                %b
+    %if abs(count_clvg-count_clvg_2) > (count_clvg+count_clvg_2)/2/2;
+    fprintf([lgnd{i}, ':\t a1 =',num2str(count_clvg),';\t a2 =',num2str(count_clvg_2),';\n']);
+    fprintf(['\t\t\t\tideal full_extension_correction_factor = ', num2str(count_clvg_2/count_clvg),'.\n']);
+    %end;
+    if ~is_diff;
+        D_sub(:,1) = D_sub(:,1)/full_extension_correction_factor;
+    else
+        D_sub(:,1) = D_sub(:,1)/ (count_clvg_2/count_clvg);
+    end;
+
+    %D_clvg = D_sub([end,1:(end-1)],:);                         %move last pos (full-length) to top
+    %D_clvg = D_sub;
+    clvg_prjc = sum(D_sub,2);                                   %horizontal projection
+    %clvg_prjc(end) = clvg_prjc(end) / full_extension_correction_factor;
+    %clvg_prjc = clvg_prjc ./ cumsum(clvg_prjc);                %attenuation correction, divided by cumulative sum
+    clvg_prjc = clvg_prjc / sum(D_sub(end,2:end));
+    clvg_prjc = [clvg_prjc(1:end-1);0];                         %crop out full-length (100%), last-nucleotode cleavage is 0
     
     nomod_rate = count_unclvg / (count_unclvg + count_clvg);    %c/(a1+c)
     clvg_rate = count_new_frag / count_clvg;                    %b/c
     clvg_prjcs(i,:) = clvg_prjc;
     clvg_rates(:,i) = [nomod_rate, clvg_rate];
     
-    if abs(count_clvg-count_clvg_2) > (count_clvg+count_clvg_2)/2/2;
-        fprintf([lgnd{i}, ':\t a1 (',num2str(count_clvg),') and a2 (',num2str(count_clvg_2),') do not agree,\n']);
-        fprintf(['\t\t\t\tideal full_extension_correction_factor = ', num2str(count_clvg_2/count_clvg),'.\n']);
-    end;
-
+    
     %D_mdf = D_sub;
-    [mdf_prjc, mdf_rate] = get_modification_projection( D_sub', full_extension_correction_factor, Noffset );
+    [mdf_prjc, mdf_rate] = get_modification_projection( D_sub', 1, 0 ); %already cutoff and corrected in D_sub
+    
 %     mdf_prjc = sum(D_sub,1);
 %     mdf_prjc(1) = mdf_prjc(1) / full_extension_correction_factor;
 %     for j = 1:sz_D-2
@@ -70,8 +82,9 @@ end;
 clvg_prjcs = clvg_prjcs';
 mdf_prjcs = mdf_prjcs';
 
-figure();clf;
+figure(7);clf;
 set_print_page(gcf, 0, [0 0 800 600]);
+set(gcf,'name', '1D Projection');
 subplot(2,1,1);
 for i = 1:length(D_raw)
     stairs(1:length(clvg_prjcs(:,i)), clvg_prjcs(:,i),'color',colorcode(i,:),'linewidth',2);
