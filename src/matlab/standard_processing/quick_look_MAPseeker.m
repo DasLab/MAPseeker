@@ -365,7 +365,7 @@ output_signal_to_noise_ratio( D, D_err, fid );
 if MOHCA_flag;
     figure(7);
     print_it( fid, '\n\n');
-    [clvg_rates, mdf_rates, prjc_clvg, prjc_mdf] = determine_cleavage_modification_percentage (D_raw, primer_info, full_length_correction_factor, colorcode);
+    [clvg_rates, mdf_rates, prjc_clvg, prjc_mdf] = determine_cleavage_modification_percentage (D_raw, primer_info, full_length_correction_factor, [], colorcode);
     print_it( fid, sprintf('\n Cleavage Rates metrics:\n'));
     print_it( fid, sprintf('\t\t\tPercentage Uncleaved\t\tMean Cleavage Events per RNA\n'));
     for i = 1:size(clvg_rates,2);
@@ -593,6 +593,13 @@ end
 image( [0:(L*N_plots)-1], [1:N_RNA], imagex );
 
 gp = find( mod(xticklabels,20) == 0 );
+% remove repeated xticks
+for i = 1:length(gp)-1
+    if xticks(gp(i)) == xticks(gp(i+1));
+        gp(i) = NaN;
+    end;
+end;
+gp = gp(~isnan(gp));
 set( gca,'tickdir','out','xtick',xticks(gp),'xticklabel',xticklabels(gp),'fontw','bold','fonts',6);
 boundaries = boundaries( 1:end-1);
 make_lines( boundaries, 'b', 0.25 );
