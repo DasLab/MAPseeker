@@ -12,8 +12,13 @@ if ~exist('Noffset','var') || isempty(Noffset); Noffset = 8; end;
 if ~exist('colorcode','var') || isempty(colorcode); colorcode = jet(length(D_raw)); end;
 if ~exist('is_diff','var') || isempty(is_diff); is_diff = 0; end;
 
-fprintf(['Applied full_extention_correction_factor = ',num2str(full_extension_correction_factor),'.\n']);
-fprintf(['Applied diagonal_cutoff_offset = ',num2str(Noffset),'.\n\n']);
+fprintf('Applied full_extention_correction_factor = ');
+if is_diff;
+    fprintf('individual a2/a1.\n');
+else
+    fprintf([num2str(full_extension_correction_factor),'.\n']);
+end;
+fprintf(['Applied diagonal_cutoff_offset = ', num2str(Noffset),'.\n\n']);
 
 sz_D = min(size(D_raw{1}'));
 
@@ -41,7 +46,7 @@ for i = 1:length(D_raw)
     count_clvg_2 = sum(D_sub(1:end-1,1));                       %a2
     count_new_frag = sum(sum(D_sub(1:end-1,:)));                %b
     %if abs(count_clvg-count_clvg_2) > (count_clvg+count_clvg_2)/2/2;
-    fprintf([lgnd{i}, ':\t a1 =',num2str(count_clvg),';\t a2 =',num2str(count_clvg_2),';\n']);
+    fprintf([lgnd{i}, ':\t a1 = ',num2str(count_clvg),';\t a2 = ',num2str(count_clvg_2),';\n']);
     fprintf(['\t\t\t\tideal full_extension_correction_factor = ', num2str(count_clvg_2/count_clvg),'.\n']);
     %end;
     if ~is_diff;
