@@ -1,5 +1,5 @@
-function [D_smooth, D_smooth_error, seqpos, ligpos, r] = smoothMOHCA( rdat_file, MODE, pdb, SQUARIFY, image_options );
-%%% [D_smooth,seqpos, ligpos, r] = smoothMOHCA( rdat_file, pdb, MODE );
+function [D_smooth, D_smooth_error, seqpos, ligpos, r] = smoothMOHCA( rdat_file, pdb, MODE, SQUARIFY, image_options )
+%%% [D_smooth,seqpos, ligpos, r] = smoothMOHCA( rdat_file, pdb, MODE, SQUARIFY, image_options );
 %%%
 %%% One-shot script to take MOHCA raw data (in rdat format) and any known 
 %%%  reference structure, and make a nice summary plot.
@@ -41,14 +41,14 @@ if nargin < 1; help( mfilename ); return; end;
 clf;
 set(gcf, 'PaperPositionMode','auto','color','white');
 if ~exist( 'MODE', 'var' ); MODE = 1; end;
-if ~exist( 'image_options' ) image_options = {'smooth','filter_SN1'}; end;
+if ~exist( 'image_options','var' ); image_options = {'smooth','filter_SN1'}; end;
 if ~iscell( image_options ); assert( ischar( image_options ) ); image_options = { image_options }; end;
-if ischar( rdat_file ) & exist( rdat_file, 'dir' )==7; rdat_file = get_rdats_in_directory( rdat_file ); end;                % rdat_file = {'~/.../RNA.RAW.1.rdat','...'}
-if ~iscell( rdat_file ) rdat_file = { rdat_file }; end;
+if ischar( rdat_file ) && exist( rdat_file, 'dir' )==7; rdat_file = get_rdats_in_directory( rdat_file ); end;                % rdat_file = {'~/.../RNA.RAW.1.rdat','...'}
+if ~iscell( rdat_file ); rdat_file = { rdat_file }; end;
 D_sim_a = [];
 dist_matrix = []; rad_res = []; hit_res = [];
-if exist( 'pdb', 'var' ) & length(pdb) > 0; [D_sim_a, rad_res, hit_res, dist_matrix, pdbstruct] = get_simulated_data( pdb ); end
-if ~exist( 'SQUARIFY' ); SQUARIFY = 1; end
+if exist( 'pdb', 'var' ) && ~isempty(pdb); [D_sim_a, rad_res, hit_res, dist_matrix, pdbstruct] = get_simulated_data( pdb ); end
+if ~exist( 'SQUARIFY','var' ); SQUARIFY = 1; end
 m_tag = get_mode_tag( MODE );
 
 % Show all data sets, applying specified analysis
