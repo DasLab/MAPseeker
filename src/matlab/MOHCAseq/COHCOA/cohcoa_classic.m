@@ -32,7 +32,7 @@ end
 seqpos = r.seqpos;
 ligpos = str2num(char(get_tag( r, 'lig_pos' )));
 
-rho = 2.5; % surprisingly little dependence on rho
+rho = 2.5; % rho = factor to correct ?OH cleavage to ?OH RT-stopping damage; surprisingly little dependence on rho from 1-5
 if ~exist( 'NUM_CYCLES' ); NUM_CYCLES = 40; end; % number of iteration cycles.
 FULL_LENGTH_LIGATION_CORRECTION = 2; % surprisingly little dependence on this (except overall scaling).
 OVERALL_SCALING = 2; % overall counts.
@@ -121,11 +121,11 @@ for q = 1 : NUM_CYCLES
     [dummy, sortidx ] = sort( Q_out_laidout, 'descend' );
     Q_contact = 0 * Q;
     N_hits = SPARSITY_HITS_PER_RES * N;
-    Q_contact( sortidx(1:N_hits) ) = Q( sortidx(1:N_hits) );
+    Q_contact( sortidx(1:N_hits) ) = Q( sortidx(1:N_hits) );    % take N strongest hits
     Q = Q_contact;  
   end
 
-  Q( [1:BLANK_FLANK], : ) = 0;
+  Q( [1:BLANK_FLANK], : ) = 0;      % set flanks to 0
   Q( :, [N- BLANK_FLANK:N] ) = 0;
     
   Q = max( Q, 0 ) * QFUDGE;  
@@ -145,14 +145,16 @@ for q = 1 : NUM_CYCLES
   title( 'Q' );
 
   subplot(2,2,2);  set(gca,'position',[0.55 0.55 0.4 0.4] );
-  image( seqpos, ligpos, Q_scaling * Q_filter' ); axis image;
-  title( sprintf('Q_{filter} (S/N > %3.1f )', SIGNAL_TO_NOISE_FILTER_CUTOFF) );
+  %image( seqpos, ligpos, -Q_scaling * Q_filter' ); axis image;
+  %title( sprintf('Q_{filter} (S/N > %3.1f )', SIGNAL_TO_NOISE_FILTER_CUTOFF) );
   %image( Q_scaling * Q_out_err' );
   %title( 'Q_{ERROR}' );
 
   %image( Q_scaling * -Q_out' );
   %title( '-Q [should be low]' );
 
+  image( image_scaling * ( F_plaid)' );   title( 'F_{plaid}');
+  
   subplot(2,2,3);  set(gca,'position',[0.05 0.05 0.4 0.4] );
   image( seqpos, ligpos, image_scaling * F' ); axis image;
   title( 'Input data' );
@@ -206,6 +208,7 @@ if ( seqsep > seqsep_min ) fprintf( 'WARNING -- minimum insert length looks like
 %if seqsep > 10; seqsep = 17; end; 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Try to fit a 2D ditribution to product of two 1D distributions.
 function [ R, B, F_plaid ] = estimate_plaid_background( F_attcorrect_subcontact, B, R, R_init, ...
 						  seqsep, USE_OUTLIER_FILTER_FOR_PLAID,...
 						  UNDERSHOOT_PLAID, PERCENTILE_CUT, REFIT_R );
@@ -223,9 +226,10 @@ for n = 1 : niter
 					      R( normbins), ...
 					      PERCENTILE_CUT, UNDERSHOOT_PLAID );
     else
-      B(i) = mean( D_attcorrect(normbins,i) ) / mean(R( normbins ));
-    end   
+      B(i) = mean( F_attcorrect_subcontact(normbins,i) ) / mean(R( normbins ));
+    end
   end
+  B = get_rid_of_infinities( B );  
   
   if REFIT_R
     R_new = 0 * R;
@@ -240,7 +244,7 @@ for n = 1 : niter
 	R_new(i) = mean(F_attcorrect_subcontact(i,normbins)) / mean(B( normbins ));
       end     	
     end
-    
+    R = get_rid_of_infinities( R );  
     R = max( R_new, 0);
     R( (N-seqsep) : N ) = R(N - seqsep - 1); % clean up -- R at end is not defined.
     
@@ -256,3 +260,12 @@ end
 
 F_plaid = R * B';
 for i = 1:N;  F_plaid( [ max(i-seqsep,1) : end], i ) = 0.0;  end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% if data are zero in a row or column
+%  can get spurious infinities.
+%
+% reset those values to mean of non-infinite values
+%
+function B = get_rid_of_infinities( B );  
+B( find( isinf(B)) ) = mean( B( find( ~isinf( B ) ) ) );
