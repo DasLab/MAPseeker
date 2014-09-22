@@ -68,11 +68,11 @@ end
 % Find all the used fonts in the figure
 font_handles = findall(fig, '-property', 'FontName');
 fonts = get(font_handles, 'FontName');
-if ~iscell(fonts)
+if ~iscell(fonts) 
     fonts = {fonts};
 end
 % Map supported font aliases onto the correct name
-fontsl = lower(fonts);
+fontsl = lower( fonts );
 for a = 1:numel(fonts)
     f = fontsl{a};
     f(f==' ') = [];
