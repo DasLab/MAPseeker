@@ -1,16 +1,21 @@
 function [P, P_err] = latte(rin, rinbg)
-if ischar(rin) & ~isstruct(rin)
+if ischar(rin)
 	r = read_rdat_file(rin);
+    fprintf(1, '\nReading RDAT file\n');
 else 
 	r = rin;
+    fprintf(1, '\nReceived RDAT variable\n');
 end
+
 if ~exist('rinbg')
-	rbg = -1;
+	rbg = [];
 else
-	if ischar(rbgin) & ~isstruct(rbgin)
-		rbg = read_rdat_file(rbgin);
+	if ischar(rinbg)
+		rbg = read_rdat_file(rinbg);
+        fprintf(1, '\nReading background RDAT file\n');
 	else 
-		rbg = rbgin;
+		rbg = rinbg;
+        fprintf(1, '\nReceived background RDAT variable\n');
 	end
 end
 
@@ -61,10 +66,10 @@ end
 end
 
 function [epsilon, alpha, gamma]  = calculate_background_vars(data, rbg, x, y, z)
-epsilon = zeros(size(data, 1));
-alpha = zeros(size(data, 1));
-gamma = zeros(size(data, 1));
-if rbg ~= -1
+epsilon = zeros(size(data, 1),1);
+alpha = zeros(size(data, 1),1);
+gamma = zeros(size(data, 1),1);
+if ~isempty( rbg )
 	background = rbg.reactivity;
 	for i=1:size(data,1)
 	    for j=i+1:size(data,2)
@@ -74,7 +79,7 @@ if rbg ~= -1
     end
 	epsilon = sum(background, 1)./sum(background);
 	epsilon = epsilon./sum(epsilon);
-	alpha = alpha./sum(alpha);
+    alpha = alpha./sum(alpha);
 else
 	alpha(:) = x;
 	epsilon(:) = y;
