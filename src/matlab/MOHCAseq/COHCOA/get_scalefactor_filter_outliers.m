@@ -10,8 +10,9 @@ if ~exist( 'ref_err','var') | isempty( ref_err ); ref_err = 0 * ref + 1; end;
   scalefactor = 1.0;
 if length( ref ) == 0; return; end
 
-gp = 1:length(ref);
-Ncut = max(ceil( length(ref) * PERCENTILE_CUT ),1);
+% gp = 1:length(ref); %size(gp)
+gp = 1:(length(ref)-1); %size(gp) % don't account for full-length RT lane; can have artifacts
+Ncut = max(ceil( (length(ref)-1) * PERCENTILE_CUT ),1);
 
 weights = max( (1./ref_err.^2), 0);
 %weights = 0*ref + 1;
@@ -19,12 +20,12 @@ weights = max( (1./ref_err.^2), 0);
 niter = 3;
 for i = 1:niter
 
-  if ( sum( data(gp) ) == 0 ) gp = [1:length(ref)]; end; 
+  if ( sum( data(gp) ) == 0 ) gp = [1:length(ref)]; end; % sum( data(gp) ) usually ~= 0
     
   %scalefactor  = sum( ref(gp).*ref(gp).*weights(gp) ) / sum(data(gp).*ref(gp).*weights(gp) );
   scalefactor  = mean( ref(gp) .* weights(gp)) / mean( data(gp).*weights(gp) );
 
-  dev =  (scalefactor * data  - ref) ;
+  dev =  (scalefactor * data(1:end-1)  - ref(1:end-1)) ;  % don't account for full-length RT lane; can have artifacts
   if ~UNDERSHOOT; dev = abs(dev); end;
 
   [dev_sort, sortidx ] = sort( dev, 'descend' );  

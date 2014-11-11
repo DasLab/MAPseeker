@@ -424,6 +424,7 @@ if OUTPUT_RDAT
     if OUTPUT_RAW
         rdat_raw_filename = [ dirname, '.RAW.rdat' ];
         MAPseeker_to_rdat_by_primer( rdat_raw_filename, name, D_raw, D_raw_err, primer_info, RNA_info, comments, annotations, 1 );
+        % Problem! Annotations taken from annotations for reactivity-analyzed RDATs, so include 'processing:normalization:boxplot' 
     end
     
     MAPseeker_to_rdat_by_primer( rdat_filename, name, D, D_err, primer_info, RNA_info, comments, annotations );
