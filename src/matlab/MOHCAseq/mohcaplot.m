@@ -24,8 +24,7 @@ if ~exist( 'ticksize', 'var' ) || isempty( ticksize ); ticksize = 15; end;
 if ~exist( 'titl', 'var' ); titl = ''; end;
 if ~exist( 'contours', 'var' ) || isempty( contours ); contours = 0; end;
 if ~exist( 'c', 'var' ) || isempty( c ); c = 1; end;
-if ~exist( 'c2','var' ) || isempty( c2 ); c2 = [1 0 1; 1 1 1]; end;
-if c == 0; c2 = [1 0 1; 0 0 1]; end;
+if ~exist( 'c2','var' ) || isempty( c2 ); c2 = [1 0 1; 0 0 1]; end;
 
 % Transpose matrix for plotting
 D = D';
@@ -35,7 +34,7 @@ figure;
 set(gcf, 'PaperPositionMode', 'Manual','PaperOrientation', 'Landscape','PaperPosition', [-0.65 0.15 12 8],'color','white','Position', [0 0 800 600]);
 image( seqpos, ligpos, 50 * D );
 hold on; axis image;
-if c == 1; colormap( 1-gray ); else colormap( jet ); end;
+if c == 1; colormap( 1-gray ); else colormap( jet ); c2 = [1 0 1; 1 1 1]; end;
 
 % Label x and y axes
 gp = find( mod(seqpos,10) == 0 );
