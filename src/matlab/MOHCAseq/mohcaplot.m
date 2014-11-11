@@ -105,7 +105,6 @@ if exist( 'pdb', 'var' ) && ~isempty( pdb )
         end
         if ~isempty( legends ); legend( legends ); end;
     end
-    max(res_rad)
     % Set axis limits (crop to ROI)
     axis( [min(res_rad)-0.5 max(res_rad)+0.5 min(res_hit)-0.5 max(res_hit)+0.5 ]);
 else
