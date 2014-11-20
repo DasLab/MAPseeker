@@ -120,6 +120,15 @@ if ~exist( stats_file, 'file' )
     if exist( 'RNA_sequences.fasta','file' ); library_file_just_sequences = 'RNA_sequences.fasta'; end;
     run_map_seeker_executable( library_file_just_sequences, primer_file, inpath, align_all );
 end
+if exist( 'MAPseeker_executable.log' )
+  % read in this log file and put to output...
+  print_it( fid, 'Output of MAPseeker_executable.log:\n' );
+  fid2 = fopen( 'MAPseeker_executable.log' );
+  while ~feof( fid2 );    print_it( fid, [fgetl( fid2 ),'\n'] );    end
+  print_it( fid, '\n' );
+  fclose( fid2 );
+end
+
 
 for i = 1:N_primers;
     stats_file = sprintf( '%s/%s_ID%d.txt', inpath, stats_prefix, i);
@@ -415,6 +424,7 @@ if OUTPUT_RDAT
     if OUTPUT_RAW
         rdat_raw_filename = [ dirname, '.RAW.rdat' ];
         MAPseeker_to_rdat_by_primer( rdat_raw_filename, name, D_raw, D_raw_err, primer_info, RNA_info, comments, annotations, 1 );
+        % Problem! Annotations taken from annotations for reactivity-analyzed RDATs, so include 'processing:normalization:boxplot' 
     end
     
     MAPseeker_to_rdat_by_primer( rdat_filename, name, D, D_err, primer_info, RNA_info, comments, annotations );

@@ -93,7 +93,7 @@ end
 [D_weight, D_weight_err] = get_weighted_mean( D_un, D_rebal, D_un_err, D_rebal_err );
 
 % Create rdats from biased-rebalanced and final-rebalanced data
-base_name = strrep(r_bi.name, 'TrueAm', '')
+base_name = strrep(r_bi.name, 'TrueAm', '');
 r_rebal = make_rdat_structure( D_rebal, D_rebal_err, r_bi, [base_name, '_Rebalanced'] );
 r_weight = make_rdat_structure( D_weight, D_weight_err, r_bi, [base_name, '_CombinedRebalanced'] );
 
@@ -144,7 +144,7 @@ mohcaplot(D_weight/10, seqpos_bi, ligpos_bi, {'Weighted mean of unbiased and reb
 
 
 %% Output to file
-if exist(  'output_file' )
+if exist(  'output_file','var' );
   fprintf( ['Outputting rebalanced data (using ratios of binned and averaged signal) to', output_file,'.\n' ] );
   output_rdat_to_file( output_file, r_weight );
 end
@@ -159,7 +159,7 @@ ligpos = get_ligpos(r);
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function diagavg = get_diagonals( D );
+function diagavg = get_diagonals( D )
 for seqsep = 1:size(D,1)-1
     diagmat{seqsep} = diag(D,seqsep);
     diagavg(seqsep) = mean(diagmat{seqsep});
@@ -172,7 +172,7 @@ d_noNans = d_Nans(~isnan(d_Nans));
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [D_weight, D_weight_err] = get_weighted_mean( D_un, D_rebal, D_un_err, D_rebal_err );
+function [D_weight, D_weight_err] = get_weighted_mean( D_un, D_rebal, D_un_err, D_rebal_err )
 weight_un = max( 1 ./ D_un_err.^2, 0 );
 weight_rebal = max( 1 ./ D_rebal_err.^2, 0 );
 D_weight_sum = D_un .* weight_un + D_rebal .* weight_rebal;
@@ -182,7 +182,7 @@ D_weight(find(isnan(D_weight))) = 0;
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function r_new = make_rdat_structure( D, D_err, r, name );
+function r_new = make_rdat_structure( D, D_err, r, name )
 r_new = r;
 r_new.reactivity = D;
 r_new.reactivity_error = D_err;

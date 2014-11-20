@@ -1,7 +1,7 @@
 ############################################
  MAPseeker, v1.0
 ############################################
-(C) R. Das, 2013;  J.P. Bida, R. Das, 2012.
+(C) R. Das, 2013-2014; C. Cheng, 2014;  J.P. Bida, R. Das, 2012.
 
 E-mail: rhiju [at] stanford.edu.
 
@@ -12,8 +12,9 @@ data on pools of RNAs.
 
 A stable version of the experimental 
 protocol is being described in a chapter for an upcoming 
-volume of Methods in Molecular Biology, and a preprint 
-is available at: http://arxiv.org/abs/1304.1072
+volume of Methods in Molecular Biology, which is available 
+on the Das lab website at:
+http://daslab.stanford.edu/pdf/Seetin_MAPseq_MiMB2013.pdf
 
 (1) The MAPseeker executable.  
   Takes as input your FASTQ files from an Illumina run, 
