@@ -1,20 +1,14 @@
-============================================
- MAPseeker, v1.0
-============================================
+<h1>MAPseeker, v1.0</h1>
 (C) R. Das, 2013-2014; C. Cheng, 2014;  J.P. Bida, R. Das, 2012.
 
 E-mail: rhiju [at] stanford.edu.
 
-=========
- LICENSE
-=========
+<h2>LICENSE</h2>
 
 This project can only be accessed and used in compliance with
 the license, which can be viewed [here](LICENSE.txt).
 
-=====================
- General information
-=====================
+<h2>General information</h2>
 
 Multiplexed Accessibility Probing read out through next 
 generation Sequencing (MAP-seq) leverages multiple chemical 
@@ -51,9 +45,7 @@ and BWA.
 (4) RDATkit
   Scripts needed to read/write in RDAT format.
 
-================
- How to install
-================
+<h2>How to install</h2>
 
 To compile the main MAPseeker executable,  go to 
 
@@ -61,12 +53,9 @@ To compile the main MAPseeker executable,  go to
 
 and follow instructions in the README there for compilation. 
 
-=============
- Example run
-=============
+<h2>Example run</h2>
 
-================================================
-1. Converting FASTQs to meaningful structure mapping data
+<h3>1. Converting FASTQs to meaningful structure mapping data</h3>
 
 Some example data is included to test the scripts, involving MAP-seq data 
 for 1M7 probing of a large set of RNAs including two 'control' constructs 
@@ -148,8 +137,7 @@ etc. There are N+1 columns, where N is the number of residues
 in the longest RNA probed.
 
 
-================================================
-2. Visualizing & processing the run.
+<h3>2. Visualizing & processing the run.</h3>
 
 To view these files, you can use any plotting program (MATLAB, 
 gnuplot, matplotlib in python). 
@@ -216,8 +204,7 @@ we used a subset of the data), data processing steps
 estimated errors, etc.
 
 
-================================================
-3. Referencing
+<h3>3. Referencing</h3>
 
 We typically include, in all our runs, the following sequence, which
 is the P4-P6 domain of the Tetrahymena ribozyme with a GAGUA-capped hairpin 
@@ -239,8 +226,7 @@ If you have another reference construct, include it
 in your RNA library FASTA, including the fields 'REFERENCE'
 and 'GAGUA' as tab delimited fields.
 
-==================================================
-4. What to do next
+<h3>4. What to do next</h3>
 Done! You can now share the RDAT file, which is a human-readable text format that
 lets you save and revisit the data and additional information on your experiment.
 
@@ -268,8 +254,7 @@ and an entry will also automatically be generated at the awesome SNRNASM databas
 http://snrnasm.bio.unc.edu/
 
 
-================================================
-5. Further processing (if desired)
+<h3>5. Further processing (if desired)</h3>
 
 To further process these data for useful output, you 
 can take the output of quick_look_MAPseeker with 
