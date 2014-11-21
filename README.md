@@ -5,14 +5,24 @@
 
 E-mail: rhiju [at] stanford.edu.
 
+###############
+ LICENSE
+###############
+
+This project can only be accessed and used in compliance with
+the license, which can be viewed [here](LICENSE.txt).
+
+#######################
+ General information
+#######################
+
 Multiplexed Accessibility Probing read out through next 
 generation Sequencing (MAP-seq) leverages multiple chemical 
 modification strategies to give information-rich structural 
 data on pools of RNAs. 
 
-A stable version of the experimental 
-protocol is being described in a chapter for an upcoming 
-volume of Methods in Molecular Biology, which is available 
+A stable version of the experimental protocol is described
+in a chapter of Methods in Molecular Biology, which is available 
 on the Das lab website at:
 http://daslab.stanford.edu/pdf/Seetin_MAPseq_MiMB2013.pdf
 
