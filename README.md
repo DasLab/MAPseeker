@@ -6,7 +6,7 @@ E-mail: rhiju [at] stanford.edu.
 ## LICENSE
 
 This project can only be accessed and used in compliance with
-the license, which can be viewed [here](LICENSE.txt).
+the license, which can be viewed [here](LICENSE.md).
 
 ## General information
 
