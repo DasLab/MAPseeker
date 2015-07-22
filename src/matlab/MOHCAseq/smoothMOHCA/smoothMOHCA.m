@@ -135,59 +135,66 @@ function make_plot( D_smooth, D_smooth_error, ...
 		    MODE, image_options, SQUARIFY )
                 
 D_filter = D_smooth;
+D_filter_error = D_smooth_error;
 if check_option( image_options, 'filter_RNAse' );  D_filter = filter_RNAse_striations( D_filter );end
 if size( D_smooth,2) == size( D_smooth_error, 2 );
   if check_option( image_options, 'filter_SN1.5' )  
-    D_filter( find( (D_smooth./D_smooth_error) < 1.5 ) ) = 0.0;   
+      filterval = 1.5;
   elseif check_option( image_options, 'filter_SN2' )  
-      D_filter( find( (D_smooth./D_smooth_error) < 2 ) ) = 0.0;  
-  elseif ~check_option( image_options, 'filter_SN1' )  
-      D_filter( find( (D_smooth./D_smooth_error) < 1 ) ) = 0.0;   
+      filterval = 2;
+  elseif ~check_option( image_options, 'no_filter' )  
+      filterval = 1;
   end
 end
-if ~check_option( image_options, 'no_smooth' )  D_filter = smooth2d( D_filter ); end
+if ~check_option( image_options, 'no_smooth' )  
+    smooth = 1;
+else
+    smooth = 0;
+end
 
 % auto scale
 if ~check_option( image_options, 'no_autoscale' )
-  scalefactor = (1/8)/mean(mean(max(D_filter,0)));
-  D_filter = D_filter * scalefactor;
+    scale = 1;
+else
+    scale = 0;
 end
 
-image( seqpos, ligpos, 80 * D_filter' );
+D_filter = prepdata( D_filter, D_filter_error, filterval, smooth, scale );
+
+image( seqpos, ligpos, 50 * D_filter' );
 
 % label x and y axes
 gp = find( mod(seqpos,10) == 0 );
-set(gca,'xtick',seqpos(gp) )
+set(gca,'xtick',seqpos(gp), 'fontsize', 15 )
 gp = find( mod(ligpos,10) == 0 );
-set(gca,'ytick',ligpos(gp) )
+set(gca,'ytick',ligpos(gp), 'fontsize', 15 )
 set(gca,'TickDir','out');
-set(gca,'xgrid','on','ygrid','on','fonts',15,'fontw','bold');
-xlabel( 'Reverse transcription stop position [5'']','fontsize',20,'fontweight','bold' );
-ylabel( 'Cleaved and ligated position [3'']','fontsize',20,'fontweight','bold' );
+% set(gca,'xgrid','on','ygrid','on','fonts',ticksize);
+xlabel( 'Reverse transcription stop position [5´]','fontsize', 20,'fontweight','bold' );
+ylabel( 'Cleaved and ligated position [3´]','fontsize', 20,'fontweight','bold' );
 hold on;
 
 % Rotate labels
 xticklabel = get(gca,'XTickLabel');
 set(gca,'XTickLabel','');
-hxLabel=get(gca,'XLabel');
+hxLabel = get(gca,'XLabel');
 set(hxLabel,'Units','data');
-xLabelPosition=get(hxLabel,'Position');
-y=xLabelPosition(2) - 7;
-XTick=str2num(xticklabel)+1;
-y=repmat(y,length(XTick),1);
-fs = get(gca,'fonts');
-hText=text(XTick,y,xticklabel,'fonts',15,'fontw','bold');
+xLabelPosition = get(hxLabel,'Position');
+y = xLabelPosition(2)-2;
+XTick = str2num(xticklabel)+1;
+y = repmat(y,length(XTick),1);
+hText = text(XTick,y,xticklabel,'fonts',15);
 set(hText,'Rotation',90,'HorizontalAlignment','right');
-xlab=get(gca,'XLabel');
-set(xlab,'Position',get(xlab,'Position') + [0 7 0]);
+xlab = get(gca,'XLabel');
+set(xlab,'Position',get(xlab,'Position') + [0 3 0]);
 
-colormap( jet ); % colormap( 1-gray(100) );
+colormap( 1-gray );
 axis image;
 
 %contour_levels = [10, 15, 25, 35];
 %colorcode = [0 0 1; 0.3 0.3 1; 0.6 0.6 1; 0.8 0.8 1];
 contour_levels = [15,30];
-colorcode = [1 0 1; 0.75 0.6 0.9];
+colorcode = [.5 0 .5; 0.3 0.5 1];
 
 % add legends
 legends = {};
@@ -201,19 +208,6 @@ if ~isempty( dist_matrix );
     legends{i} = sprintf( '%d Angstrom', contour_levels(i) );
   end
 end
-
-% add sequence to axes and diagonal
-%plot( ligpos([1 end]), ligpos( [1 end] ),'color',[0.5 0.5 0.5],'linew',1.5 );
-for i = seqpos'
-  text( i, max(ligpos)+0.5, sequence( i - offset ),'horizontalalign','center','verticalalign','top','fontsize',6 );
-end
-for j = ligpos'
-  text( min(seqpos)-0.5, j, sequence(j - offset ),'horizontalalign','right','verticalalign','middle','fontsize',6 );
-end
-for j = ligpos'
-  text( j, j, sequence(j - offset ),'fontsize',6,'horizontalalign','center','verticalalign','middle' );
-end
-hold off;
 
 axis( [min(seqpos)-0.5 max(seqpos)+0.5 min(ligpos)-0.5 max(ligpos)+0.5 ]);
 

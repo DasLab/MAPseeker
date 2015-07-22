@@ -28,7 +28,7 @@ if length( fastqs ) > 2;
 end;
 
 
-command = sprintf( 'time %s -1 %s  -2 %s  -l %s  -p %s -n %d >> MAPseeker_executable.log 2> MAPseeker_exexutable.err', MAPseeker_EXE, fastqs(1).name, fastqs(2).name, library_file, primer_file, n )
+command = sprintf( 'time %s -1 %s  -2 %s  -l %s  -p %s -n %d >> MAPseeker_executable.log 2> MAPseeker_executable.err', MAPseeker_EXE, fastqs(1).name, fastqs(2).name, library_file, primer_file, n )
 system( ['echo "',command,'" > MAPseeker_executable.log'] );
 %command = sprintf( 'time %s -1 %s  -2 %s  -l %s  -p %s -n %d', MAPseeker_EXE, fastqs(1).name, fastqs(2).name, library_file, primer_file);
 system( command );

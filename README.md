@@ -57,7 +57,7 @@ To compile the main MAPseeker executable, go to:
 
 and follow instructions in the README there for compilation. 
 
-## Example run
+## Tutorial I. Example run for 1D chemical mapping data
 
 ### 1. Converting FASTQs to meaningful structure mapping data
 
@@ -306,11 +306,176 @@ to help compare data sets.
 
 
 
+## Tutorial II. Example run for MOHCA-seq data
+
+In MOHCA-seq experiments, a hydroxyl radical source (a Fe•EDTA complex) is covalently tethered to the backbone of the RNA. Activation of the Fenton reaction generates localized hydroxyl radicals, which produce spatially correlated oxidative damage events in the RNA that are read out by reverse transcription and sequencing. The experimental protocol is published online at: http://elifesciences.org/content/4/e07600/. 
+
+There are a few major steps to analyzing MOHCA-seq data in MAPseeker:
+
+1. Quantify sequencing reads from FASTQs.
+2. (Optional) If size-selection was performed during library preparation to enhance signal for longer RNA fragments, rebalance the size-selected and non-size-selected data to correct for length bias in size-selected samples. This is useful for RNAs above ~150 nt in length. See the published article for more details on size-selection.
+3. Analyze quantified raw counts for correlated signal.
+4. Sharing and visualizing the final data.
+
+### 1. Quantify sequencing reads from FASTQs.
+
+Example MOHCA-seq data for testing the scripts is provided in
+
+`example/MOHCAseq/`
+
+There are four folders:
+
+* **1_NoSizeSelect**
+* **2_SizeSelect**
+* **Rebalance**
+* **FinalAnalysis**
+* **PDB**
+
+Within each of **1_NoSizeSelect** and **2_SizeSelect**, there are four files:
+
+* **Read1** and **Read2** FASTQ files
+
+   Sequencing data for ligand-bound state of the _ydaO_ cyclic-di-AMP riboswitch from _T. tengcongensis_. The non-size-selected FASTQ files contain 1/11 of the reads from the original FASTQs, and the size-selected FASTQ files contain 1/5 of the reads from the original FASTQs.
+
+* **primers.fasta**  
+
+   Primers used in the run, in FASTA format. 
+
+   The headers describe the conditions used in the experiments probed by each primer (the first one is a control where the radical source was not activated, the next three were exposed to localized hydroxyl radical damage by incubation with ascorbate to activate the Fenton reaction). 
+   
+   Use the 'chemical:' and 'temperature:' tags to specify the conditions of your experiment. These annotations will carry through to the final RDAT-formatted dataset.
+
+* **MOHCA.fasta**  
+
+   This file provides the RNA sequence in FASTA format.
+
+   If a MOHCA.fasta file is provided in the directory where
+   quick_look_MAPseeker is run, MAPseeker will automatically
+   generate the RNA_sequences.fasta file that is used for
+   alignment with the sequencing data.
+
+**First, we will align the reads to the RNA sequence to generate RDAT files with raw counts, which will then be further analyzed.**
+
+It is best to use MATLAB for MOHCA-seq data analysis, because the analysis steps after alignment and quantification of raw counts can only performed in MATLAB at present.
+
+Go to the **1_NoSizeSelect** folder and run the command:
+
+`quick_look_MAPseeker;`
+
+The MAPseeker executable command line and the output of the analysis are printed to screen and recorded in the MAPseeker_executable.log file. The output should include the following purification table:
+
+>Purification table
+450617 total
+120341 found primer binding site
+120141 found expt ID site
+120141 found match in RNA sequence (read 1)
+86673 found match in RNA sequence (read 2)
+50495 found strict match in RNA sequence (read 2)
+
+For this example dataset, the run should take less than 2 minutes; for a real dataset, it may take up to around 5-10 minutes. The 
+
+As for MAP-seq analysis, a stats_ID text file with a matrix of numbers is generated for each primer. For this example dataset, there should be stats_ID1.txt through stats_ID4.txt. Each row of the matrix represents a different cleavage position in the RNA, and each column of the matrix is a reverse transcription stop site.
+
+To facilitate downstream analysis of MOHCA-seq data, MAPseeker generates RDAT files containing these raw aligned data, without correction for reverse transcription attenuation, when the MOHCA.fasta file is provided instead of RNA_sequences.fasta. In this example, the files are named 1_NoSizeSelect.RAW.1.rdat and 1_NoSizeSelect.RAW.2.rdat.
+
+To visualize the data, the same plots that are automatically generated for MAP-seq analysis will also be generated for MOHCA-seq analysis, including:
+* **Figure 1.** A histogram of counts per primer
+* **Figures 2 and 3.** Raw counts and attenuation-corrected reactivities for the four most highly represented RNAs
+* **Figures 4 and 5.** 2D representations of the raw counts and reactivities of the full dataset. Figures 4 and 5 are useful as initial visualizations of the two-dimensional MOHCA-seq data.
+* **Figure 7.** Additionally, for MOHCA-seq data analysis, 1D projections of the 2D data along the columns and rows of the stats_ID matrices (giving profiles of cleavage and reverse transcription stops, respectively) are calculated and plotted in Figure 7.
+
+The text output of these analyses is recorded in MAPseeker_results.txt.
+
+**If size-selection was performed during library preparation,** go to the **2_SizeSelect** folder and run `quick_look_MAPseeker` as above to generate the raw counts for the size-selected dataset as well, then proceed to step 2 to rebalance and combine the size-selected and non-size-selected data.
+
+**If size-selection was not performed during library preparation,** skip step 2 and perform step 3 to analyze the data for correlated signal.
 
 
 
+### 2. (OPTIONAL) Rebalance and combine size-selected and non-size-selected data.
+
+If size-selection was performed to enhance signal for longer-distance reads, we must correct for the attenuation of signal for short RNA fragments by rebalancing the size-selected data using the non-size-selected data. This is performed in MAPseeker by the `rebalance.m` script.
+
+Go to the **Rebalance** folder and run the command:
+
+```
+rebalance( '/path/to/1_NoSizeSelect/1_NoSizeSelect.RAW.2.rdat', ...
+           '/path/to/2_SizeSelect/2_SizeSelect.RAW.2.rdat', ...
+           'rebalance.rdat' );
+```
+
+The rebalancing script reads the two input RAW RDAT files and calculates the mean signal at each sequence separation (along the diagonals of the 2D data) for each dataset, bins and averages the mean signals based on sequence separation, and calculates the ratio of the size-selected data to the non-size-selected data at each sequence separation.
+
+To rebalance the size-selected data, the signal at each sequence separation is multiplied by the maximum ratio of size-selected/non-size-selected signal and then divided by the ratio at that sequence separation. Finally, the rebalanced size-selected dataset is combined with the non-size-selected dataset by taking the mean (weighted by the inverse error squared) between the data sets.
+
+The output of rebalancing is an RDAT file named using the third input to `rebalance.m`, and a folder titled **Rebalance_plots** containing plots of the size-selected, non-size-selected, and rebalanced datasets, and an overlay of the ratios of the mean signal at each sequence separation between the size-selected and non-size-selected data.
 
 
 
+### 3. Analyze quantified raw counts for correlated signal.
+
+The final step in MAPseeker analysis of MOHCA-seq data is to perform Closure-based •OH COrrelation Analysis (COHCOA).
+
+COHCOA performs iterative fitting to determine a two-point correlation function underlying the quantified (and rebalanced, if applicable) aligned data, correcting for uncorrelated cleavage events and reverse transcription stops that appear as vertical and horizontal striations in the raw data, as well as reverse transcription attenuation. A full description of the COHCOA analysis is available in the published article.
+
+Copy the RDAT file to be analyzed with COHCOA into the **FinalAnalysis** folder. In this example, because rebalancing was performed, copy the **rebalance.rdat** file. If rebalancing was not performed, copy the **1_NoSizeSelect.RAW.2.rdat** file.
+
+Go to the **FinalAnalysis** folder and run the command:
+
+`smoothMOHCA( 'rebalance.rdat' );`
+
+The `smoothMOHCA.m` script calls the commands for running the COHCOA analysis, which is performed in the script `cohcoa_classic.m`, and generates output folders with plots and RDAT files from the analysis. The `smoothMOHCA.m` script also supports analysis of multiple raw datasets at once, in cases where multiple sequencing runs have been performed for a single RNA and condition, if the raw RDAT files are input into `smoothMOHCA.m` as a cell array of strings.
+
+The outputs of `smoothMOHCA` include:
+
+* The final analyzed dataset, called **COMBINED.COHCOA.SQR.rdat** and located in the **FinalAnalysis** folder; it is the weighted mean of the COHCOA-analyzed data for all input RDATs.
+* A folder titled **Figures**, which contains the proximity map (2D plot of the COHCOA-analyzed data) for **COMBINED.COHCOA.SQR.rdat** in .EPS, .PDF, and MATLAB figure formats.
+* A folder titled **COHCOA**, which includes, for each input RDAT file, [1] a figure showing the striated background calculated by COHCOA ('F_plaid') and the final two-point correlation function, referred to as 'Q', with the suffix '__.COHCOA.rdat.eps' and [2] an RDAT containing Q, with the suffix '__.COHCOA.rdat'.
+* A folder titled **Analyzed_rdats**, which includes, for each input RDAT file, the RDATs from the **COHCOA** folder with the dataset cropped to be square, removing extraneous columns generated by prior analysis steps, with the suffix '__.COHCOA.SQR.rdat'.
+
+
+
+### 4. Sharing and visualizing the final data.
+
+#### Sharing the data
+
+Done! The RDAT file is in a human-readable, tab-delimitted format that records the data and experimental conditions of your experiment.
+
+Because your file has estimated errors, it will be useful for the community. We urge you to share it in the RNA Mapping Database:  
+
+http://rmdb.stanford.edu/  
+
+and an entry will also automatically be generated at the awesome SNRNASM database:  
+
+http://snrnasm.bio.unc.edu/
+
+#### Visualizing the data as a proximity map; assessing secondary structures and 3D models
+
+MAPseeker includes a function, called `mohcaplot.m`, for making and saving proximity maps of MOHCA-seq data and plotting secondary structures and 3D models on the data for model assessment.
+
+To plot the proximity map, go to the **FinalAnalysis** folder and run the command:
+
+`mohcaplot( 'COMBINED.COHCOA.SQR.rdat' );`
+
+You can also specify the x- and y-axis limits, title, font size, and path to save the file.
+
+**To overlay a secondary structure model on the proximity map,** generate a variable containing the sequence, structure, and offset between the sequences and input to `mohcaplot.m`:
+
+```
+sequence =  'GGAUCGCUGAACCCGAAAGGGGCGGGGGACCCAGAAAUGGGGCGAAUCUCUUCCGAAAGGAAGAGUAGGGUUACUCCUUCGACCCGAGCCCGUCAGCUAACCUCGCAAGCGUCCGAAGGAGAAUC';
+structure = '....((((...(((....)))((((((....(......(((((....(((((((....)))))))..(((((.[[[[[[[)))))..))))..).)....)))))).))))...]]]]]]]....';
+offset = 0;
+secstr = { sequence, structure, offset };
+mohcaplot( 'COMBINED.COHCOA.SQR.rdat', secstr );
+```
+
+**To compare a MOHCA-seq proximity map to a 3D model,** input the path to a PDB file to `mohcaplot.m`; for this example, a crystal structure of the riboswitch is in the **PDB** folder:
+
+```
+pdb = '/path/to/PDB/4QK8.pdb';
+mohcaplot( 'COMBINED.COHCOA.SQR.rdat', '', pdb );
+```
+
+Finally, **MOHCA-seq proximity maps can provide pairwise constraints for RNA 3D modeling** in the Rosetta modeling software (https://www.rosettacommons.org/), as described in the published article. The current method for generating a list of constraint pairs is to plot a secondary structure, e.g. derived from mutate-and-map experiments [see Kladwang et al. (2011) _Nat Chem_], on the proximity map and manually select pairs of residues at the peaks of punctate signals, avoiding signals that overlap with secondary structure. In the future, an automated peak-picking function will be available.
 
 
