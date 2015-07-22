@@ -364,13 +364,13 @@ Go to the **1_NoSizeSelect** folder and run the command:
 
 The MAPseeker executable command line and the output of the analysis are printed to screen and recorded in the MAPseeker_executable.log file. The output should include the following purification table:
 
->Purification table
-450617 total
-120341 found primer binding site
-120141 found expt ID site
-120141 found match in RNA sequence (read 1)
-86673 found match in RNA sequence (read 2)
-50495 found strict match in RNA sequence (read 2)
+>Purification table  
+450617 total  
+120341 found primer binding site  
+120141 found expt ID site  
+120141 found match in RNA sequence (read 1)  
+86673 found match in RNA sequence (read 2)  
+50495 found strict match in RNA sequence (read 2)  
 
 For this example dataset, the run should take less than 2 minutes; for a real dataset, it may take up to around 5-10 minutes. The 
 
