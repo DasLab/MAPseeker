@@ -1,0 +1,33 @@
+time /Users/clarencecheng/Desktop/map_seeker/src/matlab/standard_processing/../../cmake/apps/MAPseeker --align_all -1 Read1.fastq  -2 Read2.fastq  -l /Users/clarencecheng/Desktop/map_seeker/example/MOHCAseq/2_SizeSelect/RNA_sequences.fasta  -p /Users/clarencecheng/Desktop/map_seeker/example/MOHCAseq/2_SizeSelect/primers.fasta -n 8 >> MAPseeker_executable.log 2> MAPseeker_executable.err
+Reading file: /Users/clarencecheng/Desktop/map_seeker/example/MOHCAseq/2_SizeSelect/RNA_sequences.fasta
+Indexing Sequences(N=127)..completed
+RNA sequence Lengths(max=143):
+Number of primers: 4
+Identified universal Illumina adapter sequence in primers! 
+Adapter sequence shared by primers: AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGATCT
+Matching from 3' end [showing reverse complement], 17
+Constant sequence shared by primers [reverse complement]: CTGTAGGCACCATCAAT
+Experimental ID inferred [reverse complement of region in primer]: 0 TAAGCATGCTAG
+Experimental ID inferred [reverse complement of region in primer]: 1 GTGTAGCAGCTA
+Experimental ID inferred [reverse complement of region in primer]: 2 CCCAGTATTGGC
+Experimental ID inferred [reverse complement of region in primer]: 3 AGTCTCGCAACT
+9 [inferred sequence ID length]
+Setup of MiSEQ, RNA library, primer sequence files took: 0.0044601 seconds.
+Running alignment
+Aligning 443420 sequences took 18.4272 seconds 
+
+Purification table
+443420 total
+403888 found primer binding site
+403628 found expt ID site
+403628 found match in RNA sequence (read 1)
+327635 found match in RNA sequence (read 2)
+201956 found strict match in RNA sequence (read 2)
+
+Perfect constant sequence: 373173
+Null ligations           : 38097
+
+Outputting counts to: stats_ID1.txt
+Outputting counts to: stats_ID2.txt
+Outputting counts to: stats_ID3.txt
+Outputting counts to: stats_ID4.txt

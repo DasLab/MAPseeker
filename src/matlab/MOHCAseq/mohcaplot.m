@@ -1,38 +1,44 @@
-function mohcaplot( D, seqpos, ligpos, titl, ticksize, save_path, secstr, pdb, contours, c, c2 )
+function mohcaplot( R, secstr, pdb, contours, save_path, titl, seqpos, ligpos, ticksize, c, c2 )
 
 % Plots 2D maps in MOHCA style
 %
 % INPUTS:
-%       D         req  = matrix of data to be plotted
+%       R         req  = matrix of data to be plotted or RDAT filename 
+%       secstr    opt  = cell array with {sequence, secstr, offset}
+%       pdb       opt  = path of PDB file or pdbstruct from pdbread, provides axis limits for showing ROI only
+%       contours  opt  = enter 0 if do not want to plot contours from pdb file; default 1 to plot contours
+%       save_path opt  = path to save file (including filename) (if none, enter '')
+%       titl      opt  = desired plot title, string (enter '' for default, no title)
 %       seqpos    opt  = x-axis values, RT stop positions (enter '' for default, 1 to length of x-axis data in D)
 %       ligpos    opt  = y-axis values, ligation positions (enter '' for default, 1 to length of x-axis data in D)
-%       titl      opt  = desired plot title, string (enter '' for default, no title)
-%       ticksize  opt  = font size of tick labels (default 25, enter '' for default)
-%       save_path opt  = path to save file (including filename) (if none, enter '')
-%       secstr    opt  = cell array with {sequence, secstr, offset, data_types, numlanes}
-%       pdb       opt  = path of PDB file or pdbstruct from pdbread, provides axis limits for showing ROI only
-%       contours  opt  = enter 1 if want to plot contours from pdb file; default does not plot contours
-%       c         opt  = colorcode background for proximity map (1 for gray, other for jet)
+%       ticksize  opt  = font size of tick labels (default 15, enter '' for default)
+%       c         opt  = colorcode background for proximity map; default 1 for gray, input other for jet
 %       c2        opt  = colorcode foreground for contours
 %
-% Clarence Cheng, 2014
+% Clarence Cheng, 2014-2015
 %
 
-if ~exist( 'seqpos', 'var' ) || isempty( seqpos ); seqpos = 1:size(D,2); end;
-if ~exist( 'ligpos', 'var' ) || isempty( ligpos ); ligpos = 1:size(D,1); end;
+if ischar( R );
+    r = read_rdat_file( R );
+    D_plot = prepdata(r.reactivity, r.reactivity_error);
+    D_plot = D_plot';   % Transpose matrix for plotting
+    seqpos = r.seqpos;
+    ligpos = get_ligpos(r);
+else
+    D_plot = R';        % Transpose matrix for plotting
+end
+if ~exist( 'seqpos', 'var' ) || isempty( seqpos ); seqpos = 1:size(D_plot,2); end;
+if ~exist( 'ligpos', 'var' ) || isempty( ligpos ); ligpos = 1:size(D_plot,1); end;
 if ~exist( 'ticksize', 'var' ) || isempty( ticksize ); ticksize = 15; end;
 if ~exist( 'titl', 'var' ); titl = ''; end;
-if ~exist( 'contours', 'var' ) || isempty( contours ); contours = 0; end;
+if ~exist( 'contours', 'var' ) || isempty( contours ); contours = 1; end;
 if ~exist( 'c', 'var' ) || isempty( c ); c = 1; end;
-if ~exist( 'c2','var' ) || isempty( c2 ); c2 = [1 0 1; 0 0 1]; end;
-
-% Transpose matrix for plotting
-D = D';
+if ~exist( 'c2','var' ) || isempty( c2 ); c2 = [.5 0 .5; 0.3 0.5 1]; end;
 
 % Make plot
 figure;
 set(gcf, 'PaperPositionMode', 'Manual','PaperOrientation', 'Landscape','PaperPosition', [-0.65 0.15 12 8],'color','white','Position', [0 0 800 600]);
-image( seqpos, ligpos, 50 * D );
+image( seqpos, ligpos, 50 * D_plot );
 hold on; axis image;
 if c == 1; colormap( 1-gray ); else colormap( jet ); c2 = [1 0 1; 1 1 1]; end;
 
@@ -49,15 +55,6 @@ hold on;
 
 % Add title
 title( titl, 'fonts', ticksize+5, 'fontw', 'bold','interp','none' );
-
-% Make colorbar legend
-hc = colorbar('location','eastoutside');
-hcm = max(get(hc,'YLim'));
-set(hc,'YTick',[0.5 hcm-0.5]);
-set(hc,'YTickLabel',{'0.0','1.0'});
-%  hcp = get(hc,'pos');
-%  pos = get(gca,'pos');
-%  set(hc,'position',[hcp(1)*0.92 hcp(2) hcp(3)*0.5 pos(4)*0.25],'fonts',25,'fontw','bold');
 
 % Overlay secondary structure
 if exist( 'secstr', 'var' ) && ~isempty( secstr );
@@ -97,12 +94,12 @@ if exist( 'pdb', 'var' ) && ~isempty( pdb )
                 contour(res_rad, res_hit, tril(dist_smooth), ...
                     contour_levels(i) * [1 1],...
                     'color',c2(i,:),...
-                    'linewidth', 2 );
+                    'linewidth', 1.5 );
                 legends{i} = [num2str(contour_levels(i)),' Ångstrom'];
                 hold on;
             end
         end
-        if ~isempty( legends ); legend( legends ); end;
+        if ~isempty( legends ); legend( legends, 'location', 'BestOutside' ); end;
     end
     % Set axis limits (crop to ROI)
     axis( [min(res_rad)-0.5 max(res_rad)+0.5 min(res_hit)-0.5 max(res_hit)+0.5 ]);
@@ -111,19 +108,18 @@ else
 end;
 
 % Rotate xticklabels and reposition
-%xticklabel_rotate;
 xticklabel = get(gca,'XTickLabel');
 set(gca,'XTickLabel','');
 hxLabel = get(gca,'XLabel');
 set(hxLabel,'Units','data');
 xLabelPosition = get(hxLabel,'Position');
-y = xLabelPosition(2) - 2;
+y = xLabelPosition(2)-2;
 XTick = str2num(xticklabel)+1;
 y = repmat(y,length(XTick),1);
 hText = text(XTick,y,xticklabel,'fonts',ticksize);
 set(hText,'Rotation',90,'HorizontalAlignment','right');
 xlab = get(gca,'XLabel');
-set(xlab,'Position',get(xlab,'Position') + [0 10 0]);
+set(xlab,'Position',get(xlab,'Position') + [0 3 0]);
 
 
 % Save figure
