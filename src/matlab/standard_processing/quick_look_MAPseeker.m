@@ -184,13 +184,13 @@ for i = 1:N_primers;
     primer_tags{i} = regexprep(primer_info(i).Header,'\t','\n');
 end
 set( gca, 'xticklabel',primer_tags,'fonts',6 );
+set( gca, 'XTick', 1:length(primer_tags) );
 
 for i = 1:N_primers;
     tag = regexprep(primer_info(i).Header,'\t','   ');
     print_it( fid, sprintf(  '%9d %s\n', round(num_counts_per_primer( i )), tag ) );
 end
 print_it( fid, sprintf(  '%9d %s\n', round(sum(num_counts_per_primer)), 'TOTAL' ) );
-
 
 
 ylabel( sprintf( 'Distributions of %9d counts over primers',round(total_counts)));
@@ -530,7 +530,11 @@ sequence_lengths = sort( sequence_lengths );
 %L = sequence_lengths( round( 0.9*N_RNA ) );
 m = mean( sequence_lengths );
 s = std( sequence_lengths );
-gp = find( (sequence_lengths - m) < 5 * s );
+if s == 0
+    gp = 1:length(sequence_lengths);
+else
+    gp = find( (sequence_lengths - m) < 5 * s );
+end
 L = max( sequence_lengths(gp) );
 
 STRUCTURES_DEFINED = ( length( RNA_info(1).Structure ) > 0 );
