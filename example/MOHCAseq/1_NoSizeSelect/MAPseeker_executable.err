@@ -1,0 +1,2 @@
+Inferred sequence ID length needed to ensure disambiguation: 9
+These do not match: 8 [user input sequence ID length] and Identical regions of user-specified length found in RNA library, and will try to disambiguate.

@@ -1,13 +1,13 @@
 function [ r_weight, r_rebal ] = rebalance( r_unbias, r_bias, output_file )
 %  [ r_weight, r_rebal ] = rebalance( r_unbias, r_bias, output_file )
 %
-% Function to accept oligo-C' (unbiased) and AMPure XP (biased) purified 
-% COHCOA-analyzed raw counts from MAPseeker analysis of MOHCA-seq data 
+% Function to accept oligo-C' (non-size-selected) and AMPure XP (size-selected)
+% purified COHCOA-analyzed raw counts from MAPseeker analysis of MOHCA-seq data 
 % and combine them.
 % 
 % INPUTS:
-%       r_unbias = rdat or structure array containing raw counts from sequencing of oligo-C' purified sample 
-%         r_bias = rdat or structure array containing raw counts from sequencing of AMPure XP purified sample 
+%       r_unbias = rdat or structure array containing raw counts from sequencing of oligo-C' (non-size-selected) purified sample 
+%         r_bias = rdat or structure array containing raw counts from sequencing of AMPure XP (size-selected) purified sample 
 %    output_file = [optional] filename for RDAT output.
 %
 % OUTPUTS:
@@ -93,13 +93,14 @@ end
 [D_weight, D_weight_err] = get_weighted_mean( D_un, D_rebal, D_un_err, D_rebal_err );
 
 % Create rdats from biased-rebalanced and final-rebalanced data
-base_name = strrep(r_bi.name, 'TrueAm', '');
+% base_name = strrep(r_bi.name, 'TrueAm', '');
+base_name = 'Data';
 r_rebal = make_rdat_structure( D_rebal, D_rebal_err, r_bi, [base_name, '_Rebalanced'] );
 r_weight = make_rdat_structure( D_weight, D_weight_err, r_bi, [base_name, '_CombinedRebalanced'] );
 
 
 %% Plot everything and output to files
-mkdir( 'Rebalance' );
+mkdir( 'Rebalance_plots' );
 
 % Collect data at each sequence separation of rebalanced data and calculate means, ratios
 diagavg{3} = get_diagonals( D_rebal );
@@ -123,8 +124,8 @@ title('Signal vs sequence separation');
 legend({'Diagonal signal, unbiased','Diagonal signal, biased', ...
         'Binned/averaged diagonal signal, unbiased','Binned/averaged diagonal signal, biased', ...
         'Diagonal signal, rebalanced biased','Diagonal signal, combined rebalanced'});
-% print( gcf, '-depsc2', '-loose', '-r300', ['Rebalance/',base_name,'_SignalvsSeqsep']);
-% fprintf( ['Created: ', ['Rebalance/',base_name,'_SignalvsSeqsep'], '\n'] );
+% print( gcf, '-depsc2', '-loose', '-r300', ['Rebalance_plots/',base_name,'_SignalvsSeqsep']);
+% fprintf( ['Created: ', ['Rebalance_plots/',base_name,'_SignalvsSeqsep'], '\n'] );
 
 % Plot ratios of signal versus sequence separation
 figure; hold on; set(gcf, 'PaperPositionMode','auto','color','white');
@@ -133,15 +134,13 @@ plot(1:1:length(diagrat_bin), diagrat_bin, 'color', 'r');
 xlabel('Sequence separation');
 ylabel('Ratio of biased/unbiased signal');
 title('Ratio of signal vs sequence separation');
-print( gcf, '-depsc2', '-loose', '-r300', ['Rebalance/',base_name,'_RebalanceCurve']);
-fprintf( ['Created: ', ['Rebalance/',base_name,'_RebalanceCurve'], '\n'] );
+print( gcf, '-depsc2', '-loose', '-r300', ['Rebalance_plots/',base_name,'_RebalanceCurve']);
+fprintf( ['Created: ', ['Rebalance_plots/',base_name,'_RebalanceCurve'], '\n'] );
 
 % Plot raw counts in 2D
-mohcaplot(D_un/10, seqpos_un, ligpos_un, {'Unbiased: oligo-C´ bead purification'; r_un.name}, 15, '', ['Rebalance/',base_name,'_Unbiased']);
-mohcaplot(D_bi/10, seqpos_bi, ligpos_bi, {'Biased: AMPure XP bead purification'; r_bi.name}, 15, '', ['Rebalance/',base_name,'_Biased']);
-% mohcaplot(D_rebal/10, seqpos_bi, ligpos_bi, {'Biased: Rebalanced w/ratios of binned and averaged data'; r_rebal.name}, 15);
-mohcaplot(D_weight/10, seqpos_bi, ligpos_bi, {'Weighted mean of unbiased and rebalanced biased data'; r_weight.name}, 15, '', ['Rebalance/',base_name,'_CombinedRebalanced']);
-
+mohcaplot(D_un/10, '', '', '', ['Rebalance_plots/',base_name,'_NoSizeSelect'], {'Non-size-selected data'; r_un.name}, seqpos_un, ligpos_un,  15 );
+mohcaplot(D_bi/10, '', '', '', ['Rebalance_plots/',base_name,'_SizeSelect'],   {'Size-selected data'; r_bi.name},     seqpos_bi, ligpos_bi, 15 );
+mohcaplot(D_weight/10, '', '', '', ['Rebalance_plots/',base_name,'_CombinedRebalanced'], {'Weighted mean of non-size-selected and rebalanced size-selected data'; r_weight.name}, seqpos_bi, ligpos_bi, 15);
 
 %% Output to file
 if exist(  'output_file','var' );

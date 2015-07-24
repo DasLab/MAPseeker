@@ -1,4 +1,4 @@
-function [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_ref, prjc_clvg, prjc_mdf ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, more_options )
+function [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_ref, prjc_clvg, prjc_mdf, prjc_clvg_err, prjc_mdf_err ] = quick_look_MAPseeker( library_file, primer_file, inpath, full_length_correction_factor, more_options )
 %
 % [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_ref, prjc_clvg, prjc_mdf  ] = ...
 %               QUICK_LOOK_MAPSEEKER( library_file, primer_file, inpath, full_length_correction_factor, more_options );
@@ -103,7 +103,7 @@ RNA_info = fastaread_structures( library_file );
 primer_info = fastaread( primer_file );
 N_primers = length( primer_info );
 
-% check if this is MOCHA run.
+% check if this is MOHCA run.
 MOHCA_flag = isMOHCA( RNA_info );
 
 % load the data
@@ -374,7 +374,7 @@ output_signal_to_noise_ratio( D, D_err, fid );
 if MOHCA_flag;
     figure(7);
     print_it( fid, '\n\n');
-    [clvg_rates, mdf_rates, prjc_clvg, prjc_mdf] = determine_cleavage_modification_percentage (D_raw, primer_info, full_length_correction_factor, [], colorcode);
+    [clvg_rates, mdf_rates, prjc_clvg, prjc_mdf, prjc_clvg_err, prjc_mdf_err] = determine_cleavage_modification_percentage (D_raw, primer_info, full_length_correction_factor, [], colorcode);
     print_it( fid, sprintf('\n Cleavage Rates metrics:\n'));
     print_it( fid, sprintf('\t\t\tPercentage Uncleaved\t\tMean Cleavage Events per RNA\n'));
     for i = 1:size(clvg_rates,2);
