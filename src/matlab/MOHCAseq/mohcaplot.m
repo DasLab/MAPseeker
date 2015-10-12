@@ -1,26 +1,37 @@
-function mohcaplot( R, secstr, pdb, contours, save_path, titl, seqpos, ligpos, ticksize, c, c2 )
+function mohcaplot( R, csts, secstr, pdb, save_path, titl, seqpos, ligpos, ticksize, c, c2 )
 
 % Plots 2D maps in MOHCA style
 %
 % INPUTS:
 %       R         req  = matrix of data to be plotted or RDAT filename 
-%       secstr    opt  = cell array with {sequence, secstr, offset}
-%       pdb       opt  = path of PDB file or pdbstruct from pdbread, provides axis limits for showing ROI only
-%       contours  opt  = enter 0 if do not want to plot contours from pdb file; default 1 to plot contours
-%       save_path opt  = path to save file (including filename) (if none, enter '')
-%       titl      opt  = desired plot title, string (enter '' for default, no title)
-%       seqpos    opt  = x-axis values, RT stop positions (enter '' for default, 1 to length of x-axis data in D)
-%       ligpos    opt  = y-axis values, ligation positions (enter '' for default, 1 to length of x-axis data in D)
-%       ticksize  opt  = font size of tick labels (default 15, enter '' for default)
-%       c         opt  = colorcode background for proximity map; default 1 for gray, input other for jet
-%       c2        opt  = colorcode foreground for contours
+%       csts      opt  = Plots contours around locations of previously selected constraint pairs.
+%                           Input should be in following form: {{csts},style} 
+%                               csts  = Constraint pairs, input as cell array of one or two constraint pair matrices 
+%                                       (input two matrices if one set each of strong and weaker csts). For each matrix, 
+%                                       column 1 should be RT stop position and column 2 should be cleaved position. 
+%                               style = '.' for dots at constraint positions or '|' for contour outlines around 
+%                                       constraint pair positions. Default = '.' 
+%       secstr    opt  = Plots secondary structure over data.
+%                           Input as cell array with {sequence, secstr, offset}. 
+%       pdb       opt  = Provides axis limits for showing ROI only (excluding data for any flanking sequences).
+%                           Input should be in following form: {pdb,contours} 
+%                               pdb      = Path to PDB file as string or structure array from pdbread. 
+%                               contours = '1' to plot contours, '0' to not plot contours (15Å and 30Å contours).
+%                                          Default = '1'.
+%       save_path opt  = Path to save file (including filename) (if none, enter '')
+%       titl      opt  = Desired plot title, string (enter '' for default, no title)
+%       seqpos    opt  = X-axis values, RT stop positions (enter '' for default, 1 to length of x-axis data in D)
+%       ligpos    opt  = Y-axis values, ligation positions (enter '' for default, 1 to length of x-axis data in D)
+%       ticksize  opt  = Font size of tick labels (default 15, enter '' for default)
+%       c         opt  = Colorcode background for proximity map; default 1 for gray, input other for jet
+%       c2        opt  = Colorcode foreground for contours
 %
 % Clarence Cheng, 2014-2015
 %
 
 if ischar( R );
     r = read_rdat_file( R );
-    D_plot = prepdata(r.reactivity, r.reactivity_error);
+    D_plot = prepdata(r.reactivity, r.reactivity_error, 2);
     D_plot = D_plot';   % Transpose matrix for plotting
     seqpos = r.seqpos;
     ligpos = get_ligpos(r);
@@ -31,13 +42,13 @@ if ~exist( 'seqpos', 'var' ) || isempty( seqpos ); seqpos = 1:size(D_plot,2); en
 if ~exist( 'ligpos', 'var' ) || isempty( ligpos ); ligpos = 1:size(D_plot,1); end;
 if ~exist( 'ticksize', 'var' ) || isempty( ticksize ); ticksize = 15; end;
 if ~exist( 'titl', 'var' ); titl = ''; end;
-if ~exist( 'contours', 'var' ) || isempty( contours ); contours = 1; end;
 if ~exist( 'c', 'var' ) || isempty( c ); c = 1; end;
 if ~exist( 'c2','var' ) || isempty( c2 ); c2 = [.5 0 .5; 0.3 0.5 1]; end;
 
 % Make plot
 figure;
 set(gcf, 'PaperPositionMode', 'Manual','PaperOrientation', 'Landscape','PaperPosition', [-0.65 0.15 12 8],'color','white','Position', [0 0 800 600]);
+D_plot( find(D_plot < 0) ) = 0;
 image( seqpos, ligpos, 50 * D_plot );
 hold on; axis image;
 if c == 1; colormap( 1-gray ); else colormap( jet ); c2 = [1 0 1; 1 1 1]; end;
@@ -55,6 +66,42 @@ hold on;
 
 % Add title
 title( titl, 'fonts', ticksize+5, 'fontw', 'bold','interp','none' );
+
+% Overlay constraints
+if exist( 'csts', 'var' ) && ~isempty( csts );
+    cstslist = csts{1}; style = csts{2};
+
+    if style == '.'
+        for i = 1:length(cstslist)
+            hold on;
+            if i == 1
+                scatter(cstslist{i}(:,1),cstslist{i}(:,2),'m','filled');
+            elseif i >= 2
+                scatter(cstslist{i}(:,1),cstslist{i}(:,2),'m');
+            end
+        end
+    elseif style == '|'
+        if length(cstslist) > 1
+            allcsts = [cstslist{1};cstslist{2}];
+        else
+            allcsts = cstslist;
+        end
+
+        D_temp = D_plot';
+        diagnal = diag(D_temp(allcsts(:,1),allcsts(:,2)));
+        diagmax = max(diagnal);
+        D_temp = D_plot*0;
+
+        for j = 1:size(allcsts,1)
+            xrng = max(allcsts(j,1)-2,1):min(allcsts(j,1)+2,seqpos(end));
+            yrng = max(allcsts(j,2)-2,1):min(allcsts(j,2)+2,seqpos(end));
+            D_temp(yrng,xrng) = D_plot(yrng,xrng)*diagmax/diagnal(j);
+        end
+
+        hold on; contour(seqpos,ligpos,tril(D_temp),[1 1],'color',[1 0 1],'linewidth',1.5);
+    end
+    
+end
 
 % Overlay secondary structure
 if exist( 'secstr', 'var' ) && ~isempty( secstr );
@@ -74,7 +121,8 @@ end
 
 % Overlay tertiary structure contours
 if exist( 'pdb', 'var' ) && ~isempty( pdb )
-    [D_sim, res_rad, res_hit, dist_matrix, pdbstruct] = get_simulated_data( pdb );
+    pdbvar = pdb{1}; contours = pdb{2};
+    [D_sim, res_rad, res_hit, dist_matrix, pdbstruct] = get_simulated_data( pdbvar );
     
     if contours ~= 0
         % Define contour levels and colors
@@ -119,7 +167,7 @@ y = repmat(y,length(XTick),1);
 hText = text(XTick,y,xticklabel,'fonts',ticksize);
 set(hText,'Rotation',90,'HorizontalAlignment','right');
 xlab = get(gca,'XLabel');
-set(xlab,'Position',get(xlab,'Position') + [0 3 0]);
+set(xlab,'Position',get(xlab,'Position') + [0 6 0]);
 
 
 % Save figure
