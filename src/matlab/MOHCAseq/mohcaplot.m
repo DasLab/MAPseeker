@@ -84,7 +84,7 @@ if exist( 'csts', 'var' ) && ~isempty( csts );
         if length(cstslist) > 1
             allcsts = [cstslist{1};cstslist{2}];
         else
-            allcsts = cstslist;
+            allcsts = cstslist{1};
         end
 
         D_temp = D_plot';
