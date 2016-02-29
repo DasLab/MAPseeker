@@ -1,5 +1,5 @@
-# MAPseeker, v1.0
-(C) R. Das, 2013-2014; C. Cheng, 2014;  J.P. Bida, R. Das, 2012.
+# MAPseeker, v2.0
+(C) R. Das, 2013-2016; C. Cheng, 2014-2016;  J.P. Bida, 2012.
 
 E-mail: rhiju [at] stanford.edu.
 

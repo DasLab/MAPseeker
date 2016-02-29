@@ -1,6 +1,6 @@
-## LICENSE for MAPseeker, v1.0
+## LICENSE for MAPseeker, v2.0
 
-1. Copyright &copy; 2012-2014 The Board of Trustees of the Leland Stanford
+1. Copyright &copy; 2012-2016 The Board of Trustees of the Leland Stanford
 Junior University. All Rights Reserved. Permission to use, copy, and
 modify, (but not to distribute, transfer or sublicense), this software
 and its documentation for educational, research and non-profit purposes,
