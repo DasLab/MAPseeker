@@ -1,17 +1,25 @@
-function cols = split_string( l, delimiter );
+function cols = split_string( input_string, delimiter );
+% cols = split_string( input_string, delimiter );
 %
-%  cols = split_string( l, delimiter );
+% INPUT:
+%   input_string = input string
+%   delimiter    = character for delimiting (\t is OK for tabs). Default: ' '.
 %
-% Default delimiter: ' ' (space)
+% OUTPUT:
+%   cols      = cell of strings that the input string was split into
 %
-if nargin==0; help( mfilename ); return; end;
+if nargin < 1; help( mfilename); cols = {}; return; end;
+if ~exist('delimiter', 'var'); delimiter = ' '; end;
+if exist( 'strsplit', 'file')
+    % newer versions of MATLAB have strsplit
+    cols = strsplit( input_string, delimiter ); return;
+end
 
-if ~exist( 'delimiter') delimiter = ' '; end;
-delimiter = sprintf( delimiter ); % in case its \t or \n
+delimiter = sprintf(delimiter);
 
-remain = l;
+remain = input_string;
 cols = {};
-while length( remain ) > 0 
+while length( remain ) > 0
   [token, remain] = strtok(remain, delimiter);
   cols = [cols, token];
 end
