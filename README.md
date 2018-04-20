@@ -156,10 +156,9 @@ We use MATLAB scripts, available in
 `src/matlab/ `
 
 Include this in your MATLAB path. And if you don't already
-have the RDATkit scripts installed, it's bundled with map_seeker, 
-so you just need to also add to your MATLAB path:
+have the RDATkit scripts installed, get them at
 
-`xternal/rdatkit/matlab_scripts/`
+and make sure that RDATkit/MATLAB is in your MATLAB path.
 
 Now run from within MATLAB:
 
