@@ -34,6 +34,8 @@ function [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_re
 %        [Default is 0.5]
 % more_options
 %     = {'combine_RNA_by_tag','no_combine_primer', ...}
+%          'force_run'          = rerun MAPseeker even if output files from prior
+%                                  run (stats_id*.txt) are present
 %          'combine_RNA_by_tag' =  If specified, combine data
 %                   for RNAs that share any 'tags' (segments of the library_file names, separated by tabs);
 %                   this is useful if, for example, RNAs are double mutants and you want to project
@@ -86,6 +88,7 @@ else
 end
 if ~exist( 'more_options','var' ) more_options = {}; end;
 PRINT_STUFF = isempty( find( strcmp( more_options, 'no_output_fig' ) ) );
+FORCE_RUN = isempty( find( strcmp( more_options, 'force_run' ) ) );
 
 output_text_file_name = 'MAPseeker_results.txt';
 fid = fopen( output_text_file_name, 'w' );
@@ -114,7 +117,7 @@ STRICT_STATS = ~isempty( find( strcmp( more_options, 'strict_stats' ) ) );
 if STRICT_STATS; stats_prefix = 'strict_stats'; end;
 
 stats_file = sprintf( '%s/%s_ID%d.txt', inpath,stats_prefix, 1);
-if ~exist( stats_file, 'file' )
+if ~exist( stats_file, 'file' ) | FORCE_RUN
     align_all = MOHCA_flag;
     library_file_just_sequences = library_file;
     if exist( 'RNA_sequences.fasta','file' ); library_file_just_sequences = 'RNA_sequences.fasta'; end;
