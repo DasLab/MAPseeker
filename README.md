@@ -158,6 +158,8 @@ We use MATLAB scripts, available in
 Include this in your MATLAB path. And if you don't already
 have the RDATkit scripts installed, get them at
 
+https://github.com/ribokit/RDATKit
+
 and make sure that RDATkit/MATLAB is in your MATLAB path.
 
 Now run from within MATLAB:
