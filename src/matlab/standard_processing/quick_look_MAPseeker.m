@@ -183,7 +183,7 @@ colormap( colorcode );
 for i = 1:N_primers;
     primer_tags{i} = regexprep(primer_info(i).Header,'\t','\n');
 end
-set( gca, 'xticklabel',primer_tags,'fonts',6 );
+set( gca, 'xticklabel',primer_tags,'fontsize',6 );
 set( gca, 'XTick', 1:length(primer_tags) );
 
 for i = 1:N_primers;
@@ -496,15 +496,19 @@ function my_bar_graph( x )
 % copied from some crazy matlab code on mathworks.com
 h = bar( x,'grouped','linew',2);
 
+
+
 ch = get(h,'Children'); %get children of the bar group
 fvd = get(ch,'Faces'); %get faces data
 fvcd = get(ch,'FaceVertexCData'); %get face vertex cdata
-%[zs, izs] = sort(x); %sort the rows ascending by first columns
-for i = 1:length(x)
-    row = i;%izs(i);
-    fvcd(fvd(row,:)) = i; %adjust the face vertex cdata to be that of the row
+if length(fvd ) > 0
+    %[zs, izs] = sort(x); %sort the rows ascending by first columns
+    for i = 1:length(x)
+        row = i;%izs(i);
+        fvcd(fvd(row,:)) = i; %adjust the face vertex cdata to be that of the row
+    end
+    set(ch,'FaceVertexCData',fvcd) %set to new face vertex cdata
 end
-set(ch,'FaceVertexCData',fvcd) %set to new face vertex cdata
 
 % actually show numbers over bars.
 for i = 1:length(x)
@@ -614,7 +618,7 @@ for i = 1:length(gp)-1
     end;
 end;
 gp = gp(~isnan(gp));
-set( gca,'tickdir','out','xtick',xticks(gp),'xticklabel',xticklabels(gp),'fontw','bold','fonts',6);
+set( gca,'tickdir','out','xtick',xticks(gp),'xticklabel',xticklabels(gp),'fontw','bold','fontsize',6);
 boundaries = boundaries( 1:end-1);
 make_lines( boundaries, 'b', 0.25 );
 make_lines( boundaries-1, 'b', 0.25 );
