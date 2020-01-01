@@ -3,7 +3,10 @@ function  run_map_seeker_executable( library_file, primer_file, inpath, align_al
 
 %%%%%%%%%%%%%%%%%%%%
 % this is hard-wired. Should make the executable figure it out!
-n = 8;
+%n = 8;
+% Rhiju Das 2018  --> executable *can* figure it out, and found a use case
+% where that's good to do (we accidentally ran a READ1 that was too short).
+n = 0; 
 
 if ~exist( 'align_all','var' ) align_all = 0; end;
 
