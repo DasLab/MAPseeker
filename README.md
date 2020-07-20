@@ -65,7 +65,7 @@ Some example data is included to test the scripts, involving MAP-seq data
 for 1M7 probing of a large set of RNAs including two 'control' constructs 
 doped in at higher concentrations. Go to:
 
-` example/ `
+` example/MAPseq/ `
 
 There are four files:
 
