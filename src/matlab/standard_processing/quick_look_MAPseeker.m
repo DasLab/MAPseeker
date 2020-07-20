@@ -20,7 +20,7 @@ function [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_re
 %
 % library_file = [default: 'RNA_sequences.fasta'] all probed RNA sequences in
 %                  FASTA format. Can include structures in dot/paren notation
-%                  after each sequence (as output by Vienna's RNAfold). ('RNAstructures.fasta')
+%                  after each sequence (as output by Vienna's RNAfold). ('RNA_structures.fasta')
 % primer_file  = [default: 'primers.fasta'] DNA sequences of reverse
 %                  transcription primers in FASTA format
 % inpath       = [default: './' (current directory)] where to find
@@ -75,10 +75,12 @@ function [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_re
 VERSION_NUM_STRING = '1.2';
 
 %if nargin < 1; help( mfilename ); return; end;
-if ~exist( 'library_file','var') || isempty( library_file );  library_file = 'RNA_structures.fasta'; end;
-if ~exist( library_file,'file' );  library_file = 'RNA_sequences.fasta'; end
 if ~exist( 'primer_file','var') || isempty( primer_file ); primer_file = 'primers.fasta';end;
 if ~exist( 'inpath','var') || isempty( inpath ); inpath = './';end;
+if ~exist( 'library_file','var');  library_file = 'RNA_structures.fasta'; end;
+if ~exist( library_file,'file' ) & exist( [inpath,'/',library_file],'file' )
+    library_file = [inpath,'/',library_file];
+end
 
 FULL_LENGTH_CORRECTION_FACTOR_SPECIFIED = 0;
 if ~exist( 'full_length_correction_factor','var') || isempty( full_length_correction_factor );  % if not inputted, try this.
@@ -98,11 +100,11 @@ print_it( fid, [pwd(),'\n\n'] );
 
 output_tag = strrep( strrep( inpath, '.','' ), '/', '' ); % could be blank
 
-if ~exist( [inpath,library_file], 'file' ) && exist( 'MOHCA.fasta','file' );
+if ~exist( library_file, 'file' ) && exist( 'MOHCA.fasta','file' );
     get_frag_library;
 end
 
-RNA_info = fastaread_structures( library_file );
+RNA_info = fastaread_structures( library_file )
 primer_info = fastaread( primer_file );
 N_primers = length( primer_info );
 
@@ -121,6 +123,7 @@ if ~exist( stats_file, 'file' ) | FORCE_RUN
     align_all = MOHCA_flag;
     library_file_just_sequences = library_file;
     if exist( 'RNA_sequences.fasta','file' ); library_file_just_sequences = 'RNA_sequences.fasta'; end;
+    if exist( [inpath,'/RNA_sequences.fasta'],'file' ); library_file_just_sequences = [inpath,'/RNA_sequences.fasta']; end;
     run_map_seeker_executable( library_file_just_sequences, primer_file, inpath, align_all );
 end
 if exist( 'MAPseeker_executable.log' )
@@ -255,7 +258,7 @@ nomod_for_each_primer  = figure_out_nomod_for_each_primer( primer_info, fid );
 REFERENCE_INCLUDED = (ref_idx > 0 );
 if REFERENCE_INCLUDED && ( sum(num_counts_per_sequence( ref_idx, : )) < 5);
     REFERENCE_INCLUDED = 0;
-    print_it( fid, 'Not enough counts in reference sequence --> WILL NOT USE!!' );
+    print_it( fid, 'Not enough counts in reference sequence --> WILL NOT USE!!\n' );
 end
 
 
@@ -429,7 +432,7 @@ if OUTPUT_RDAT
         MAPseeker_to_rdat_by_primer( rdat_raw_filename, name, D_raw, D_raw_err, primer_info, RNA_info, comments, annotations, 1 );
         % Problem! Annotations taken from annotations for reactivity-analyzed RDATs, so include 'processing:normalization:boxplot' 
     end
-    
+
     MAPseeker_to_rdat_by_primer( rdat_filename, name, D, D_err, primer_info, RNA_info, comments, annotations );
     
 end
@@ -566,8 +569,8 @@ if STRUCTURES_DEFINED
         imagex( k, strfind( structure, '.' )+1 ) = scalefactor_structure;
     end
     
-    plot_title = 'Predicted Structure';
-    if exist( 'title_tag','var' ); plot_title = sprintf('%s\n%30s',plot_title,title_tag ); end;
+    plot_title = 'Pred. Struct.';
+    if exist( 'title_tag','var' ); plot_title = sprintf('%s\n%s',plot_title,title_tag ); end;
     
     plot_titles = [ plot_titles, plot_title ];
     xticks      = [ xticks,      [0:20:L-20] ];
@@ -600,9 +603,9 @@ for i = 1:N_primers
     imagex( :, [minresidx:maxresidx] ) = Dplot(1:L,:)' * scalefactor_to_use;
     
     plot_title = primer_info(i).Header;
-    title_cols = split_string( plot_title, '\t' ); if length( title_cols ) > 3; title_cols = title_cols(1:3);end;
+    title_cols = split_string( plot_title, '\t' ); if length( title_cols ) > 5; title_cols = title_cols(1:5);end;
     if exist( 'title_tag', 'var' ); title_cols = [title_cols, title_tag ];end;
-    plot_title = join_string( title_cols, '\n' );
+    plot_title = join_string( title_cols, sprintf('\n') );
     plot_titles = [ plot_titles, plot_title ];
     
     xticks      = [ xticks,      [0:L] + bound_offset];
