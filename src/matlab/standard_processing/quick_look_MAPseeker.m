@@ -77,7 +77,7 @@ VERSION_NUM_STRING = '1.2';
 %if nargin < 1; help( mfilename ); return; end;
 if ~exist( 'primer_file','var') || isempty( primer_file ); primer_file = 'primers.fasta';end;
 if ~exist( 'inpath','var') || isempty( inpath ); inpath = './';end;
-if ~exist( 'library_file','var');  library_file = 'RNA_structures.fasta'; end;
+if ~exist( 'library_file','var') || isempty( library_file );  library_file = 'RNA_structures.fasta'; end;
 if ~exist( library_file,'file' ) & exist( [inpath,'/',library_file],'file' )
     library_file = [inpath,'/',library_file];
 end
@@ -90,7 +90,7 @@ else
 end
 if ~exist( 'more_options','var' ) more_options = {}; end;
 PRINT_STUFF = isempty( find( strcmp( more_options, 'no_output_fig' ) ) );
-FORCE_RUN = isempty( find( strcmp( more_options, 'force_run' ) ) );
+FORCE_RUN = ~isempty( find( strcmp( more_options, 'force_run' ) ) );
 
 output_text_file_name = 'MAPseeker_results.txt';
 fid = fopen( output_text_file_name, 'w' );
@@ -104,7 +104,7 @@ if ~exist( library_file, 'file' ) && exist( 'MOHCA.fasta','file' );
     get_frag_library;
 end
 
-RNA_info = fastaread_structures( library_file )
+RNA_info = fastaread_structures( library_file );
 primer_info = fastaread( primer_file );
 N_primers = length( primer_info );
 
@@ -118,7 +118,7 @@ stats_prefix = 'stats';
 STRICT_STATS = ~isempty( find( strcmp( more_options, 'strict_stats' ) ) );
 if STRICT_STATS; stats_prefix = 'strict_stats'; end;
 
-stats_file = sprintf( '%s/%s_ID%d.txt', inpath,stats_prefix, 1);
+stats_file = sprintf( '%s_ID%d.txt', stats_prefix, 1);
 if ~exist( stats_file, 'file' ) | FORCE_RUN
     align_all = MOHCA_flag;
     library_file_just_sequences = library_file;
@@ -135,9 +135,8 @@ if exist( 'MAPseeker_executable.log' )
   fclose( fid2 );
 end
 
-
 for i = 1:N_primers;
-    stats_file = sprintf( '%s/%s_ID%d.txt', inpath, stats_prefix, i);
+    stats_file = sprintf( '%s_ID%d.txt', stats_prefix, i);
     print_it( fid,  sprintf('Looking for MAPseeker output file: %s\n', stats_file ) );
     if ~exist( stats_file, 'file' );  print_it( fid, sprintf(  ['Could not find ',stats_file,'!\n']) ); return;end;
     

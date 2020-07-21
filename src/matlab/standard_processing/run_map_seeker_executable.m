@@ -17,21 +17,21 @@ if align_all; MAPseeker_EXE = [ MAPseeker_EXE, ' --align_all']; end;
 
 %%%%%%%%%%%%%%%%%%%%
 library_file = [pwd(),'/',library_file]; % absolute path
-primer_file = [pwd(),'/', primer_file ]; % absolute path
+primer_file  = [pwd(),'/', primer_file ]; % absolute path
 
 %%%%%%%%%%%%%%%%%%%%
 % go into working directory
 PWD = pwd();
-cd( inpath );
+%cd( inpath );
 
-fastqs = dir( '*fastq' );
+fastqs = dir( [inpath,'/*fastq'] );
 if isempty( fastqs ); fprintf( 'Could not find FASTQ files! Not running MAPseeker \n' ); return; end;
 if length( fastqs ) > 2;
     fprintf( '%s\n,More than two fastq files -- not sure what to do! Not running MAPseeker \n',pwd()); return;
 end;
 
 
-command = sprintf( 'time %s -1 %s  -2 %s  -l %s  -p %s -n %d >> MAPseeker_executable.log 2> MAPseeker_executable.err', MAPseeker_EXE, fastqs(1).name, fastqs(2).name, library_file, primer_file, n )
+command = sprintf( 'time %s -1 %s  -2 %s  -l %s  -p %s -n %d >> MAPseeker_executable.log 2> MAPseeker_executable.err', MAPseeker_EXE, [inpath,'/',fastqs(1).name], [inpath,'/',fastqs(2).name], library_file, primer_file, n )
 system( ['echo "',command,'" > MAPseeker_executable.log'] );
 %command = sprintf( 'time %s -1 %s  -2 %s  -l %s  -p %s -n %d', MAPseeker_EXE, fastqs(1).name, fastqs(2).name, library_file, primer_file);
 system( command );
