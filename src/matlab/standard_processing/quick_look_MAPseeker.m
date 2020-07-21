@@ -118,8 +118,9 @@ stats_prefix = 'stats';
 STRICT_STATS = ~isempty( find( strcmp( more_options, 'strict_stats' ) ) );
 if STRICT_STATS; stats_prefix = 'strict_stats'; end;
 
-stats_file = sprintf( '%s_ID%d.txt', stats_prefix, 1);
-if ~exist( stats_file, 'file' ) | FORCE_RUN
+stats_file = sprintf( './%s_ID%d.txt', stats_prefix, 1);
+~exist( stats_file, 'file' )
+if ~exist( stats_file, 'file' ) || FORCE_RUN
     align_all = MOHCA_flag;
     library_file_just_sequences = library_file;
     if exist( 'RNA_sequences.fasta','file' ); library_file_just_sequences = 'RNA_sequences.fasta'; end;
@@ -314,8 +315,13 @@ if NORM
         [D_final, D_final_err] = apply_boxplot_normalization( D_final, D_final_err, fid );
         BOXPLOT_NORMALIZATION = 1;
     end
+    final_image_scalefactor = 20;
+else
+    for i = 1:length(D_final)
+        meanfactor(i) = mean(D_final{i}(:));
+    end
+    final_image_scalefactor = 5/mean(meanfactor);
 end
-final_image_scalefactor = 20;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Make 2D gray of all reactivities, background subtracted
