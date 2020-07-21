@@ -47,10 +47,9 @@ for i = 1:length(D)
     if ~isempty(find( strcmp('NO_OUTPUT', primer_tag_cols) ) ) continue; end;
     % don't output nomod [will have counts of exactly zero] -- just check first row.
     if ( sum(D{i}(:,1)) == 0 & ~isempty(find( strcmp('no mod', primer_tag_cols) ) ) ); continue; end;
-
+    
     for j = 1 : size( D{i}, 2 )
 
-    
     count = count + 1;
     reactivity(:,count) = D{i}(:,j);
     reactivity_err(:,count) = D_err{i}(:,j);
@@ -112,6 +111,8 @@ for i = 1:length(D)
   end
 end
 
+rdat = [];
+if size( reactivity, 1 ) == 0; return; end;
 
 %fprintf( 'Maximum sequence length: %d\n', max_seq_len );
 
