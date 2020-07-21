@@ -119,7 +119,6 @@ STRICT_STATS = ~isempty( find( strcmp( more_options, 'strict_stats' ) ) );
 if STRICT_STATS; stats_prefix = 'strict_stats'; end;
 
 stats_file = sprintf( './%s_ID%d.txt', stats_prefix, 1);
-~exist( stats_file, 'file' )
 if ~exist( stats_file, 'file' ) || FORCE_RUN
     align_all = MOHCA_flag;
     library_file_just_sequences = library_file;
