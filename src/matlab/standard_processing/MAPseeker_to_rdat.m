@@ -58,32 +58,20 @@ for i = 1:length(D)
     SN_classification = classify_signal_to_noise_ratio( SN_ratio(count) );
 
     modifier = '';
-    ID = '';
-    project_name = '';
-    design_name = '';
     tag_cols = {};
     
     % parse RNA tag -- look for information on ID
-    RNA_tag = RNA_info(j).Header;    
-    RNA_tag_cols = split_string( RNA_tag, '\t' );
-    if length( RNA_tag_cols ) == 3 & is_ID( RNA_tag_cols{1} ) % came from an eterna run?
-      ID = RNA_tag_cols{1}; 
-      if ID(1) == ' '; ID = ID(2:end); end; % space in FASTA file.
-      design_name = RNA_tag_cols{3};
-      project_name = RNA_tag_cols{2};
-      is_eterna = 1;
-    else
-      tag_cols = [tag_cols, RNA_tag_cols]; % crap, may not work. Anyway...
-    end
+    RNA_tag = RNA_info(j).Header;
+    [is_eterna,ID,design_name,project_name,tag_cols] = check_eterna( RNA_tag, tag_cols );
 
     for k = 1:length( primer_tag_cols )
-      find_it = find( strcmp( primer_tag_cols{k}, modifier_list ) );
-      if ~isempty( find_it )
-	modifier = primer_tag_cols{k};
-      else
-	tag_cols = [tag_cols, primer_tag_cols{k}];
-      end
-    end    
+        find_it = find( strcmp( primer_tag_cols{k}, modifier_list ) );
+        if ~isempty( find_it )
+            modifier = primer_tag_cols{k};
+        else
+            tag_cols = [tag_cols, primer_tag_cols{k}];
+        end
+    end
 
     max_seq_len = max( max_seq_len, length( RNA_info(j).Sequence ) );
 
@@ -172,18 +160,6 @@ rdat = output_workspace_to_rdat_file( filename, name, sequence, offset, seqpos, 
 %rdat = show_rdat( filename );
 
 return;
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function ok = is_ID( tag );
-
-tag = strrep( tag, 'WTF',''); % weird problem in some eterna IDs.
-tag_cols = split_string( tag, '-' );
-tag = tag_cols{1};
-
-ok = 0;
-if ~isempty( str2num( tag ) ) ok = 1; end;
-  
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

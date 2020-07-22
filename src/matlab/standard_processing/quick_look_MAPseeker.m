@@ -53,6 +53,7 @@ function [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_re
 %          'no_stair_plots'  = turn off stair plots
 %          'strict_stats'    = use strict_stats* ffiles (not stats_* files).
 %          'no_norm'         = no boxplot or reference-based normalization
+%          'no_backgd_sub'   = no background subtraction
 %
 % Outputs:
 %
@@ -276,7 +277,7 @@ end
 % background subtraction
 D_final = D_correct;
 D_final_err = D_correct_err;
-BACKGD_SUB = sum(  nomod_for_each_primer ) > 0;
+BACKGD_SUB = sum(  nomod_for_each_primer ) > 0 && isempty(find( strcmp( more_options, 'no_backgd_sub' ) ));
 if BACKGD_SUB
     for i = 1:N_primers
         j = nomod_for_each_primer(i);
@@ -443,7 +444,7 @@ end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 putSHAPEscores = isempty( find( strcmp( more_options, 'noSHAPEscores' ) ) );
-if (exist( 'put_SHAPEscore_into_RDAT') == 2) && ( size( D{1},2) > 300 ) && putSHAPEscores && OUTPUT_RDAT
+if (exist( 'put_SHAPEscore_into_RDAT') == 2) && ( size( D{1},2) > 1 && check_eterna(RNA_info(1).Header) ) && putSHAPEscores && OUTPUT_RDAT
     print_it( fid, 'Found put_SHAPEscore_into_RDAT, and this looks like a cloud lab run.\n' );
     rdat_filename_with_scores =  strrep( rdat_filename, '.rdat','_WITH_SCORES.rdat' );
     print_it( fid, sprintf('Creating: %s\n', rdat_filename_with_scores) );
