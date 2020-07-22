@@ -184,21 +184,36 @@ automatically be figured out. That's the best practice here.
 Otherwise, the factor will be assumed to be ~0.5.
 
 This gives a histogram of counts per primer, and counts per 
-RNA (Figure 1); visualization of the counts (with estimated errors) 
+RNA (Figure 1)
+
+![](example/MAPseq/example_output/Figure1_example.png)
+
+and  visualization of the counts (with estimated errors) 
 for the four most highly represented RNAs (in this case two); 
 and 'reactivities', corrected for reverse transcriptase 
 attenuation as follows:
 
 > R(site i) = F(site i)/[F(site 0) + F(site 1) + ... + F(site i) ]
 
-Both 1D profiles are shown (Figures 2 and 3), as well 
+Both 1D profiles are shown (Figures 2 and 3), 
+
+![](example/MAPseq/example_output/Figure2_example.png)
+![](example/MAPseq/example_output/Figure3_example.png)
+
+as well 
 as 2D representations of the entire data set (Figures 4 
 and 5). 
+
+![](example/MAPseq/example_output/Figure4_example.png)
+
+![](example/MAPseq/example_output/Figure5_example.png)
 
 If at least one of the primers corresponds to 
 a control reaction without modification ('no mod'), 
 background subtraction will also be carried out
 automatically (Figure 6), and the 'no mod' data will be 0.
+
+![](example/MAPseq/example_output/Figure6_example.png)
 
 All figures are also automatically saved to disk as EPS files,
 which you can print for your notebook.
@@ -207,13 +222,17 @@ The text output is also saved to disk as `MAPseeker_results.txt`, which
 you keep in your notebook as a record of the run statistics, 
 background subtraction, etc.
 
-Finally, the data will be available in RDAT format (here, 'example.rdat'),
+Finally, the data will be available in RDAT format (here, 'MAPseq.rdat'),
 which is a compact human-readable format for sharing
-your information (see below, 'What to do next'). It includes
+your information (see below, 'What to do next'). 
+
+It includes
 information on signal-to-noise ('weak' in this case since
 we used a subset of the data), data processing steps 
 (overmodificationCorrectionExact),
 estimated errors, etc.
+
+If you have the function put_SHAPEscore_into_RDAT.m from the [EternaScore repository](https://github.com/eternagame/EternaScore) in your path, you should also get a 'MAPseq_WITH_SCORES.rdat' file that has Eterna SHAPE scores in it.
 
 Example output files are given in the `example_output/` directory.
 
@@ -376,6 +395,10 @@ To visualize the data, the same plots that are automatically generated for MAP-s
 * **Figures 4 and 5.** 2D representations of the raw counts and reactivities of the full dataset. Figures 4 and 5 are useful as initial visualizations of the two-dimensional MOHCA-seq data.
 * **Figure 7.** Additionally, for MOHCA-seq data analysis, 1D projections of the 2D data along the columns and rows of the stats_ID matrices (giving profiles of cleavage and reverse transcription stops, respectively) are calculated and plotted in Figure 7.
 
+Example Figure 5:
+![](example/MOHCAseq/1_NoSizeSelect/example_output/Figure5_2DReactivity.png)
+
+
 The text output of these analyses is recorded in MAPseeker_results.txt.
 
 **If size-selection was performed during library preparation,** go to the **2_SizeSelect** folder and run `quick_look_MAPseeker` as above to generate the raw counts for the size-selected dataset as well, then proceed to step 2 to rebalance and combine the size-selected and non-size-selected data.
@@ -410,13 +433,18 @@ The final step in MAPseeker analysis of MOHCA-seq data is to perform Closure-bas
 
 COHCOA performs iterative fitting to determine a two-point correlation function underlying the quantified (and rebalanced, if applicable) aligned data, correcting for uncorrelated cleavage events and reverse transcription stops that appear as vertical and horizontal striations in the raw data, as well as reverse transcription attenuation. A full description of the COHCOA analysis is available in the published article.
 
-If rebalancing was applied, the RDAT file to be analyzed with COHCOA will be the **rebalance.rdat** file. (If rebalancing was not performed, use the **1_NoSizeSelect.RAW.2.rdat** file.)
+If rebalancing was applied, the RDAT file to be analyzed with COHCOA will be the **rebalance.rdat** file. (If rebalancing was not performed, use the **1_NoSizeSelect.RAW.2.rdat** file.) Copy this file into **FinalAnalysis**
 
 Go to the **FinalAnalysis** folder and run the command:
 
-`smoothMOHCA( '../Rebalance/rebalance.rdat' );`
+`smoothMOHCA( 'rebalance.rdat' );`
 
-The `smoothMOHCA.m` script calls the commands for running the COHCOA analysis, which is performed in the script `cohcoa_classic.m`, and generates output folders with plots and RDAT files from the analysis. The `smoothMOHCA.m` script also supports analysis of multiple raw datasets at once, in cases where multiple sequencing runs have been performed for a single RNA and condition, if the raw RDAT files are input into `smoothMOHCA.m` as a cell array of strings.
+The `smoothMOHCA.m` script calls the commands for running the COHCOA analysis, which is performed in the script `cohcoa_classic.m`, and generates output folders with plots and RDAT files from the analysis. 
+
+You may see COHCOA running through several iterations:
+![](example/MOHCAseq/FinalAnalysis/example_output/COHCOA_run.png)
+
+The `smoothMOHCA.m` script also supports analysis of multiple raw datasets at once, in cases where multiple sequencing runs have been performed for a single RNA and condition, if the raw RDAT files are input into `smoothMOHCA.m` as a cell array of strings.
 
 The outputs of `smoothMOHCA` include:
 
@@ -428,15 +456,6 @@ The outputs of `smoothMOHCA` include:
 
 
 ### 4. Sharing and visualizing the final data.
-
-#### Sharing the data
-
-Done! The RDAT file is in a human-readable, tab-delimitted format that records the data and experimental conditions of your experiment.
-
-Because your file has estimated errors, it will be useful for the community. We urge you to share it in the RNA Mapping Database:  
-
-http://rmdb.stanford.edu/  
-
 
 #### Visualizing the data as a proximity map; assessing secondary structures and 3D models
 
@@ -458,6 +477,8 @@ secstr = { sequence, structure, offset };
 mohcaplot( 'COMBINED.COHCOA.SQR.rdat', {}, secstr );
 ```
 
+![](example/MOHCAseq/FinalAnalysis/example_output/MOHCA_secstruct_overlay.png)
+
 **To compare a MOHCA-seq proximity map to a 3D model,** input the path to a PDB file to `mohcaplot.m`; for this example, a crystal structure of the riboswitch is in the **PDB** folder:
 
 ```
@@ -465,6 +486,17 @@ pdb = '../PDB/4QK8.pdb';
 mohcaplot( 'COMBINED.COHCOA.SQR.rdat',{}, '', pdb );
 ```
 
+![](example/MOHCAseq/FinalAnalysis/example_output/MOHCA_pdb_overlay.png)
+
 Finally, **MOHCA-seq proximity maps can provide pairwise constraints for RNA 3D modeling** in the Rosetta modeling software (https://www.rosettacommons.org/), as described in the published article. The current method for generating a list of constraint pairs is to plot a secondary structure, e.g. derived from mutate-and-map experiments [see Kladwang et al. (2011) _Nat Chem_], on the proximity map and manually select pairs of residues at the peaks of punctate signals, avoiding signals that overlap with secondary structure. In the future, an automated peak-picking function will be available.
+
+
+#### Sharing the data
+
+Done! The RDAT file is in a human-readable, tab-delimitted format that records the data and experimental conditions of your experiment.
+
+Because your file has estimated errors, it will be useful for the community. We urge you to share it in the RNA Mapping Database:  
+
+http://rmdb.stanford.edu/  
 
 
