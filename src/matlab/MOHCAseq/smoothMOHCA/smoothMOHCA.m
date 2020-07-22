@@ -181,9 +181,9 @@ hxLabel = get(gca,'XLabel');
 set(hxLabel,'Units','data');
 xLabelPosition = get(hxLabel,'Position');
 y = xLabelPosition(2)-2;
-XTick = str2num(xticklabel)+1;
+XTick = str2num(str2mat(xticklabel))+1;
 y = repmat(y,length(XTick),1);
-hText = text(XTick,y,xticklabel,'fonts',15);
+hText = text(XTick,y,xticklabel,'fontsize',15);
 set(hText,'Rotation',90,'HorizontalAlignment','right');
 xlab = get(gca,'XLabel');
 set(xlab,'Position',get(xlab,'Position') + [0 3 0]);
@@ -259,13 +259,14 @@ if SQUARIFY; epsfilename = strrep( epsfilename, '.eps', '.SQR.eps' ); end
   if strfind(fname, 'COMBINED')
       if check_option( image_options, 'crossZ' ); epsfilename = strrep( epsfilename, '.eps','.Z.eps' ); end;
   end
-  if exist( 'export_fig' ) == 2;
-    if exist( epsfilename, 'file' ); delete( epsfilename ); end;
-    epsfilename = strrep( epsfilename, '.eps','.pdf' );
-    export_fig( GetFullPath(epsfilename) );
-  else
-    print( '-depsc2', epsfilename);
-  end
+% ghostscript error on macs now...
+%   if exist( 'export_fig' ) == 2;
+%     if exist( epsfilename, 'file' ); delete( epsfilename ); end;
+%     epsfilename = strrep( epsfilename, '.eps','.pdf' );
+%     export_fig( GetFullPath(epsfilename) );
+%   else
+  print( '-depsc2', epsfilename);
+%   end
   fprintf( 'Outputted: %s\n', epsfilename );
 
 % save figures as .fig

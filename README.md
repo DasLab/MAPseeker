@@ -387,8 +387,8 @@ If size-selection was performed to enhance signal for longer-distance reads, we 
 Go to the **Rebalance** folder and run the command:
 
 ```
-rebalance( '/path/to/1_NoSizeSelect/1_NoSizeSelect.RAW.2.rdat', ...
-           '/path/to/2_SizeSelect/2_SizeSelect.RAW.2.rdat', ...
+rebalance( '../1_NoSizeSelect/1_NoSizeSelect.RAW.2.rdat', ...
+           '../2_SizeSelect/2_SizeSelect.RAW.2.rdat', ...
            'rebalance.rdat' );
 ```
 
@@ -406,11 +406,11 @@ The final step in MAPseeker analysis of MOHCA-seq data is to perform Closure-bas
 
 COHCOA performs iterative fitting to determine a two-point correlation function underlying the quantified (and rebalanced, if applicable) aligned data, correcting for uncorrelated cleavage events and reverse transcription stops that appear as vertical and horizontal striations in the raw data, as well as reverse transcription attenuation. A full description of the COHCOA analysis is available in the published article.
 
-Copy the RDAT file to be analyzed with COHCOA into the **FinalAnalysis** folder. In this example, because rebalancing was performed, copy the **rebalance.rdat** file. If rebalancing was not performed, copy the **1_NoSizeSelect.RAW.2.rdat** file.
+If rebalancing was applied, the RDAT file to be analyzed with COHCOA will be the **rebalance.rdat** file. (If rebalancing was not performed, use the **1_NoSizeSelect.RAW.2.rdat** file.)
 
 Go to the **FinalAnalysis** folder and run the command:
 
-`smoothMOHCA( 'rebalance.rdat' );`
+`smoothMOHCA( '../Rebalance/rebalance.rdat' );`
 
 The `smoothMOHCA.m` script calls the commands for running the COHCOA analysis, which is performed in the script `cohcoa_classic.m`, and generates output folders with plots and RDAT files from the analysis. The `smoothMOHCA.m` script also supports analysis of multiple raw datasets at once, in cases where multiple sequencing runs have been performed for a single RNA and condition, if the raw RDAT files are input into `smoothMOHCA.m` as a cell array of strings.
 
@@ -433,9 +433,6 @@ Because your file has estimated errors, it will be useful for the community. We 
 
 http://rmdb.stanford.edu/  
 
-and an entry will also automatically be generated at the awesome SNRNASM database:  
-
-http://snrnasm.bio.unc.edu/
 
 #### Visualizing the data as a proximity map; assessing secondary structures and 3D models
 
@@ -454,14 +451,14 @@ sequence =  'GGAUCGCUGAACCCGAAAGGGGCGGGGGACCCAGAAAUGGGGCGAAUCUCUUCCGAAAGGAAGAGUA
 structure = '....((((...(((....)))((((((....(......(((((....(((((((....)))))))..(((((.[[[[[[[)))))..))))..).)....)))))).))))...]]]]]]]....';
 offset = 0;
 secstr = { sequence, structure, offset };
-mohcaplot( 'COMBINED.COHCOA.SQR.rdat', secstr );
+mohcaplot( 'COMBINED.COHCOA.SQR.rdat', {}, secstr );
 ```
 
 **To compare a MOHCA-seq proximity map to a 3D model,** input the path to a PDB file to `mohcaplot.m`; for this example, a crystal structure of the riboswitch is in the **PDB** folder:
 
 ```
-pdb = '/path/to/PDB/4QK8.pdb';
-mohcaplot( 'COMBINED.COHCOA.SQR.rdat', '', pdb );
+pdb = '../PDB/4QK8.pdb';
+mohcaplot( 'COMBINED.COHCOA.SQR.rdat',{}, '', pdb );
 ```
 
 Finally, **MOHCA-seq proximity maps can provide pairwise constraints for RNA 3D modeling** in the Rosetta modeling software (https://www.rosettacommons.org/), as described in the published article. The current method for generating a list of constraint pairs is to plot a secondary structure, e.g. derived from mutate-and-map experiments [see Kladwang et al. (2011) _Nat Chem_], on the proximity map and manually select pairs of residues at the peaks of punctate signals, avoiding signals that overlap with secondary structure. In the future, an automated peak-picking function will be available.
