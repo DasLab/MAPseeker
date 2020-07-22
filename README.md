@@ -201,7 +201,7 @@ automatically (Figure 6), and the 'no mod' data will be 0.
 All figures are also automatically saved to disk as EPS files,
 which you can print for your notebook.
 
-The text output is also saved to disk as MAPseeker_results.txt, which
+The text output is also saved to disk as `MAPseeker_results.txt`, which
 you keep in your notebook as a record of the run statistics, 
 background subtraction, etc.
 
@@ -213,6 +213,7 @@ we used a subset of the data), data processing steps
 (overmodificationCorrectionExact),
 estimated errors, etc.
 
+Example output files are given in the `example_output/` directory.
 
 ### 3. Referencing
 
@@ -244,30 +245,18 @@ and 'GAGUA' as tab delimited fields.
 Done! You can now share the RDAT file, which is a human-readable text format that
 lets you save and revisit the data and additional information on your experiment.  
 
-
 For example, you can open it in excel (it's a tab-delimitted text file). Or you
 can use MATLAB or python scripts in the RDATkit to view.  
 
-
-You can carry out chemical-mapping-guided structure prediction on the on-line server  
-
-http://rmdb.stanford.edu/structureserver/  
-
-Just upload the file!  
-
-We are also creating a set of tools for data exploration, including
-sequence and structure viewing, and 'BLASTing' the sequence and data 
-against the full RMDB, and hope to have those available at the RMDB by 2014.  
-
 Because your file has estimated errors, it will be useful for the community. 
+
 We urge you to share it in the RNA Mapping Database:  
 
 http://rmdb.stanford.edu/  
 
-and an entry will also automatically be generated at the awesome SNRNASM database:  
+which allows ready visualization of the data.
 
-http://snrnasm.bio.unc.edu/
-
+And you could share the RDAT and FASTQ in public databases of next-generation sequencing data, [the Gene Expression Omnibus](https://www.ncbi.nlm.nih.gov/geo/) and the [Sequencing Read Archive](https://www.ncbi.nlm.nih.gov/sra).
 
 ### 5. Further processing (if desired)
 
@@ -305,11 +294,9 @@ to help compare data sets.
 
 
 
-
-
 ## Tutorial II. Example run for MOHCA-seq data
 
-In MOHCA-seq experiments, a hydroxyl radical source (a Fe•EDTA complex) is covalently tethered to the backbone of the RNA. Activation of the Fenton reaction generates localized hydroxyl radicals, which produce spatially correlated oxidative damage events in the RNA that are read out by reverse transcription and sequencing. The experimental protocol is published online at: http://elifesciences.org/content/4/e07600/. 
+In MOHCA-seq experiments, a hydroxyl radical source (a Fe•EDTA complex) is covalently tethered to the backbone of the RNA. Activation of the Fenton reaction generates localized hydroxyl radicals, which produce spatially correlated oxidative damage events in the RNA that are read out by reverse transcription and sequencing. The experimental protocol is published online at: [http://elifesciences.org/content/4/e07600/](http://elifesciences.org/content/4/e07600/). 
 
 There are a few major steps to analyzing MOHCA-seq data in MAPseeker:
 

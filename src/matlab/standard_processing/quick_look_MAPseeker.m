@@ -78,9 +78,17 @@ VERSION_NUM_STRING = '1.2';
 %if nargin < 1; help( mfilename ); return; end;
 if ~exist( 'primer_file','var') || isempty( primer_file ); primer_file = 'primers.fasta';end;
 if ~exist( 'inpath','var') || isempty( inpath ); inpath = './';end;
-if ~exist( 'library_file','var') || isempty( library_file );  library_file = 'RNA_structures.fasta'; end;
-if ~exist( library_file,'file' ) & exist( [inpath,'/',library_file],'file' )
-    library_file = [inpath,'/',library_file];
+if exist( 'library_file','var' ) & ~exist( library_file, 'file' ) & ~exist( [inpath,library_file],'file' ); 
+    fprintf( '\n\nCould not find input library file: %s\n\n', library_file ); 
+    return;
+end
+if ~exist( 'library_file','var') || isempty( library_file );  library_file = './RNA_structures.fasta'; end;
+if ~exist( library_file,'file' ) & exist( [inpath,'/RNA_structures.fasta'],'file' ); library_file = [inpath,'/RNA_structures.fasta']; end
+if ~exist( library_file,'file')  & exist( './RNA_sequences.fasta','file' ); library_file = './RNA_sequences.fasta'; end
+if ~exist( library_file,'file' ) & exist( [inpath,'/RNA_sequences.fasta'],'file' ); library_file = [inpath,'/RNA_sequences.fasta']; end
+if ~exist( library_file,'file' ) & ~exist( './MOHCA.fasta' ); 
+    fprintf( '\n\nCould not find RNA_sequences.fasta, RNA_structures.fasta, or MOHCA.fasta\n\n' ); 
+    return;
 end
 
 FULL_LENGTH_CORRECTION_FACTOR_SPECIFIED = 0;

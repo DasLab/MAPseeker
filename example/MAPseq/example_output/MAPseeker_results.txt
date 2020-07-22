@@ -1,26 +1,62 @@
-/Users/rhiju/src/map_seeker/example
+/Users/rhiju/Dropbox/src/RiboKit/packages/MAPseeker/example/MAPseq
 
-Looking for MAPseeker output file: .//stats_ID1.txt
-Looking for MAPseeker output file: .//stats_ID2.txt
-Looking for MAPseeker output file: .//stats_ID3.txt
-Looking for MAPseeker output file: .//stats_ID4.txt
-Looking for MAPseeker output file: .//stats_ID5.txt
+Output of MAPseeker_executable.log:
+time //Users/rhiju/Dropbox/src/RiboKit/packages/MAPseeker/src/matlab/standard_processing/../../cmake/apps/MAPseeker -1 .//PhiX_S1_L001_R1_001.first100000.fastq  -2 .//PhiX_S1_L001_R2_001.first100000.fastq  -l /Users/rhiju/Dropbox/src/RiboKit/packages/MAPseeker/example/MAPseq/.//RNA_sequences.fasta  -p /Users/rhiju/Dropbox/src/RiboKit/packages/MAPseeker/example/MAPseq/primers.fasta -n 0 >> MAPseeker_executable.log 2> MAPseeker_executable.err
+Reading file: /Users/rhiju/Dropbox/src/RiboKit/packages/MAPseeker/example/MAPseq/.//RNA_sequences.fasta
+Indexing Sequences(N=2)..completed
+RNA sequence Lengths(max=107):
+Number of primers: 5
+Identified universal Illumina adapter sequence in primers! 
+Adapter sequence shared by primers: AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGATCT
+Matching from 3' end [showing reverse complement], 20
+Constant sequence shared by primers [reverse complement]: AAAGAAACAACAACAACAAC
+Experimental ID inferred [reverse complement of region in primer]: 0 CCAGCGCCTGGT
+Experimental ID inferred [reverse complement of region in primer]: 1 GGCCAAGGCCTC
+Experimental ID inferred [reverse complement of region in primer]: 2 TATATTTTAAAG
+Experimental ID inferred [reverse complement of region in primer]: 3 ATGTGCAAGTCA
+Experimental ID inferred [reverse complement of region in primer]: 4 ACTC
+Sequence ID length undefined by user. Using inferred sequence ID length as sequence ID length.
+Setup of MiSEQ, RNA library, primer sequence files took: 0.000478029 seconds.
+Running alignment
+Aligning 25000 sequences took 0.267464 seconds 
+
+Purification table
+25000 total
+11594 found primer binding site
+11593 found expt ID site
+5914 found match in RNA sequence (read 1)
+1628 found match in RNA sequence (read 2)
+891 found strict match in RNA sequence (read 2)
+
+Perfect constant sequence: 11132
+
+Outputting counts to: stats_ID1.txt
+Outputting counts to: stats_ID2.txt
+Outputting counts to: stats_ID3.txt
+Outputting counts to: stats_ID4.txt
+Outputting counts to: stats_ID5.txt
+
+Looking for MAPseeker output file: stats_ID1.txt
+Looking for MAPseeker output file: stats_ID2.txt
+Looking for MAPseeker output file: stats_ID3.txt
+Looking for MAPseeker output file: stats_ID4.txt
+Looking for MAPseeker output file: stats_ID5.txt
 
 
-      319 RTB000   1M7   PAGE
-      282 RTB001   1M7   non-PAGE
-      335 RTB002   no mod   PAGE
-      260 RTB003   no mod   non-PAGE
-      143 FAM-RTP001   no mod
-     1339 TOTAL
+      382 RTB000   1M7   PAGE
+      321 RTB001   1M7   non-PAGE
+      357 RTB002   no mod   PAGE
+      276 RTB003   no mod   non-PAGE
+      292 FAM-RTP001   no mod
+     1628 TOTAL
 
 Least common sequences:
-GGAAAAUAUUAAUUCUUUAAUAAAAACUAUCCGUUCGCGGAUAGAAAAGAAACAACAACAACAAC Counts:      649. ID      2:  999999	therm1	control
-GGAAACAAAAAAAAAAACGGCGAUACGGAUCGAGGCGAAUUCGCCACAUAGAAAUAUGGCGGAAAAAAAUGCACGUUCGCGUGCAUAAAAGAAACAACAACAACAAC Counts:      690. ID      1:  WTF759385-2	Project : Neck Length 2 - 4 branch multiloop	What?
+GGAAAAUAUUAAUUCUUUAAUAAAAACUAUCCGUUCGCGGAUAGAAAAGAAACAACAACAACAAC Counts:      780. ID      2:  999999	therm1	control
+GGAAACAAAAAAAAAAACGGCGAUACGGAUCGAGGCGAAUUCGCCACAUAGAAAUAUGGCGGAAAAAAAUGCACGUUCGCGUGCAUAAAAGAAACAACAACAACAAC Counts:      848. ID      1:  WTF759385-2	Project : Neck Length 2 - 4 branch multiloop	What?
 
 Most common sequences:
-GGAAACAAAAAAAAAAACGGCGAUACGGAUCGAGGCGAAUUCGCCACAUAGAAAUAUGGCGGAAAAAAAUGCACGUUCGCGUGCAUAAAAGAAACAACAACAACAAC Counts:      690. ID      1:  WTF759385-2	Project : Neck Length 2 - 4 branch multiloop	What?
-GGAAAAUAUUAAUUCUUUAAUAAAAACUAUCCGUUCGCGGAUAGAAAAGAAACAACAACAACAAC Counts:      649. ID      2:  999999	therm1	control
+GGAAACAAAAAAAAAAACGGCGAUACGGAUCGAGGCGAAUUCGCCACAUAGAAAUAUGGCGGAAAAAAAUGCACGUUCGCGUGCAUAAAAGAAACAACAACAACAAC Counts:      848. ID      1:  WTF759385-2	Project : Neck Length 2 - 4 branch multiloop	What?
+GGAAAAUAUUAAUUCUUUAAUAAAAACUAUCCGUUCGCGGAUAGAAAAGAAACAACAACAACAAC Counts:      780. ID      2:  999999	therm1	control
 
 Found background measurement ('no mod') in primer 3 [RTB002	no mod	PAGE]
 Found background measurement ('no mod') in primer 4 [RTB003	no mod	non-PAGE]
@@ -31,25 +67,26 @@ No mod for primer 2 is primer 4
 No mod for primer 3 is primer 3
 No mod for primer 4 is primer 4
 No mod for primer 5 is primer 5
+Boxplot-based normalization: following reactivity is rescaled to unity for primer 1:   0.055140
+Boxplot-based normalization: following reactivity is rescaled to unity for primer 2:   0.040817
+Boxplot-based normalization: following reactivity is rescaled to unity for primer 3:        NaN
+Boxplot-based normalization: following reactivity is rescaled to unity for primer 4:        NaN
+Boxplot-based normalization: following reactivity is rescaled to unity for primer 5:        NaN
 
 Signal-to-noise metrics:
-Signal-to-noise ratio for primer 1:     0.661 [weak]
-Signal-to-noise ratio for primer 2:     0.576 [weak]
+Signal-to-noise ratio for primer 1:     0.828 [weak]
+Signal-to-noise ratio for primer 2:     0.711 [weak]
 Signal-to-noise ratio for primer 3:     0.000 [N/A]
 Signal-to-noise ratio for primer 4:     0.000 [N/A]
 Signal-to-noise ratio for primer 5:     0.000 [N/A]
 
 About to create RDAT files ... may take a while...
+Found put_SHAPEscore_into_RDAT, and this looks like a cloud lab run.
+Creating: MAPseq_WITH_SCORES.rdat
 
 Applied background subtraction.
-Did not normalize based on reference -- absolute reactivities outputted.
+Did not normalize based on reference -- used boxplot_normalize on each primer.
 
-Created: Figure1.eps
-Created: Figure2.eps
-Created: Figure3.eps
-Created: Figure4.eps
-Created: Figure5.eps
-Created: Figure6.eps
 
 Created: MAPseeker_results.txt
 
