@@ -57,6 +57,8 @@ To compile the main MAPseeker executable, go to:
 
 and follow instructions in the README there for compilation. 
 
+There are some unit tests to test the overall code with example data; go to 'src/matlab/tests/' in MATLAB and run `runtests`;
+
 ## Tutorial I. Example run for 1D chemical mapping data
 
 ### 1. Converting FASTQs to meaningful structure mapping data
