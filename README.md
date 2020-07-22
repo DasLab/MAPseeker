@@ -319,6 +319,8 @@ There are four folders:
 * **FinalAnalysis**
 * **PDB**
 
+There is an `example_output/` in each analysis directory if you want to see what model output looks like.
+
 Within each of **1_NoSizeSelect** and **2_SizeSelect**, there are four files:
 
 * **Read1** and **Read2** FASTQ files
