@@ -65,7 +65,7 @@ ylabel( 'Cleaved and ligated position [3´]','fontsize',ticksize+5,'fontweight','
 hold on;
 
 % Add title
-title( titl, 'fonts', ticksize+5, 'fontw', 'bold','interp','none' );
+title( titl, 'fontsize', ticksize+5, 'fontw', 'bold','interp','none' );
 
 % Overlay constraints
 if exist( 'csts', 'var' ) && ~isempty( csts );
@@ -104,7 +104,7 @@ if exist( 'csts', 'var' ) && ~isempty( csts );
 end
 
 % Overlay secondary structure
-if exist( 'secstr', 'var' ) && ~isempty( secstr );
+if exist( 'secstr', 'var' ) && iscell(secstr) && length( secstr )>1;
     seq = secstr{1};
     str = secstr{2};
     offset = secstr{3};
@@ -121,7 +121,14 @@ end
 
 % Overlay tertiary structure contours
 if exist( 'pdb', 'var' ) && ~isempty( pdb )
-    pdbvar = pdb{1}; contours = pdb{2};
+    contours = 1;
+    if iscell( pdb ) 
+        pdbvar = pdb{1};
+        if length( pdb ) > 1; contours = pdb{2}; end;
+    else
+        assert( ischar(pdb) );
+        pdbvar = pdb;
+    end
     [D_sim, res_rad, res_hit, dist_matrix, pdbstruct] = get_simulated_data( pdbvar );
     
     if contours ~= 0
@@ -162,9 +169,9 @@ hxLabel = get(gca,'XLabel');
 set(hxLabel,'Units','data');
 xLabelPosition = get(hxLabel,'Position');
 y = xLabelPosition(2)-2;
-XTick = str2num(xticklabel)+1;
+XTick = str2num(str2mat(xticklabel))+1;
 y = repmat(y,length(XTick),1);
-hText = text(XTick,y,xticklabel,'fonts',ticksize);
+hText = text(XTick,y,xticklabel,'fontsize',ticksize);
 set(hText,'Rotation',90,'HorizontalAlignment','right');
 xlab = get(gca,'XLabel');
 set(xlab,'Position',get(xlab,'Position') + [0 6 0]);

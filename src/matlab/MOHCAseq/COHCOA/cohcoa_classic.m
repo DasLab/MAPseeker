@@ -183,7 +183,7 @@ end
 if length(rfilename) > 0;
   outfilename = get_cohcoa_filename( rfilename );
   outdir = dirname( outfilename );
-  if ~exist( outdir, 'dir' ); mkdir( outdir ); end;
+  if ~exist( ['./',outdir], 'dir' ); mkdir( outdir ); end;
   
   r.reactivity = Q_scaling * Q_out;
   r.reactivity_error = Q_scaling * Q_out_err;

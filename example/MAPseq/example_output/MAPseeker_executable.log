@@ -1,0 +1,34 @@
+time //Users/rhiju/Dropbox/src/RiboKit/packages/MAPseeker/src/matlab/standard_processing/../../cmake/apps/MAPseeker -1 .//PhiX_S1_L001_R1_001.first100000.fastq  -2 .//PhiX_S1_L001_R2_001.first100000.fastq  -l /Users/rhiju/Dropbox/src/RiboKit/packages/MAPseeker/example/MAPseq/.//RNA_sequences.fasta  -p /Users/rhiju/Dropbox/src/RiboKit/packages/MAPseeker/example/MAPseq/primers.fasta -n 0 >> MAPseeker_executable.log 2> MAPseeker_executable.err
+Reading file: /Users/rhiju/Dropbox/src/RiboKit/packages/MAPseeker/example/MAPseq/.//RNA_sequences.fasta
+Indexing Sequences(N=2)..completed
+RNA sequence Lengths(max=107):
+Number of primers: 5
+Identified universal Illumina adapter sequence in primers! 
+Adapter sequence shared by primers: AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGATCT
+Matching from 3' end [showing reverse complement], 20
+Constant sequence shared by primers [reverse complement]: AAAGAAACAACAACAACAAC
+Experimental ID inferred [reverse complement of region in primer]: 0 CCAGCGCCTGGT
+Experimental ID inferred [reverse complement of region in primer]: 1 GGCCAAGGCCTC
+Experimental ID inferred [reverse complement of region in primer]: 2 TATATTTTAAAG
+Experimental ID inferred [reverse complement of region in primer]: 3 ATGTGCAAGTCA
+Experimental ID inferred [reverse complement of region in primer]: 4 ACTC
+Sequence ID length undefined by user. Using inferred sequence ID length as sequence ID length.
+Setup of MiSEQ, RNA library, primer sequence files took: 0.000478029 seconds.
+Running alignment
+Aligning 25000 sequences took 0.267464 seconds 
+
+Purification table
+25000 total
+11594 found primer binding site
+11593 found expt ID site
+5914 found match in RNA sequence (read 1)
+1628 found match in RNA sequence (read 2)
+891 found strict match in RNA sequence (read 2)
+
+Perfect constant sequence: 11132
+
+Outputting counts to: stats_ID1.txt
+Outputting counts to: stats_ID2.txt
+Outputting counts to: stats_ID3.txt
+Outputting counts to: stats_ID4.txt
+Outputting counts to: stats_ID5.txt

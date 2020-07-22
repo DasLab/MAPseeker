@@ -11,27 +11,30 @@ n = 0;
 if ~exist( 'align_all','var' ) align_all = 0; end;
 
 % look for MAPseeker executable
-MAPseeker_EXE = [dirname( which( mfilename ) ), '/../../cmake/apps/MAPseeker' ]
+MAPseeker_EXE = [dirname( which( mfilename ) ), '/../../cmake/apps/MAPseeker' ];
+fprintf( '\nMAPseeker_EXE:\n%s\n',MAPseeker_EXE);
+
 if ~exist( MAPseeker_EXE, 'file' );  fprintf( 'Could not find compiled executable MAPseeker! Not running MAPseeker \n' ); return; end;
 if align_all; MAPseeker_EXE = [ MAPseeker_EXE, ' --align_all']; end;
 
 %%%%%%%%%%%%%%%%%%%%
-library_file = which( library_file ); % absolute path
-primer_file = which( primer_file ); % absolute path
+library_file = [pwd(),'/',library_file]; % absolute path
+primer_file  = [pwd(),'/', primer_file ]; % absolute path
 
 %%%%%%%%%%%%%%%%%%%%
 % go into working directory
 PWD = pwd();
-cd( inpath );
+%cd( inpath );
 
-fastqs = dir( '*fastq' );
+fastqs = dir( [inpath,'/*fastq'] );
 if isempty( fastqs ); fprintf( 'Could not find FASTQ files! Not running MAPseeker \n' ); return; end;
 if length( fastqs ) > 2;
     fprintf( '%s\n,More than two fastq files -- not sure what to do! Not running MAPseeker \n',pwd()); return;
 end;
 
 
-command = sprintf( 'time %s -1 %s  -2 %s  -l %s  -p %s -n %d >> MAPseeker_executable.log 2> MAPseeker_executable.err', MAPseeker_EXE, fastqs(1).name, fastqs(2).name, library_file, primer_file, n )
+command = sprintf( 'time %s -1 %s  -2 %s  -l %s  -p %s -n %d >> MAPseeker_executable.log 2> MAPseeker_executable.err', MAPseeker_EXE, [inpath,'/',fastqs(1).name], [inpath,'/',fastqs(2).name], library_file, primer_file, n );
+fprintf( '\nCommand:\n%s\n\n',command);
 system( ['echo "',command,'" > MAPseeker_executable.log'] );
 %command = sprintf( 'time %s -1 %s  -2 %s  -l %s  -p %s -n %d', MAPseeker_EXE, fastqs(1).name, fastqs(2).name, library_file, primer_file);
 system( command );

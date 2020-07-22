@@ -100,7 +100,7 @@ r_weight = make_rdat_structure( D_weight, D_weight_err, r_bi, [base_name, '_Comb
 
 
 %% Plot everything and output to files
-mkdir( 'Rebalance_plots' );
+if ~exist( 'Rebalance_plots', 'dir' ) mkdir( 'Rebalance_plots' ); end;
 
 % Collect data at each sequence separation of rebalanced data and calculate means, ratios
 diagavg{3} = get_diagonals( D_rebal );
