@@ -83,7 +83,7 @@ if exist( 'primer_file','var' ) & ~exist( primer_file, 'file' ) & ~exist( [inpat
     return;
 end
 if ~exist( 'primer_file','var') || isempty( primer_file ); primer_file = [inpath,'/primers.fasta'];end;
-if ~exist( primer_file,'file' ) & exist( ['./primers.fasta'],'file' ); library_file = './primers.fasta'; end
+if ~exist( primer_file,'file' ) & exist( './primers.fasta','file' ); primer_file = './primers.fasta'; end
 
 if exist( 'library_file','var' ) & ~exist( library_file, 'file' ) & ~exist( [inpath,library_file],'file' ); 
     fprintf( '\n\nCould not find input library file: %s\n\n', library_file ); 

@@ -18,8 +18,8 @@ if ~exist( MAPseeker_EXE, 'file' );  fprintf( 'Could not find compiled executabl
 if align_all; MAPseeker_EXE = [ MAPseeker_EXE, ' --align_all']; end;
 
 %%%%%%%%%%%%%%%%%%%%
-library_file = [pwd(),'/',library_file]; % absolute path
-primer_file  = [pwd(),'/', primer_file ]; % absolute path
+%library_file = [pwd(),'/',library_file]; % absolute path
+%primer_file  = [pwd(),'/', primer_file ]; % absolute path
 
 %%%%%%%%%%%%%%%%%%%%
 % go into working directory
