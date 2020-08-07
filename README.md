@@ -18,7 +18,7 @@ data on pools of RNAs.
 A stable version of the experimental protocol is described
 in a chapter of Methods in Molecular Biology, which is available 
 on the Das lab website at:
-http://daslab.stanford.edu/pdf/Seetin_MAPseq_MiMB2013.pdf
+https://daslab.stanford.edu/site_data/pub_pdf/2014_Seetin_MIMB.pdf
 
 1. The MAPseeker executable.  
 
@@ -90,6 +90,8 @@ There are four files:
    were tested (one that involved a PAGE purification 
    at an early DNA preparation step, and one that did not.)
 
+   In the Das Lab, these are often referred to as "RTB primers".
+
 * **RNA_sequences.fasta**  
 
    Two of the ~4000 sequences tested in this run. 
@@ -99,6 +101,10 @@ There are four files:
    reference segments as an 'internal standard',
    that is wonderful and can really help the
    analysis. See below ('Referencing').
+
+   Working from an Eterna Cloud Lab output-formatted file, you can run `get_RNA_sequences_from_EteRNA_file.py` (found in the `src/python repository`) to obtain the `RNA_structure.fasta` and `RNA_sequences.fasta` files. For example:  
+   `get_RNA_sequences_from_EteRNA_file.py Roll_Your_Own_DasLabMetaData_062220.txt`
+   
 
 If you are using MATLAB, you can skip ahead to the next section, and
 the command will be run for you by quick_look_mapseeker() if it sees two FASTQ files
@@ -130,7 +136,7 @@ if we specify the other sequences, which we're not doing here for simplicity.]
 This example run should take less than 1 second; for a real data 
 set, this can take minutes or longer.
 
-There are five outputted text files, stats_ID1.txt through stats_ID5.txt. 
+**There are outputted text files, one for each primer defined in `primers.fasta`. For example: stats_ID1.txt through stats_ID5.txt.**
 
 They correspond to the 5 primers used. Each is a matrix of numbers. 
 (They are not integers because MAPseeker spreads out counts to 
