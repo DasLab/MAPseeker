@@ -54,6 +54,7 @@ function [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_re
 %          'strict_stats'    = use strict_stats* ffiles (not stats_* files).
 %          'no_norm'         = no boxplot or reference-based normalization
 %          'no_backgd_sub'   = no background subtraction
+%          'no_reference'    = don't create reference RDAT files.
 %
 % Outputs:
 %
@@ -275,6 +276,7 @@ if REFERENCE_INCLUDED && ( sum(num_counts_per_sequence( ref_idx, : )) < 5);
     REFERENCE_INCLUDED = 0;
     print_it( fid, 'Not enough counts in reference sequence --> WILL NOT USE!!\n' );
 end
+if any(contains(more_options,'no_reference')); REFERENCE_INCLUDED = 0; end;
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
