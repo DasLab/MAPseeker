@@ -136,7 +136,7 @@ if we specify the other sequences, which we're not doing here for simplicity.]
 This example run should take less than 1 second; for a real data 
 set, this can take minutes or longer.
 
-**There are outputted text files, one for each primer defined in `primers.fasta`. For example: stats_ID1.txt through stats_ID5.txt.**
+**The output from the above command are text files, one for each primer defined in `primers.fasta`. For example: stats_ID1.txt through stats_ID5.txt.**
 
 They correspond to the 5 primers used. Each is a matrix of numbers. 
 (They are not integers because MAPseeker spreads out counts to 
@@ -155,7 +155,7 @@ file will be created that records the command line and purification table.
 ### 2. Visualizing & processing the run.
 
 To view these files, you can use any plotting program (MATLAB, 
-gnuplot, matplotlib in python). 
+gnuplot, matplotlib in python). Also, the function described below, `quick_look_MAPSeeker();` generates the RDAT files you may use for further plotting/analysis.
 
 We use MATLAB scripts, available in 
 
@@ -167,6 +167,14 @@ have the RDATkit scripts installed, get them at
 https://github.com/ribokit/RDATKit
 
 and make sure that RDATkit/MATLAB is in your MATLAB path.
+
+*Tip* for the amateur MATLAB user: when you add folders to your MATLAB path, make sure you select `Add with subfolders` so that all scripts from any sub-directories get added.
+
+Additionally, if you want to calculate SHAPE/Eterna Scores, you can clone the scripts for calculating at
+
+https://github.com/eternagame/EternaScore/tree/master/scripts
+
+which will include `EteRNA:score:EteRNA_score`,  `EteRNA:score:min_SHAPE` , `EteRNA:score:max_SHAPE:0.774`,  `EteRNA:score:threshold_SHAPE` in your output. To enable score calculations via `quick_look_MAPSeeker`, make sure you have the above package in your MATLAB path. The RDAT filename will now feature `_WITH_SCORES.rdat`. 
 
 Now run from within MATLAB:
 
