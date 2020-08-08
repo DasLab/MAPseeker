@@ -10,7 +10,7 @@ quick_look_MAPseeker( [],[],'../../../example/MAPseq/');
 
 f = dir( './stats*.txt' ); 
 assert( length(f) == 5 );
-assert( exist( 'Figures' ) );
+assert( exist( 'Figures' )>0 );
 f = dir( './tests.*.rdat' ); 
 assert( length(f) == 2 );
 
