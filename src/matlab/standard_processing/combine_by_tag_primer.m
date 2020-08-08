@@ -51,7 +51,6 @@ for j = 1:N_primer
     print_it( fid, sprintf( 'Combining primer %d with primer %d [ %s ]\n', j, found_tag(1),tags{found_tag(1)} ) );
   end
 
-    
 end
 
 D_combine = {};

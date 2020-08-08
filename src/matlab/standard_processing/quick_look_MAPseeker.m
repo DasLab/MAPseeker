@@ -54,7 +54,8 @@ function [ D, D_err, RNA_info, primer_info, D_raw, D_ref, D_ref_err, RNA_info_re
 %          'strict_stats'    = use strict_stats* ffiles (not stats_* files).
 %          'no_norm'         = no boxplot or reference-based normalization
 %          'no_backgd_sub'   = no background subtraction
-%          'no_reference'    = don't create reference RDAT files.
+%          'skip_reference'  = don't look at reference even if its specified in
+%                                     RNA_sequences.fasta
 %
 % Outputs:
 %
@@ -272,11 +273,16 @@ nomod_for_each_primer  = figure_out_nomod_for_each_primer( primer_info, fid );
 % look for a reference construct.
 [ref_idx, ref_segment] = get_reference_construct_index( RNA_info, fid );
 REFERENCE_INCLUDED = (ref_idx > 0 );
+
+if any(contains(more_options,'skip_reference')) && REFERENCE_INCLUDED
+    for i = 1:N_primers;   D_raw{i}(:,ref_idx) = 0; end
+    REFERENCE_INCLUDED = 0;
+end;
+
 if REFERENCE_INCLUDED && ( sum(num_counts_per_sequence( ref_idx, : )) < 5);
     REFERENCE_INCLUDED = 0;
     print_it( fid, 'Not enough counts in reference sequence --> WILL NOT USE!!\n' );
 end
-if any(contains(more_options,'no_reference')); REFERENCE_INCLUDED = 0; end;
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -860,52 +866,8 @@ D_norm = D;
 D_norm_err = D_err;
 
 for i = 1:length( D )
-    [~, scalefactors] = mapseeker_boxplot_normalize( D{i} );
-    scalefactors = scalefactors( find( scalefactors ) > 0 );
-    scalefactor = median( scalefactors  );
+    [D_norm{i},D_norm_err{i},scalefactor] = mapseeker_boxplot_normalize( D{i}, D_err{i} );
     print_it( fid, sprintf(  'Boxplot-based normalization: following reactivity is rescaled to unity for primer %d: %10.6f\n', i,  scalefactor ) );
-    if ~isnan( scalefactor ) & scalefactor > 0
-        D_norm{i} = D{i} / scalefactor;
-        D_norm_err{i} = D_err{i} / scalefactor;
-    end
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [d_norm, scalefactor] = mapseeker_boxplot_normalize( d_for_scalefactor )
-% copy of boxplot_normalize from HiTRACE -- included here for completeness
-
-cap_value = 999;
-d_norm = d_for_scalefactor;
-scalefactor = zeros(1, size( d_for_scalefactor,2) );
-for k = 1:size( d_for_scalefactor, 2 )
-    d_OK = d_for_scalefactor(:,k);
-    d_OK = d_OK( find( ~isnan( d_OK ) ) );
-    d_OK = d_OK( find( d_OK ~= 0 ) );
-    dsort = sort( d_OK );
-    
-    if ( length( dsort ) < 4 ) continue; end
-    
-    % this attempts to recover the normalization scheme in ShapeFinder, as reported by Deigan et al., 2008.
-    q1 = dsort( round( 0.25*length(dsort) ) );
-    q3 = dsort( round( 0.75*length(dsort) ) );
-    interquartile_range = abs( q3 - q1 );
-    
-    % test -- based on definition of matlab box().
-    outlier_cutoff = min( find( dsort > (q3 + 1.5*interquartile_range ) ) );
-    
-    %[outlier_cutoff length( dsort ) ]
-    if ~isempty( outlier_cutoff )
-        actual_cutoff = outlier_cutoff - 1;
-        % for smaller RNAs, as described in Deigan et al., 2009.
-        if length( dsort ) < 100; actual_cutoff = max( actual_cutoff, round(0.95*length(dsort) ) - 1 ); end;
-        cap_value = dsort( actual_cutoff+1 );
-        dsort = dsort(1: actual_cutoff );
-    end
-    
-    % Take top 10th percentile of values after removing outliers
-    scalefactor(k) = mean(dsort(  round( 0.9 * length(dsort)):end ) );
-    
-    d_norm(:,k) = d_for_scalefactor(:,k) / scalefactor(k);
 end
 
 
