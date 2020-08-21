@@ -29,7 +29,7 @@ PWD = pwd();
 fastqs = dir( [inpath,'/*fastq'] );
 if isempty( fastqs ); fprintf( 'Could not find FASTQ files! Not running MAPseeker \n' ); return; end;
 if length( fastqs ) > 2;
-    fprintf( '%s\n,More than two fastq files -- not sure what to do! Not running MAPseeker \n',pwd()); return;
+    error(sprintf( '\n\n%s\n\n More than two fastq files -- not sure what to do! Not running MAPseeker \n',pwd()));
 end;
 
 
